@@ -1,0 +1,12 @@
+[package]
+name = "helium-macros"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+syn = { version = "1.0.109", features = ["full"] }
+proc-macro2 = "1.0.56"
+quote = "1.0.26"
+
+[lib]
+proc-macro = true

@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Qemu (GDB)",
+            "type": "lldb",
+            "request": "custom",
+            "sourceLanguages": [
+                "rust"
+            ],
+            "targetCreateCommands": ["target create ${workspaceFolder}/iso/boot/helium.elf"],
+            "processCreateCommands": ["gdb-remote localhost:1234"],
+            "preLaunchTask": "Launch Qemu with GDB stub",
+        }
+    ]
+}

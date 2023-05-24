@@ -1,0 +1,16 @@
+[package]
+name = "helium-x86_64"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+macros = { path = "../helium-macros", package = "helium-macros" }
+utils = { path = "../helium-utils", package = "helium-utils" }
+sync = { path = "../helium-sync", package = "helium-sync" }
+addr = { path = "../helium-addr", package = "helium-addr" }
+mm = { path = "../helium-mm", package = "helium-mm" }
+
+bitfield = "0.14.0"
+bitflags = "2.2.1"
+limine = "0.1.10"
+log = "0.4.17"

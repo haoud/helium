@@ -1,0 +1,7 @@
+**/target
+**/bin
+
+*.bin
+*.sys
+*.elf
+*.log

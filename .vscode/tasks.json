@@ -1,0 +1,10 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Launch Qemu with GDB stub",
+            "type": "shell",
+            "command": "./scripts/run_debug.sh"
+        }
+    ]
+}

@@ -1,0 +1,32 @@
+[package]
+name = "kernel"
+version = "0.0.1"
+edition = "2021"
+license = "MIT / Apache-2.0"
+
+[dependencies]
+macros = { path = "crates/helium-macros", package = "helium-macros" }
+x86_64 = { path = "crates/helium-x86_64", package = "helium-x86_64" }
+utils = { path = "crates/helium-utils", package = "helium-utils" }
+sync = { path = "crates/helium-sync", package = "helium-sync" }
+mm = { path = "crates/helium-mm", package = "helium-mm" }
+
+bitfield = "0.14.0"
+bitflags = "2.2.1"
+cfg-if = "1.0.0"
+log = "0.4.17"
+
+[features]
+default = ["panic-info", "log"]
+panic-info = ["log"]
+test = ["qemu"]
+qemu = []
+log = []
+
+[profile.release]
+debug-assertions = false
+overflow-checks = false
+opt-level = "s"
+codegen-units = 1
+debug = false
+lto = true

@@ -1,0 +1,18 @@
+{
+    "rust-analyzer.cargo.target": "x86_64-unknown-none",
+    "rust-analyzer.linkedProjects": [
+        "kernel/Cargo.toml",
+        "kernel/crates/helium-sync/Cargo.toml",
+        "kernel/crates/helium-utils/Cargo.toml",
+        "kernel/crates/helium-x86_64/Cargo.toml",
+    ],
+    "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.check.command": "clippy",
+    "editor.semanticTokenColorCustomizations": {
+        "enabled": true,
+    },
+    "editor.inlayHints.enabled": "offUnlessPressed",
+    "editor.rulers": [
+        100
+    ],
+}
