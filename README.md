@@ -12,7 +12,7 @@ For running the kernel, simply type `make run` in the root directory of the proj
 
 ## Building dependencies
 A non exhaustive list of dependencies needed to build the kernel (excluding the Rust toolchain) is given below:
-- `qemu-system-x86_64
+- `qemu-system-x86_64`
 - `xorriso`
 - `git`
 - `make`
