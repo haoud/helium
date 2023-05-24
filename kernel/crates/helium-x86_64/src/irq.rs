@@ -1,5 +1,5 @@
 use crate::{
-    cpu::{Privilege, State},
+    cpu::{InterruptFrame, Privilege},
     idt::{self, IDT},
     pic::{self, IRQ_BASE},
     pit,
@@ -56,7 +56,7 @@ fn register_irq_handler(index: u8, handler: unsafe extern "C" fn()) {
 /// Currently, this function does nothing, but in the future, it will be used to handle IRQs and
 /// to wake up threads that are waiting for IRQs.
 #[irq_handler]
-unsafe fn irq_handler(state: &mut State) {
+unsafe fn irq_handler(state: &mut InterruptFrame) {
     let irq = state.code as u8;
     match irq {
         0 => pit::timer_tick(),

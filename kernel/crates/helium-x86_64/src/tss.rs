@@ -9,7 +9,7 @@ use crate::{
 use macros::{init, per_cpu};
 
 #[per_cpu]
-static TSS: RefCell<TaskStateSegment> = RefCell::new(TaskStateSegment::default());
+pub static TSS: RefCell<TaskStateSegment> = RefCell::new(TaskStateSegment::default());
 
 const SELECTOR_BASE_IDX: u16 = 6;
 
@@ -39,6 +39,10 @@ impl TaskStateSegment {
             reserved_4: 0,
             iomap_base: 104,
         }
+    }
+
+    pub fn set_kernel_stack(&mut self, stack: u64) {
+        self.stack_table[0] = stack;
     }
 }
 

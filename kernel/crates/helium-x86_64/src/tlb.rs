@@ -1,5 +1,5 @@
 use crate::{
-    cpu::{self, Privilege, State},
+    cpu::{self, InterruptFrame, Privilege},
     idt::{self, IDT},
     instruction::{self, invlpg},
     lapic::{self, IpiDestination, IpiPriority},
@@ -53,6 +53,6 @@ pub fn shootdown(address: Virtual) {
 /// In the future, this function wshould only invalidate the TLB entry for the given virtual
 /// address.
 #[macros::interrupt(0)]
-fn shootdown_handler(_: &mut State) {
+fn shootdown_handler(_: &mut InterruptFrame) {
     flush();
 }

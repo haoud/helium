@@ -1,7 +1,7 @@
 use macros::{exception, exception_err, init};
 
 use crate::{
-    cpu::{self, Privilege, State},
+    cpu::{self, InterruptFrame, Privilege},
     idt::{self, IDT},
 };
 
@@ -63,126 +63,126 @@ fn register_exception_handler(index: u8, handler: unsafe extern "C" fn()) {
 }
 
 #[exception]
-fn divide_by_zero(_state: &State) {
+fn divide_by_zero(_state: &InterruptFrame) {
     panic!("Divide by zero exception");
 }
 
 #[exception]
-fn debug(_state: &State) {
+fn debug(_state: &InterruptFrame) {
     panic!("Debug exception");
 }
 
 #[exception]
-fn non_maskable_interrupt(_state: &State) {
+fn non_maskable_interrupt(_state: &InterruptFrame) {
     cpu::freeze();
 }
 
 #[exception]
-fn breakpoint(_state: &State) {
+fn breakpoint(_state: &InterruptFrame) {
     panic!("Breakpoint exception");
 }
 
 #[exception]
-fn overflow(_state: &State) {
+fn overflow(_state: &InterruptFrame) {
     panic!("Overflow exception");
 }
 
 #[exception]
-fn bound_range_exceeded(_state: &State) {
+fn bound_range_exceeded(_state: &InterruptFrame) {
     panic!("Bound range exceeded exception");
 }
 
 #[exception]
-fn invalid_opcode(_state: &State) {
+fn invalid_opcode(_state: &InterruptFrame) {
     panic!("Invalid opcode exception");
 }
 
 #[exception]
-fn device_not_available(_state: &State) {
+fn device_not_available(_state: &InterruptFrame) {
     panic!("Device not available exception");
 }
 
 #[exception_err]
-fn double_fault(_state: &State) {
+fn double_fault(_state: &InterruptFrame) {
     panic!("Double fault exception");
 }
 
 #[exception]
-fn coprocessor_overrun(_state: &State) {
+fn coprocessor_overrun(_state: &InterruptFrame) {
     panic!("Coprocessor segment overrun exception");
 }
 
 #[exception_err]
-fn invalid_tss(_state: &State) {
+fn invalid_tss(_state: &InterruptFrame) {
     panic!("Invalid TSS exception");
 }
 
 #[exception_err]
-fn segment_not_present(_state: &State) {
+fn segment_not_present(_state: &InterruptFrame) {
     panic!("Segment not present exception");
 }
 
 #[exception_err]
-fn stack_segment_fault(_state: &State) {
+fn stack_segment_fault(_state: &InterruptFrame) {
     panic!("Stack segment fault exception");
 }
 
 #[exception_err]
-fn general_protection_fault(_state: &State) {
+fn general_protection_fault(_state: &InterruptFrame) {
     panic!("General protection fault exception");
 }
 
 #[exception_err]
-fn page_fault(_state: &State) {
+fn page_fault(_state: &InterruptFrame) {
     panic!("Page fault exception");
 }
 
 #[exception]
-fn reserved(_state: &State) {
+fn reserved(_state: &InterruptFrame) {
     panic!("Reserved exception");
 }
 
 #[exception]
-fn x87_floating_point(_state: &State) {
+fn x87_floating_point(_state: &InterruptFrame) {
     panic!("x87 floating point exception");
 }
 
 #[exception_err]
-fn alignment_check(_state: &State) {
+fn alignment_check(_state: &InterruptFrame) {
     panic!("Alignment check exception");
 }
 
 #[exception]
-fn machine_check(_state: &State) {
+fn machine_check(_state: &InterruptFrame) {
     panic!("Machine check exception");
 }
 
 #[exception]
-fn simd_floating_point(_state: &State) {
+fn simd_floating_point(_state: &InterruptFrame) {
     panic!("SIMD floating point exception");
 }
 
 #[exception]
-fn virtualization(_state: &State) {
+fn virtualization(_state: &InterruptFrame) {
     panic!("Virtualization exception");
 }
 
 #[exception_err]
-fn control_protection(_state: &State) {
+fn control_protection(_state: &InterruptFrame) {
     panic!("Control protection exception");
 }
 
 #[exception]
-fn hypervisor_injection(_state: &State) {
+fn hypervisor_injection(_state: &InterruptFrame) {
     panic!("Hypervisor injection exception");
 }
 
 #[exception_err]
-fn vmm_communication(_state: &State) {
+fn vmm_communication(_state: &InterruptFrame) {
     panic!("Hypervisor injection exception");
 }
 
 #[exception_err]
-fn security_exception(_state: &State) {
+fn security_exception(_state: &InterruptFrame) {
     panic!("Security exception");
 }

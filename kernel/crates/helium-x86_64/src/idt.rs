@@ -3,7 +3,7 @@ use macros::{init, interrupt};
 use sync::Spinlock;
 
 use crate::{
-    cpu::{Privilege, State},
+    cpu::{InterruptFrame, Privilege},
     gdt, instruction,
 };
 
@@ -292,7 +292,7 @@ pub unsafe fn load() {
 /// The default interrupt handler. This function is called when an interrupt is triggered but no
 /// handler is registered for it.
 #[interrupt(0)]
-fn default(state: &mut State) {
+fn default(state: &mut InterruptFrame) {
     panic!("Unhandled interrupt: {:#x}", state.code);
 }
 

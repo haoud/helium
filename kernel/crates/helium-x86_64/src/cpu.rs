@@ -1,6 +1,6 @@
 #[derive(Default, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]
-pub struct State {
+pub struct InterruptFrame {
     // Preserved registers
     pub rbp: u64,
     pub rbx: u64,
