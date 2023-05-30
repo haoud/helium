@@ -1,9 +1,15 @@
+export INSTALL_DIR = $(shell pwd)/iso/boot
+
 # Build the kernel
 build:
+	make -C user build
+	make -C user install
 	cd kernel && cargo build
 
 # Build the kernel in release mode
 build-release:
+	make -C user build-release
+	make -C user install
 	cd kernel && cargo build --release
 
 # Build and run the last built kernel in Qemu
@@ -30,7 +36,9 @@ fmt:
 	cd kernel/crates/helium-user && cargo fmt
 	cd kernel/crates/helium-mm && cargo fmt
 	cd kernel && cargo fmt
+	make -C user fmt
 
 # Clean the build artifacts
 clean:
 	cd kernel && cargo clean
+	make -C user clean

@@ -146,10 +146,9 @@ impl Thread {
 
 #[optimize(speed)]
 pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
-    // Save the FS and GS segment bases. Because of the swapgs instruction, the kernel GS base
-    // actually contains the user GS base.
     prev.fsbase = user_fs();
     prev.gsbase = user_gs();
+
 
     // Update the kernel stack in the TSS and in the per-CPU data
     percpu::set_kernel_stack(next.kstack.base());
@@ -157,12 +156,12 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
         .borrow_mut()
         .set_kernel_stack(u64::from(next.kstack.base()));
 
+    set_user_fs_gs(next.fsbase, next.gsbase);
+
     // Change page table if needed
     if !Arc::ptr_eq(&prev.mm, &next.mm) {
         next.mm.set_current();
     }
-
-    set_user_fs_gs(next.fsbase, next.gsbase);
 
     // Save the current state and restore the new state
     debug_assert!(!prev.kstack.state_ptr_mut().is_null());
@@ -170,6 +169,7 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut())
 }
 
+#[optimize(speed)]
 pub fn jump_to_thread(thread: &mut Thread) -> ! {
     unsafe {
         percpu::set_kernel_stack(thread.kstack.base());
@@ -177,25 +177,32 @@ pub fn jump_to_thread(thread: &mut Thread) -> ! {
             .borrow_mut()
             .set_kernel_stack(u64::from(thread.kstack.base()));
 
-        
         thread.mm.set_current();
-
         set_user_fs_gs(thread.fsbase, thread.gsbase);
         enter_user(thread.kstack.base().into())
     }
 }
 
+/// Set the user FS and GS base
 fn set_user_fs_gs(fs: u64, gs: u64) {
+    // The code here is CORRECT. When we enter the kernel, we use the `swapgs` instruction
+    // which swaps the kernel GS base with the user GS base. So when we write the kernel GS
+    // base in kernel mode, we actually change the user GS base.
     unsafe {
         msr::write(msr::Register::KERNEL_GS_BASE, gs);
         msr::write(msr::Register::FS_BASE, fs);
     }
 }
 
+/// Return the user GS base
 fn user_gs() -> u64 {
+    // The code here is CORRECT. When we enter the kernel, we use the `swapgs` instruction
+    // which swaps the kernel GS base with the user GS base. So when we read the kernel GS
+    // base in kernel mode, we actually read the user GS base.
     unsafe { msr::read(msr::Register::KERNEL_GS_BASE) }
 }
 
+/// Return the user FS base
 fn user_fs() -> u64 {
     unsafe { msr::read(msr::Register::FS_BASE) }
 }
