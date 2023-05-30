@@ -27,6 +27,7 @@ fmt:
 	cd kernel/crates/helium-utils && cargo fmt
 	cd kernel/crates/helium-addr && cargo fmt
 	cd kernel/crates/helium-sync && cargo fmt
+	cd kernel/crates/helium-user && cargo fmt
 	cd kernel/crates/helium-mm && cargo fmt
 	cd kernel && cargo fmt
 

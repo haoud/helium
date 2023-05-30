@@ -179,6 +179,7 @@ pub enum UnmapError {
     NotMapped,
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct PageEntry(u64);
 
@@ -337,6 +338,10 @@ impl PageTable {
     ) -> Result<&mut PageEntry, FetchError> {
         let entry = &mut table.0[addr.page_index(level.index())];
 
+        if level == Level::Pt {
+            return Ok(entry);
+        }
+
         // Read the entry at the given index. If the entry is not present and the user wants to
         // allocate all missing entries, allocate a new frame and set the address of the entry to
         // the start of the frame. Otherwise, return an error indicating that the entry is not
@@ -344,9 +349,10 @@ impl PageTable {
         if !entry.present() {
             match behavior {
                 FetchBehavior::Allocate => {
+                    let flags = AllocationFlags::KERNEL | AllocationFlags::ZEROED;
                     let frame = FRAME_ALLOCATOR
                         .lock()
-                        .allocate_frame(AllocationFlags::KERNEL)
+                        .allocate_frame(flags)
                         .ok_or(FetchError::OutOfMemory)?;
 
                     // If the address is not user accessible, we must not set the user flag.
@@ -364,13 +370,8 @@ impl PageTable {
             }
         }
 
-        match level {
-            Level::Pml4 | Level::Pdpt | Level::Pd => {
-                let table = &mut *entry.table().unwrap();
-                PageTable::fetch(table, level.next(), addr, behavior)
-            }
-            Level::Pt => Ok(entry),
-        }
+        let table = &mut *entry.table().unwrap();
+        PageTable::fetch(table, level.next(), addr, behavior)
     }
 
     /// Creates a new page table from a page, and returns a reference to it.
@@ -462,8 +463,8 @@ impl PageTableRoot {
                 .expect("Failed to allocate frame for page table root");
 
             let kernel_root = KERNEL_PML4.get().expect("Kernel PML4 not initialized");
-            let src = kernel_root.pml4.as_ptr() as *const u8;
-            let dst = frame.addr().as_mut_ptr::<u8>();
+            let dst = Virtual::from(frame.addr()).as_mut_ptr::<u8>();
+            let src = kernel_root.pml4.as_ptr::<u8>();
 
             core::ptr::copy_nonoverlapping(src, dst, PAGE_SIZE);
             Self::from_page(frame.addr())
@@ -478,9 +479,6 @@ impl PageTableRoot {
     /// exclusively owned by the caller, and the ownership of the page is transferred to the page
     /// table root. The caller must also ensure that the page is not freed while the page table
     /// root is in use. The page will be automatically freed when the page table root is dropped.
-    ///
-    /// # Panics
-    /// Panics if the kernel page table is not initialized.
     pub unsafe fn from_page(page: Physical) -> Self {
         Self {
             frame: Frame::new(page),
@@ -653,7 +651,7 @@ pub unsafe fn setup() {
 /// the page is unmapped. The caller must also ensure that the mapping does not break the memory
 /// safety of the kernel.
 pub unsafe fn map(
-    root: &mut PageTableRoot,
+    root: &PageTableRoot,
     address: Virtual,
     frame: Frame,
     flags: PageEntryFlags,
@@ -670,6 +668,10 @@ pub unsafe fn map(
         return Ok(());
     }
 
+    log::warn!(
+        "Attempt to map an already mapped page (frame: {})",
+        pte.address().unwrap()
+    );
     Err(MapError::AlreadyMapped)
 }
 
@@ -682,7 +684,7 @@ pub unsafe fn map(
 /// This function is unsafe because the caller must ensure that the virtual address will not be
 /// used after the function returns. The caller must also ensure that the frame returned by this
 /// frame is correctly freed if allocated with the frame allocator.
-pub unsafe fn unmap(root: &mut PageTableRoot, address: Virtual) -> Result<Frame, UnmapError> {
+pub unsafe fn unmap(root: &PageTableRoot, address: Virtual) -> Result<Frame, UnmapError> {
     let mut table = root.lock();
     let pte = table
         .fetch_last_entry(address, FetchBehavior::Reach)
@@ -700,7 +702,7 @@ pub unsafe fn unmap(root: &mut PageTableRoot, address: Virtual) -> Result<Frame,
 /// Resolve a virtual address to a physical address. If the address is not mapped, return `None`.
 /// This function allow the address passed as argument to not be page aligned, but will always
 /// return a page aligned physical address.
-pub fn resolve(root: &mut PageTableRoot, address: Virtual) -> Option<Physical> {
+pub fn resolve(root: &PageTableRoot, address: Virtual) -> Option<Physical> {
     unsafe {
         root.lock()
             .fetch_last_entry(address, FetchBehavior::Reach)
@@ -724,18 +726,21 @@ unsafe fn deallocate_recursive(table: &mut [PageEntry], level: Level) {
     table
         .iter()
         .flat_map(|entry| entry.address())
-        .for_each(|address| {
-            match level {
-                Level::Pml4 | Level::Pdpt | Level::Pd => {
-                    let table = PageTable::from_page_mut(Virtual::from(address));
-                    deallocate_recursive(table, level.next());
-                }
-                _ => {}
+        .for_each(|address| match level {
+            Level::Pml4 | Level::Pdpt | Level::Pd => {
+                let table = PageTable::from_page_mut(Virtual::from(address));
+                deallocate_recursive(table, level.next());
             }
-            FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(address));
+            _ => {
+                FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(address));
+            }
         });
 
     let virt = Virtual::from_ptr(table.as_mut_ptr());
     let phys = Physical::from(virt.page_align_down());
     FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(phys));
+}
+
+pub fn handle_page_fault(addr: Virtual, code: PageFaultErrorCode) {
+    panic!("Page fault exception: {:?} at {:#x}", code, addr);
 }

@@ -209,3 +209,18 @@ pub fn per_cpu(_: TokenStream, item: TokenStream) -> TokenStream {
 
     TokenStream::from(quote::quote!(#var))
 }
+
+// Mark a function as a syscall handler. This macro will change the function name to
+// `syscall_handler`, and will make sure that the function is exported with the C ABI.
+// This macro should only be used on one function in the entire kernel. Multiple functions
+// with this macro will cause the linker to fail with a duplicate symbol error.
+// TODO: More check to the function (arguments, return type, etc.)
+#[proc_macro_attribute]
+pub fn syscall_handler(_: TokenStream, item: TokenStream) -> TokenStream {
+    let mut var = parse_macro_input!(item as ItemFn);
+    var.attrs.push(syn::parse_quote!(#[no_mangle]));
+    var.sig.abi = Some(syn::parse_quote!(extern "C"));
+    var.sig.ident = syn::Ident::new("syscall_handler", var.sig.ident.span());
+
+    TokenStream::from(quote::quote!(#var))
+}

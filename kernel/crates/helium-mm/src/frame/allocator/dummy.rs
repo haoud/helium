@@ -141,7 +141,7 @@ unsafe impl super::Allocator for Allocator {
     unsafe fn deallocate_frame(&mut self, frame: Frame) {
         self.deallocate_range(super::Range {
             start: frame,
-            end: Frame::upper(frame.0 + 1u64),
+            end: frame,
         });
     }
 

@@ -1,8 +1,10 @@
+use addr::Virtual;
 use macros::{exception, exception_err, init};
 
 use crate::{
     cpu::{self, InterruptFrame, Privilege},
     idt::{self, IDT},
+    paging::{self, PageFaultErrorCode},
 };
 
 /// Setup the exception handlers.
@@ -133,8 +135,13 @@ fn general_protection_fault(_state: &InterruptFrame) {
 }
 
 #[exception_err]
-fn page_fault(_state: &InterruptFrame) {
-    panic!("Page fault exception");
+fn page_fault(state: &InterruptFrame) {
+    unsafe {
+        paging::handle_page_fault(
+            Virtual::new(cpu::read_cr2()),
+            PageFaultErrorCode::from_bits_truncate(state.code),
+        );
+    }
 }
 
 #[exception]

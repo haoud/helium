@@ -40,9 +40,15 @@ pub unsafe extern "C" fn _start() -> ! {
     // Initialize the x86_64 architecture dependent code that
     // needs the memory manager to be initialized first
     x86_64::setup();
-    x86_64::smp::go();
 
+    // Setup the userland environment
+    user::setup();
+
+    // Run the APs
+    x86_64::smp::go();
     log::info!("Helium booted successfully !");
+
+    user::enter_userland();
 
     // Stop the kernel
     kernel::stop(Stop::Success);

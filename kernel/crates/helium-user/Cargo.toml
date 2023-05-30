@@ -1,0 +1,14 @@
+[package]
+name = "helium-user"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+macros = { path = "../helium-macros", package = "helium-macros" }
+x86_64 = { path = "../helium-x86_64", package = "helium-x86_64" }
+sync = { path = "../helium-sync", package = "helium-sync" }
+addr = { path = "../helium-addr", package = "helium-addr" }
+mm = { path = "../helium-mm", package = "helium-mm" }
+
+elf = { version = "0.7.2", default-features = false }
+log = "0.4.17"

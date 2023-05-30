@@ -9,6 +9,7 @@ macros = { path = "crates/helium-macros", package = "helium-macros" }
 x86_64 = { path = "crates/helium-x86_64", package = "helium-x86_64" }
 utils = { path = "crates/helium-utils", package = "helium-utils" }
 sync = { path = "crates/helium-sync", package = "helium-sync" }
+user = { path = "crates/helium-user", package = "helium-user" }
 mm = { path = "crates/helium-mm", package = "helium-mm" }
 
 bitfield = "0.14.0"

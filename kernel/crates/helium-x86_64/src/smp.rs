@@ -24,6 +24,11 @@ static GO: AtomicBool = AtomicBool::new(false);
 #[per_cpu]
 static CPU_ID: OnceCell<u32> = OnceCell::new();
 
+extern "C" {
+    static __percpu_start: u64;
+    static __percpu_end: u64;
+}
+
 /// This function is called by the BSP to start the APs. It tells Limine to start the APs and then
 /// wait for them to start. Most of the work was done by Limine, so we don't have much to do here.
 #[init]
@@ -60,11 +65,6 @@ pub unsafe fn start_cpus() {
 #[init]
 #[inline(never)]
 pub unsafe fn per_cpu_setup(lapic_id: u32) {
-    extern "C" {
-        static __percpu_start: u64;
-        static __percpu_end: u64;
-    }
-
     let per_cpu_start = core::ptr::addr_of!(__percpu_start) as usize;
     let per_cpu_end = core::ptr::addr_of!(__percpu_end) as usize;
     let per_cpu_size = per_cpu_end - per_cpu_start;
@@ -74,11 +74,9 @@ pub unsafe fn per_cpu_setup(lapic_id: u32) {
     let per_cpu = Vec::with_capacity(per_cpu_size).leak().as_mut_ptr();
     core::ptr::copy_nonoverlapping(per_cpu_start as *const u8, per_cpu as *mut u8, per_cpu_size);
 
-    // Load the per CPU structure in the GS, FS and KERNEL_GS_BASE registers. This will be
-    // overwritten after when the kernel will run the scheduler.
+    // Load the per CPU structure in the kernel GS base.
     msr::write(msr::Register::KERNEL_GS_BASE, per_cpu as *const _ as u64);
     msr::write(msr::Register::GS_BASE, per_cpu as *const _ as u64);
-    msr::write(msr::Register::FS_BASE, per_cpu as *const _ as u64);
 
     // Set the LAPIC ID of the current CPU
     CPU_ID

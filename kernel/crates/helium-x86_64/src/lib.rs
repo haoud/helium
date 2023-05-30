@@ -10,6 +10,7 @@
 #![feature(asm_const)]
 #![feature(naked_functions)]
 #![feature(core_intrinsics)]
+#![feature(optimize_attribute)]
 
 extern crate alloc;
 
@@ -32,6 +33,8 @@ pub mod pic;
 pub mod pit;
 pub mod serial;
 pub mod smp;
+pub mod syscall;
+pub mod thread;
 pub mod tlb;
 pub mod tss;
 
@@ -57,6 +60,7 @@ pub unsafe fn early_setup() {
     irq::install();
     pit::setup();
     tlb::install_int();
+    syscall::setup();
 }
 
 /// Setup all the x86_64 specific stuff that needs the memory manager to be initialized. Currently,

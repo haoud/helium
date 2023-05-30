@@ -1,5 +1,12 @@
+use addr::Virtual;
+
 use crate::msr;
 use core::ops::Deref;
+
+extern "C" {
+    static __percpu_start: [u64; 0];
+    static __percpu_end: [u64; 0];
+}
 
 /// A guard that can be used to access a per-cpu variable. This simply dereferences the pointer
 /// to the per-cpu variable, but it make sure that no context switch can happen while the variable
@@ -26,7 +33,7 @@ impl<'a, T> Drop for PerCpuGuard<'a, T> {
 /// will never be shared between CPUs. However, in order to respect the Rust memory model, it is
 /// not possible to modify a per-cpu variable without wrapping it inside a object that allows
 /// interior mutability, such as `RefCell` or `Spinlock`.
-/// 
+///
 /// # Warning
 /// This structure is not intended to be used directly. Instead, it should be used with the
 /// `#[per_cpu]` attribute on a static variable, that will wrap the variable inside a `PerCpu`
@@ -41,8 +48,8 @@ impl<T> PerCpu<T> {
         Self { inner }
     }
 
-    /// Return the variable for the current CPU. 
-    /// 
+    /// Return the variable for the current CPU.
+    ///
     /// # Safety
     /// This function is safe to use as long as the caller is sure that the per-cpu variable is
     /// initialized by the SMP initialization code.
@@ -56,7 +63,6 @@ impl<T> PerCpu<T> {
 
 unsafe impl<T> Sync for PerCpu<T> {}
 
-
 /// Return the per-cpu variable for the current CPU. This function is not intended to be used
 /// directly, instead, you should use the `#[per_cpu]` attribute on a static variable.
 ///
@@ -66,13 +72,14 @@ unsafe impl<T> Sync for PerCpu<T> {}
 /// The returned pointer is a mutable one, and it is the caller's responsibility to ensure that
 /// this pointer would be correctly used.
 pub unsafe fn fetch_per_cpu<T>(ptr: *const T) -> *mut T {
-    extern "C" {
-        static __percpu_start: [u64; 0];
-        static __percpu_end: [u64; 0];
-    }
-
     let per_cpu_start = core::ptr::addr_of!(__percpu_start) as u64;
     let offset = ptr as u64 - per_cpu_start;
     let percpu = msr::read(msr::Register::GS_BASE);
     (percpu + offset) as *mut T
+}
+
+pub unsafe fn set_kernel_stack(base: Virtual) {
+    let percpu = msr::read(msr::Register::GS_BASE);
+    let ptr = percpu as *mut u64;
+    ptr.write(u64::from(base));
 }
