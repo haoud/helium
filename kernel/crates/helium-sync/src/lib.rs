@@ -3,9 +3,6 @@
 //! it will provide its own implementations of these objects, optimized for the kernel.
 #![no_std]
 
-pub mod lazy;
-pub mod once;
-
 pub type Spinlock<T> = spin::Mutex<T>;
-pub type Lazy<T> = lazy::Lazy<T>;
-pub type Once<T> = once::Once<T>;
+pub type Lazy<T> = spin::Lazy<T>;
+pub type Once<T> = spin::Once<T>;
