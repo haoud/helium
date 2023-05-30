@@ -1,5 +1,5 @@
 /// A wrapper around a usize that represents a size in bytes.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ByteSize(pub usize);
 
 impl ByteSize {

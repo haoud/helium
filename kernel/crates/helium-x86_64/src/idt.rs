@@ -13,7 +13,7 @@ pub static IDT: Spinlock<Table> = Spinlock::new(Table::empty());
 pub type Handler = unsafe extern "C" fn();
 
 /// Represents the IDT and its 256 entries
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C, align(16))]
 pub struct Table {
     entries: [Descriptor; Self::SIZE],
@@ -62,7 +62,7 @@ impl Table {
 /// Represents an IDT descriptor. An IDT descriptor is a 16 bytes structure that contains the
 /// address of the handler, the segment selector and the descriptor flags. For more details, see
 /// the Intel manual (Volume 3, Chapter 6).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C, packed)]
 pub struct Descriptor {
     offset_low: u16,
@@ -147,7 +147,7 @@ impl Descriptor {
 
 /// Represents an descriptor flags, used to control the behavior of the CPU when a interrupt is
 /// triggered. For more details, see the Intel manual (Volume 3, Chapter 6).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct DescriptorFlags(u16);
 
@@ -207,7 +207,7 @@ impl Default for DescriptorFlags {
 
 /// Represent the IDT register. This register is used by the CPU to find the IDT. It contains the
 /// base address of the IDT and its limit.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C, packed)]
 pub struct Register {
     limit: u16,

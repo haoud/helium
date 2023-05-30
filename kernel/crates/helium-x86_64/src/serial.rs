@@ -4,7 +4,7 @@ use crate::io;
 /// their respective addresses. This should be a safe assumption, as most x86_64 systems try to
 /// keep compatibility with the original IBM PC. Furthermore, the serial ports are only used for
 /// debugging purposes, and are not required for the kernel to function properly.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Port {
     COM1 = 0x3F8,
     COM2 = 0x2F8,
@@ -13,7 +13,7 @@ pub enum Port {
 }
 
 /// Represents a serial channel. This is used to interact with a serial port safely.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Serial {
     data: io::Port<u8>,
     interrupt_enable: io::Port<u8>,

@@ -5,7 +5,7 @@ use limine::{LimineMemmapEntry, NonNullPtr};
 
 /// Additional information about a frame. For this allocator, this structure is empty because the
 /// allocator does not need any additional information about a frame.
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FrameInfo;
 
 /// A dummy allocator that allocates frames from the frame state. This allocator is very inefficient
@@ -14,7 +14,6 @@ pub struct FrameInfo;
 ///
 /// For now, the allocator is used as the global allocator, but it will be replaced by a more
 /// efficient allocator in the future, when performance becomes a concern.
-#[derive(Debug)]
 pub struct Allocator {
     pub state: State<FrameInfo>,
 }

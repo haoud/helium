@@ -11,7 +11,7 @@ pub static GDT: Spinlock<Table<{ 6 + crate::MAX_CPUS * 2 }>> = Spinlock::new(Tab
 
 /// A structure that represents a GDT table and its register. The table is an array of entries,
 /// with a compile-time fixed size (maximum 8192 entries).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Table<const N: usize> {
     descriptors: [Entry; N],
     register: Register,
@@ -82,7 +82,7 @@ impl<const N: usize> Table<N> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[repr(C, packed)]
 struct Register {
     limit: u16,
@@ -106,7 +106,7 @@ impl Register {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Descriptor {
     System(u64, u64),
     Segment(u64),
@@ -140,7 +140,7 @@ impl Descriptor {
 }
 
 bitflags! {
-    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct DescriptorFlags: u64 {
         const ACCESSED          = 1 << 40;
         const WRITABLE          = 1 << 41;
@@ -156,7 +156,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 struct Entry(u64);
 
@@ -167,7 +167,7 @@ impl Entry {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Selector(pub u16);
 

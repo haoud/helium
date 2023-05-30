@@ -1,5 +1,6 @@
 use crate::{cpu, tlb};
 use addr::{Physical, Virtual};
+use alloc::sync::Arc;
 use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},
@@ -9,18 +10,19 @@ use mm::{
     frame::{allocator::Allocator, AllocationFlags, Frame},
     FRAME_ALLOCATOR,
 };
-use sync::Once;
+use sync::Lazy;
 
 /// The kernel page table. This is used to create new page table very fast, simply by copying the
 /// kernel page table into the new page table.
-pub static KERNEL_PML4: Once<PageTableRoot> = Once::new();
+pub static KERNEL_PML4: Lazy<PageTableRoot> =
+    Lazy::new(|| unsafe { PageTableRoot::from_page(Physical::new(cpu::read_cr3())) });
 
 pub const PAGE_SIZE: usize = 4096;
 
 bitflags::bitflags! {
     /// Represents the flags of a page table entry. See Intel Vol. 3A, Section 4.5 for more
     /// information about page tables.
-    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[repr(transparent)]
     pub struct PageEntryFlags: u64 {
         /// If set, the page is present in memory. Otherwise, the page is not present, and the
@@ -83,7 +85,7 @@ bitflags::bitflags! {
 
     /// Represents a set of flags pushed onto the stack by the CPU when a page fault occurs,
     /// indicating the cause of the fault.
-    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[repr(transparent)]
     pub struct PageFaultErrorCode: u64 {
         /// If set, the fault was caused by a page not being present. Otherwise, the fault was
@@ -107,7 +109,7 @@ bitflags::bitflags! {
 
 /// Represents a level inside the page table hierarchy. This is used to traverse the page table
 /// hierarchy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Level {
     Pml4,
     Pdpt,
@@ -144,7 +146,7 @@ impl Level {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FetchBehavior {
     /// If an entry is missing, allocate a new page table entry and continue traversing the page
     /// table hierarchy.
@@ -155,7 +157,7 @@ pub enum FetchBehavior {
     Reach,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FetchError {
     /// The entry was not present in the page table
     NoSuchEntry,
@@ -164,7 +166,7 @@ pub enum FetchError {
     OutOfMemory,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MapError {
     /// The kernel ran out of memory while trying to allocate a new page table
     OutOfMemory,
@@ -173,13 +175,12 @@ pub enum MapError {
     AlreadyMapped,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UnmapError {
     /// The virtual address was not mapped to a physical address
     NotMapped,
 }
 
-#[derive(Debug)]
 #[repr(C)]
 pub struct PageEntry(u64);
 
@@ -438,7 +439,6 @@ impl DerefMut for PageTable {
 
 /// Represents a page table root, which is the first page table in the page table hierarchy. This
 /// structure also contains a lock that prevents concurrent access to the page table.
-#[derive(Debug)]
 pub struct PageTableRoot {
     lock: AtomicBool,
     pml4: Virtual,
@@ -462,9 +462,8 @@ impl PageTableRoot {
                 .allocate_frame(AllocationFlags::KERNEL)
                 .expect("Failed to allocate frame for page table root");
 
-            let kernel_root = KERNEL_PML4.get().expect("Kernel PML4 not initialized");
             let dst = Virtual::from(frame.addr()).as_mut_ptr::<u8>();
-            let src = kernel_root.pml4.as_ptr::<u8>();
+            let src = KERNEL_PML4.pml4.as_ptr::<u8>();
 
             core::ptr::copy_nonoverlapping(src, dst, PAGE_SIZE);
             Self::from_page(frame.addr())
@@ -484,6 +483,32 @@ impl PageTableRoot {
             frame: Frame::new(page),
             lock: AtomicBool::new(false),
             pml4: Virtual::from(page),
+        }
+    }
+
+    /// Switch between two page table roots, the current one and the next one. This will update the
+    /// CR3 register to point to the next page table root, but only if the next page table root is
+    /// different from the current one, avoiding unnecessary TLB flushes.
+    ///
+    /// # Safety
+    /// This function is unsafe because the caller must ensure that:
+    ///  - the page table root is not freed while it is in use.
+    ///  - The page table root is correctly initialized.
+    ///  - The current page table root  passed as argument is the one currently in use.
+    /// Failure to ensure these conditions will result in undefined behavior or a panic.
+    pub unsafe fn switch(current: &Arc<PageTableRoot>, next: &Arc<PageTableRoot>) {
+        // Verify that the previous page table root is the same as the current one. We only
+        // check this in debug mode because it is expensive and should not happen in normal
+        // conditions (it is a bug if it happens).
+        debug_assert!(
+            u64::from(current.frame.addr()) == cpu::read_cr3(),
+            "Incorrect previous page table root"
+        );
+
+        if !Arc::ptr_eq(current, next) {
+            unsafe {
+                next.set_current();
+            }
         }
     }
 
@@ -624,8 +649,7 @@ impl<'a> DerefMut for PageTableRootGuard<'a> {
 /// remain valid for the lifetime of the kernel.
 #[init]
 pub unsafe fn setup() {
-    KERNEL_PML4.call_once(|| PageTableRoot::from_page(Physical::new(cpu::read_cr3())));
-    let mut pml4 = KERNEL_PML4.get_unchecked().lock();
+    let mut pml4 = KERNEL_PML4.lock();
 
     pml4.clear_userspace();
     pml4.kernel_space_mut()
@@ -741,6 +765,6 @@ unsafe fn deallocate_recursive(table: &mut [PageEntry], level: Level) {
     FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(phys));
 }
 
-pub fn handle_page_fault(addr: Virtual, code: PageFaultErrorCode) {
-    panic!("Page fault exception: {:?} at {:#x}", code, addr);
+pub fn handle_page_fault(addr: Virtual, _: PageFaultErrorCode) {
+    panic!("Page fault exception at {:#x}", addr);
 }

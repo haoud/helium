@@ -6,7 +6,7 @@ use x86_64::{paging::PageTableRoot, thread::Thread};
 pub const STACK_BASE: u64 = 0x0000_7FFF_FFFF_0000;
 pub const STACK_SIZE: u64 = 64 * 1024;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Identifier(pub u64);
 impl Identifier {
     #[must_use]
@@ -21,7 +21,7 @@ impl Identifier {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum State {
     Created,
     Running,
@@ -32,7 +32,7 @@ pub enum State {
 
 pub struct Task {
     id: Identifier,
-    state: State,
+    state: Spinlock<State>,
     thread: Spinlock<Thread>,
 }
 
@@ -43,13 +43,13 @@ impl Task {
 
         Self {
             id: Identifier::generate(),
-            state: State::Created,
+            state: Spinlock::new(State::Created),
             thread: Spinlock::new(thread),
         }
     }
 
-    pub fn change_state(&mut self, state: State) {
-        self.state = state;
+    pub fn change_state(&self, state: State) {
+        *self.state.lock() = state;
     }
 
     #[must_use]
@@ -58,8 +58,8 @@ impl Task {
     }
 
     #[must_use]
-    pub fn state(&self) -> &State {
-        &self.state
+    pub fn state(&self) -> State {
+        *self.state.lock()
     }
 
     #[must_use]

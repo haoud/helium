@@ -9,7 +9,7 @@ pub mod state;
 /// Represents the identifier of a physical memory frame. This is a simple wrapper around a usize
 /// that guarantees that the usize is a valid frame index (meaning that the usize is less than
 /// [`FrameIndex::MAX`], but it does not guarantee that the frame really exists).
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FrameIndex(pub usize);
 
 impl FrameIndex {
@@ -50,7 +50,7 @@ impl From<Physical> for FrameIndex {
 }
 
 /// A wrapper around a usize that represents a number of frames.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FrameCount(pub usize);
 
 impl FrameCount {
@@ -75,7 +75,7 @@ impl core::fmt::Display for FrameCount {
 /// unit of physical memory that can be allocated.
 /// This struct is a wrapper around a physical address and guarantees that the address is page
 /// aligned (4 KiB aligned).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Frame(Physical);
 
@@ -199,7 +199,7 @@ impl Step for Frame {
 }
 
 /// A struct used to keep track of some statistics about the physical memory.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct Stats {
     /// Total number of frames
     pub total: FrameCount,
@@ -278,7 +278,7 @@ impl core::fmt::Display for Stats {
 }
 
 bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct FrameFlags : u8 {
         /// If set, the frame is poisoned. This means that the frame is not usable for allocation,
         /// either because it does not exist or because it is poisoned by the firmware (e.g. bad
@@ -307,7 +307,7 @@ bitflags! {
         const BOOT = 1 << 5;
     }
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct AllocationFlags : u8 {
         /// If set, the allocated frame will be zeroed before being returned
         const ZEROED =  FrameFlags::ZEROED.bits();

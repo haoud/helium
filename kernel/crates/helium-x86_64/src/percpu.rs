@@ -78,8 +78,14 @@ pub unsafe fn fetch_per_cpu<T>(ptr: *const T) -> *mut T {
     (percpu + offset) as *mut T
 }
 
+/// Set the kernel stack for the current CPU. This will be the stack used when the CPU will enter
+/// in the syscall handler.
+///
+/// # Safety
+/// This function is unsafe because the caller must ensure that the stack is valid until another
+/// call to this function is made with another stack. The caller must also ensure that the stack
+/// is correctly aligned, and big enough to handle the syscall handler.
 pub unsafe fn set_kernel_stack(base: Virtual) {
-    let percpu = msr::read(msr::Register::GS_BASE);
-    let ptr = percpu as *mut u64;
-    ptr.write(u64::from(base));
+    let per_cpu = msr::read(msr::Register::GS_BASE) as *mut u64;
+    per_cpu.write(u64::from(base));
 }

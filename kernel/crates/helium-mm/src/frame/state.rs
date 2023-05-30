@@ -10,7 +10,7 @@ use super::{Frame, FrameFlags, FrameIndex, Stats};
 /// It allow a generic type `T` to be stored in the frame state, which can be used to store
 /// additional information about the frame, to allow having additional data when using a custom
 /// allocator.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 #[repr(C)]
 pub struct FrameInfo<T> {
     pub flags: FrameFlags,
@@ -89,7 +89,6 @@ impl<T: Default + 'static> Default for FrameInfo<T> {
 /// avoid allocation a overly large array when there is few memory and there is a lot of special
 /// frames (such as the framebuffer) at high addresses, frame out of the range of the array are
 /// considered as reserved/poisoned and should only be used if you know what you are doing.
-#[derive(Debug)]
 pub struct State<T: Default + 'static> {
     pub frames: &'static mut [FrameInfo<T>],
     pub statistics: Stats,

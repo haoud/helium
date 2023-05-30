@@ -8,6 +8,7 @@ use crate::{
 use addr::Virtual;
 use alloc::sync::Arc;
 use core::{arch::global_asm, ops::Range};
+use macros::init;
 use mm::{
     frame::{allocator::Allocator, AllocationFlags, Frame},
     FRAME_ALLOCATOR,
@@ -27,7 +28,7 @@ global_asm!(include_str!("asm/thread.asm"));
 /// that some register must be saved by the caller, and some other by the callee. This allow to
 /// save some additional registers without having to save them manually, the compiler will do it
 /// for us, but in a more efficient way.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[derive(Default, Clone, PartialEq, Eq)]
 #[repr(C)]
 pub struct State {
     pub rip: u64,
@@ -44,15 +45,12 @@ pub struct State {
 /// of a thread is located, and to know the base address of the stack.
 pub struct KernelStack {
     frames: Range<Frame>,
-    state: *mut State,
+    state: u64,
 }
 
 impl KernelStack {
     pub fn new(frames: Range<Frame>) -> Self {
-        Self {
-            frames,
-            state: core::ptr::null_mut(),
-        }
+        Self { frames, state: 0 }
     }
 
     /// Return the base address of this kernel stack. Because the stack grows down, the base
@@ -65,7 +63,7 @@ impl KernelStack {
 
     /// Return a mutable pointer to the saved state of this thread.
     pub fn state_ptr_mut(&mut self) -> *mut *mut State {
-        &mut self.state
+        &mut self.state as *mut u64 as *mut *mut State
     }
 }
 
@@ -121,7 +119,8 @@ impl Thread {
                     .expect("Failed to allocate user stack");
 
                 let flags = PageEntryFlags::USER | PageEntryFlags::WRITABLE;
-                paging::map(&mm, virt, frame, flags).expect("Failed to map the user stack !");
+                paging::map(&mm, virt, frame, flags)
+                    .unwrap_or_else(|_| panic!("Failed to map the user stack !"));
             };
         }
 
@@ -148,7 +147,7 @@ impl Thread {
 pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
     prev.fsbase = user_fs();
     prev.gsbase = user_gs();
-
+    set_user_fs_gs(next.fsbase, next.gsbase);
 
     // Update the kernel stack in the TSS and in the per-CPU data
     percpu::set_kernel_stack(next.kstack.base());
@@ -156,29 +155,21 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
         .borrow_mut()
         .set_kernel_stack(u64::from(next.kstack.base()));
 
-    set_user_fs_gs(next.fsbase, next.gsbase);
-
-    // Change page table if needed
-    if !Arc::ptr_eq(&prev.mm, &next.mm) {
-        next.mm.set_current();
-    }
-
-    // Save the current state and restore the new state
-    debug_assert!(!prev.kstack.state_ptr_mut().is_null());
-    debug_assert!(!next.kstack.state_ptr_mut().is_null());
+    PageTableRoot::switch(&prev.mm, &next.mm);
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut())
 }
 
-#[optimize(speed)]
+#[init]
 pub fn jump_to_thread(thread: &mut Thread) -> ! {
     unsafe {
+        set_user_fs_gs(thread.fsbase, thread.gsbase);
         percpu::set_kernel_stack(thread.kstack.base());
         TSS.local()
             .borrow_mut()
             .set_kernel_stack(u64::from(thread.kstack.base()));
 
         thread.mm.set_current();
-        set_user_fs_gs(thread.fsbase, thread.gsbase);
+
         enter_user(thread.kstack.base().into())
     }
 }

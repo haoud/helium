@@ -1,10 +1,12 @@
 use cfg_if::cfg_if;
 use core::fmt::Write;
 use macros::init;
-use sync::{Once, Spinlock};
-use x86_64::serial::{Port, Serial};
+use sync::{Spinlock, Lazy};
+use x86_64::serial::{Serial, Port};
 
-static SERIAL: Once<Spinlock<Serial>> = Once::new();
+static SERIAL: Lazy<Spinlock<Serial>> = Lazy::new(||{
+    Spinlock::new(Serial::new(Port::COM1))
+});
 
 struct Logger;
 
@@ -24,8 +26,6 @@ impl log::Log for Logger {
             };
 
             SERIAL
-                .get()
-                .expect("Serial port not initialized")
                 .lock()
                 .write_fmt(format_args!("{} {}\n", level, record.args()))
                 .unwrap();
@@ -46,7 +46,6 @@ pub fn setup() {
         if #[cfg(feature = "log")] {
             let _ = log::set_logger(&Logger);
             log::set_max_level(log::LevelFilter::Trace);
-            SERIAL.call_once(|| Spinlock::new(Serial::new(Port::COM1)));
         }
     );
 }
@@ -56,9 +55,7 @@ pub fn setup() {
 /// prevent the panic message from being printed
 #[cold]
 pub fn on_panic() {
-    if let Some(serial) = SERIAL.get() {
-        unsafe {
-            serial.force_unlock();
-        }
+    unsafe {
+        SERIAL.force_unlock();
     }
 }

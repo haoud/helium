@@ -64,7 +64,7 @@ impl IO for u32 {
 
 /// Represents a port that can be read from and written to. This is a wrapper around a port number
 /// and a type that implements the `IO` trait (currently `u8`, `u16`, or `u32`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Port<T> {
     phantom: PhantomData<T>,
     port: u16,
