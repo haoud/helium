@@ -89,3 +89,18 @@ pub unsafe fn read_cr3() -> u64 {
 pub unsafe fn write_cr3(cr3: u64) {
     core::arch::asm!("mov cr3, {}", in(reg) cr3);
 }
+
+/// Wait for an interrupt to be triggered. This function is used to wait for an interrupt
+/// when there is nothing else to do. It will enable interrupts, halt the CPU and wait for
+/// an interrupt to be triggered. When an interrupt is triggered, it will disable interrupts
+/// and return.
+///
+/// # Safety
+/// This function is unsafe because the caller could be interrupted by an interrupt handler,
+/// so the caller must take precautions to make this code preemptable (by example, by not
+/// locking a mutex before calling this function).
+pub unsafe fn wait_for_interrupt() {
+    crate::instruction::sti();
+    crate::instruction::hlt();
+    crate::instruction::cli();
+}

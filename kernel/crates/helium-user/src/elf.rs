@@ -17,7 +17,7 @@ use x86_64::paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE};
 /// it does not perform any checks to verify that the ELF file is valid and compatible with the
 /// kernel and the system.
 #[init]
-pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Task {
+pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Arc<Task> {
     let elf = ElfBytes::<NativeEndian>::minimal_parse(file);
     let elf = elf.expect("failed to parse ELF file");
 

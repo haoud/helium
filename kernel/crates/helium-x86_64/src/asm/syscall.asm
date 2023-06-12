@@ -1,16 +1,14 @@
-.section .text
-
 # Parameters:
 # 
 # - RAX: syscall number
-# - RSI: arg1
-# - RDX: arg2
-# - R10: arg3
-# - R8:  arg4
-# - R9:  arg5
+# - RSI: arg1 (optional)
+# - RDX: arg2 (optional)
+# - R10: arg3 (optional)
+# - R8:  arg4 (optional)
+# - R9:  arg5 (optional)
 # 
 # Return value:
-# - RAX
+# - RAX contains the return value (if the syscall return to user mode)
 syscall_enter:
     swapgs              # Switch to the kernel GS
     mov gs:0x08, rsp    # Save the user stack pointer

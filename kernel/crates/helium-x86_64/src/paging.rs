@@ -536,6 +536,8 @@ impl PageTableRoot {
     /// freed while it is in use. The caller must also ensure that the page table root is
     /// correctly initialized.
     pub unsafe fn set_current(&self) {
+        // TODO: Read the current CR3 register and only update it if it is different from the
+        // current one. This will avoid unnecessary TLB flushes and should improve performance.
         cpu::write_cr3(u64::from(self.frame.addr()));
     }
 }

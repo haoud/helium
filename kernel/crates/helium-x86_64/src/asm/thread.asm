@@ -1,14 +1,12 @@
-.section .text
-
 # Parameters:
 # - rdi: Pointer to a pointer to the current state struct from where the current state will 
 #        be saved. The pointer to the pointer will be updated to point to the new state struct,
 #        which will be allocated on the stack.
 #
 # - rsi: Pointer to a pointer to the new state struct from where the new state will be loaded. It
-#        will be set to null, because the state is no longer valid.
+#        will be set to null, because the state is no longer valid after the context switch.
 # 
-# This function may return to the caller if the saved state will be restored. If thr task is
+# This function may return to the caller if the saved state is restored. If the task is
 # detroyed, this function will not return, but this should not be a problem since this is
 # the desired behavior.
 switch_context:
@@ -45,18 +43,11 @@ switch_context:
 # - rdi: Pointer to the top of the new stack
 # 
 # This function never returns to the caller.
-enter_user:
+enter_userland:
     # Set the stack pointer to the new stack 
     mov rsp, rdi
 
     # Clear all registers to avoid leaking sensitive data
-    xor rbp, rbp
-    xor rax, rax
-    xor rbx, rbx
-    xor rcx, rcx
-    xor rdx, rdx
-    xor rsi, rsi
-    xor rdi, rdi
     xor r8, r8
     xor r9, r9
     xor r10, r10
@@ -65,6 +56,13 @@ enter_user:
     xor r13, r13
     xor r14, r14
     xor r15, r15
+    xor rax, rax
+    xor rbx, rbx
+    xor rcx, rcx
+    xor rdx, rdx
+    xor rsi, rsi
+    xor rdi, rdi
+    xor rbp, rbp
 
     # Swap to the user GS segment and go to userland
     swapgs

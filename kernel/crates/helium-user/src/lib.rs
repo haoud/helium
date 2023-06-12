@@ -2,8 +2,7 @@
 
 use alloc::sync::Arc;
 use macros::init;
-use task::Identifier;
-use x86_64::{paging::PageTableRoot, thread};
+use x86_64::paging::PageTableRoot;
 
 extern crate alloc;
 
@@ -24,7 +23,12 @@ pub fn setup() {
     scheduler::add_task(init);
 }
 
-pub fn enter_userland() {
-    let init = scheduler::task(Identifier::new(1)).expect("Init task not found");
-    thread::jump_to_thread(&mut init.thread().lock());
+/// Enter userland. This function after the kernel has been initialized and jumps to the init
+/// task to engage userland.
+///
+/// # Safety
+/// This function is unsafe because why not ? More seriously, this function is unsafe simply
+/// because it use pointer and assembly to jump to the init task.
+pub unsafe fn enter_userland() {
+    scheduler::run_init();
 }

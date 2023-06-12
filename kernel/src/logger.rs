@@ -1,12 +1,10 @@
 use cfg_if::cfg_if;
 use core::fmt::Write;
 use macros::init;
-use sync::{Spinlock, Lazy};
-use x86_64::serial::{Serial, Port};
+use sync::{Lazy, Spinlock};
+use x86_64::serial::{Port, Serial};
 
-static SERIAL: Lazy<Spinlock<Serial>> = Lazy::new(||{
-    Spinlock::new(Serial::new(Port::COM1))
-});
+static SERIAL: Lazy<Spinlock<Serial>> = Lazy::new(|| Spinlock::new(Serial::new(Port::COM1)));
 
 struct Logger;
 

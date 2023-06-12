@@ -7,14 +7,18 @@ use crate::{
 };
 use addr::Virtual;
 use alloc::sync::Arc;
-use core::{arch::global_asm, ops::Range};
-use macros::init;
+use core::ops::Range;
 use mm::{
     frame::{allocator::Allocator, AllocationFlags, Frame},
     FRAME_ALLOCATOR,
 };
 
-global_asm!(include_str!("asm/thread.asm"));
+core::arch::global_asm!(include_str!("asm/thread.asm"));
+
+extern "C" {
+    fn switch_context(prev: *mut *mut State, next: *mut *mut State);
+    fn enter_userland(stack: u64) -> !;
+}
 
 /// The state of a thread is saved in this structure when the thread is not running. This
 /// structure is higly optimized to be as small as possible, and to make context switching
@@ -28,9 +32,9 @@ global_asm!(include_str!("asm/thread.asm"));
 /// that some register must be saved by the caller, and some other by the callee. This allow to
 /// save some additional registers without having to save them manually, the compiler will do it
 /// for us, but in a more efficient way.
-#[derive(Default, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
-pub struct State {
+struct State {
     pub rip: u64,
     pub rbp: u64,
     pub rbx: u64,
@@ -41,16 +45,75 @@ pub struct State {
     pub rflags: u64,
 }
 
-/// The kernel stack of a thread. This structure is used to know where the kernel stack
-/// of a thread is located, and to know the base address of the stack.
-pub struct KernelStack {
-    frames: Range<Frame>,
-    state: u64,
+impl Default for State {
+    #[allow(clippy::fn_to_numeric_cast)]
+    fn default() -> Self {
+        Self {
+            rip: enter_userland as u64,
+            rbp: 0,
+            rbx: 0,
+            r12: 0,
+            r13: 0,
+            r14: 0,
+            r15: 0,
+            rflags: 0x02, // Interrupts enabled
+        }
+    }
 }
 
+/// The kernel stack of a thread. This structure is used to know where the kernel stack
+/// of a thread is located, and to know the base address of the stack. This also contain
+/// a pointer to the saved state of the thread if the thread is not running.
+struct KernelStack {
+    frames: Range<Frame>,
+    state: *mut State,
+}
+
+/// This is safe to implentend Send for the kernel stack because the kernel stack is
+/// only used in the context of a single thread, meaning that it would not be send
+/// across multiple thread, but we still need to implement Send because the compiler
+/// does not know that and this is required to store the kernel stack in a global
+/// variable.
+unsafe impl Send for KernelStack {}
+
 impl KernelStack {
+    /// Create a new kernel stack with the given frames.
     pub fn new(frames: Range<Frame>) -> Self {
-        Self { frames, state: 0 }
+        Self {
+            frames,
+            state: core::ptr::null_mut(),
+        }
+    }
+
+    /// Write into the stack the trampoline that will be used to switch to the thread for the
+    /// first time. A small space of the stack is reserved for this purpose (see the `base`
+    /// method for more information).
+    fn write_initial_trampoline(&mut self, rip: u64, rsp: u64) {
+        let base = self.base().as_mut_ptr::<u64>();
+        let cs = Selector::USER_CODE.0 as u64;
+        let ss = Selector::USER_DATA.0 as u64;
+        let rflags = 0x02;
+
+        // Write in the stack the trampoline that will be used to switch to the thread for the
+        // first time. It is simply the registers that will be restored by the iretq instruction.
+        unsafe {
+            base.offset(0).write(rip);
+            base.offset(1).write(cs);
+            base.offset(2).write(rflags);
+            base.offset(3).write(rsp);
+            base.offset(4).write(ss);
+        }
+    }
+
+    /// Write the initial state of the thread on the stack. This function must be called
+    /// only when the thread is created, and write at the start of the stack the initial
+    /// state of the thread. This is the state that will be restored when the thread will
+    /// be executed for the first time.
+    fn write_initial_state(&mut self, state: State) {
+        unsafe {
+            self.state = self.base().as_mut_ptr::<State>().offset(-1);
+            self.state.write(state);
+        }
     }
 
     /// Return the base address of this kernel stack. Because the stack grows down, the base
@@ -63,16 +126,24 @@ impl KernelStack {
 
     /// Return a mutable pointer to the saved state of this thread.
     pub fn state_ptr_mut(&mut self) -> *mut *mut State {
-        &mut self.state as *mut u64 as *mut *mut State
+        &mut self.state as *mut *mut State
+    }
+
+    /// Verify if the kernel stack contains the state of the thread.
+    pub fn has_saved_state(&self) -> bool {
+        self.state.is_null()
     }
 }
 
+/// A thread is a sequence of instructions that can be executed by the CPU. It is
+/// associated with a kernel stack, a paging table, and with FS and GS segment
+/// base addresses.
 pub struct Thread {
-    /// The kernel stack for this thread
-    kstack: KernelStack,
-
     /// The paging table used by this thread
     mm: Arc<PageTableRoot>,
+
+    /// The kernel stack for this thread
+    kstack: KernelStack,
 
     /// The user base address for the GS segment
     gsbase: u64,
@@ -82,35 +153,37 @@ pub struct Thread {
 }
 
 impl Thread {
+    /// The number of frames used for the kernel stack
+    const KSTACK_FRAMES: usize = 4;
+
+    /// Create a new thread with the given kernel stack, paging table, and FS and GS
+    /// segment base addresses. It will allocate a kernel stack and write the initial
+    /// state of the thread on the stack. It will also allocate the user stack with
+    /// the given top address and size.
     #[must_use]
-    #[allow(clippy::fn_to_numeric_cast)]
     pub fn new(mm: Arc<PageTableRoot>, rip: u64, rsp: u64, size: u64) -> Self {
-        let kstack = KernelStack::new(unsafe {
+        let mut kstack = KernelStack::new(unsafe {
             FRAME_ALLOCATOR
                 .lock()
-                .allocate_range(4, AllocationFlags::KERNEL)
+                .allocate_range(Self::KSTACK_FRAMES, AllocationFlags::KERNEL)
                 .expect("Failed to allocate kernel stack")
         });
 
-        unsafe {
-            // Create the stack frame for the first time the thread will be executed, so
-            // the `enter_user` function will be abled to return to the thread with the
-            // `iretq` instruction. We can safely use the base address of the stack, because
-            // the stack base is 64 bytes before the real end of the stack, allowing us to
-            // use this space to create the stack frame.
-            let base = kstack.base().as_mut_ptr::<u64>();
-            base.offset(0).write(rip);
-            base.offset(1).write(Selector::USER_CODE.0 as u64);
-            base.offset(2).write(0x02);
-            base.offset(3).write(rsp);
-            base.offset(4).write(Selector::USER_DATA.0 as u64);
-        }
+        // Create the stack frame for the first time the thread will be executed, so
+        // the `enter_user` function will be abled to return to the thread with the
+        // `iretq` instruction. We can safely use the base address of the stack, because
+        // the stack base is 64 bytes before the real end of the stack, allowing us to
+        // use this space to create the stack frame.
+        kstack.write_initial_trampoline(rip, rsp);
+        kstack.write_initial_state(State::default());
 
-        // Allocate the user stack
+        // Compute the start and end address of the user stack
         let stack_start = Virtual::new(rsp - size).page_align_down();
         let stack_end = Virtual::new(rsp).page_align_up();
 
-        // Map the user stack
+        // Map the user stack at the given address with the given size
+        // It allocate a frame for each page of the stack and then map
+        // it in the paging table with user and write access.
         for virt in (stack_start..stack_end).step_by(PAGE_SIZE) {
             unsafe {
                 let frame = FRAME_ALLOCATOR
@@ -124,81 +197,78 @@ impl Thread {
             };
         }
 
-        let fsbase = 0;
-        let gsbase = 0;
         Self {
-            kstack,
             mm,
-            gsbase,
-            fsbase,
+            kstack,
+            gsbase: 0,
+            fsbase: 0,
         }
     }
 
-    pub fn kstack(&self) -> &KernelStack {
-        &self.kstack
-    }
-
+    /// Clone and return a `Arc` to the paging table used by this thread.
     pub fn mm(&self) -> Arc<PageTableRoot> {
         Arc::clone(&self.mm)
     }
 }
 
+/// Switch from the current thread to the given thread. This function will save the
+/// current thread state, and restore the given thread state while changing the
+/// kernel stack to the next thread kernel stack. It will also switch the paging table
+/// if needed, and switch the GS and FS segment base addresses to the next thread ones.
+///
+/// # Safety
+/// This function is unsafe because calling it can have unexpected results (probably too
+/// many to list here). It is also unsafe because it deals with raw pointers, low level
+/// registers...
+/// The caller must ensure that the previous thread is effectively the current thread
+/// running on the CPU (but not for long).
 #[optimize(speed)]
 pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
-    prev.fsbase = user_fs();
-    prev.gsbase = user_gs();
-    set_user_fs_gs(next.fsbase, next.gsbase);
+    // Here, we need to read the kernel GS base to get the user GS base because
+    // the kernel use the `swapgs` instruction when entering in kernel mode, so
+    // the user GS base is saved in the KERNEL_GS_BASE and the kernel GS base is
+    // set in the GS_BASE register.
+    prev.gsbase = msr::read(msr::Register::KERNEL_GS_BASE);
+    prev.fsbase = msr::read(msr::Register::FS_BASE);
 
-    // Update the kernel stack in the TSS and in the per-CPU data
-    percpu::set_kernel_stack(next.kstack.base());
-    TSS.local()
-        .borrow_mut()
-        .set_kernel_stack(u64::from(next.kstack.base()));
+    msr::write(msr::Register::KERNEL_GS_BASE, next.gsbase);
+    msr::write(msr::Register::FS_BASE, next.fsbase);
 
+    set_kernel_stack(&next.kstack);
     PageTableRoot::switch(&prev.mm, &next.mm);
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut())
 }
 
-#[init]
-pub fn jump_to_thread(thread: &mut Thread) -> ! {
+/// Jump to the given thread. This function should be used when there is no need
+/// to save any thread state, for example when the kernel is starting the first
+/// thread after the boot process.
+/// Because this function doesn't save any thread state, it will never return to
+/// the caller. The thread will only be controlled by the interruption handlers.
+///
+/// # Safety
+/// This function is unsafe for approximately the same reasons as the `switch`
+/// function.
+#[optimize(speed)]
+pub unsafe fn jump_to_thread(thread: &mut Thread) -> ! {
     unsafe {
-        set_user_fs_gs(thread.fsbase, thread.gsbase);
-        percpu::set_kernel_stack(thread.kstack.base());
-        TSS.local()
-            .borrow_mut()
-            .set_kernel_stack(u64::from(thread.kstack.base()));
+        msr::write(msr::Register::KERNEL_GS_BASE, thread.gsbase);
+        msr::write(msr::Register::FS_BASE, thread.fsbase);
 
         thread.mm.set_current();
-
-        enter_user(thread.kstack.base().into())
+        set_kernel_stack(&thread.kstack);
+        enter_userland(u64::from(thread.kstack.base()))
     }
 }
 
-/// Set the user FS and GS base
-fn set_user_fs_gs(fs: u64, gs: u64) {
-    // The code here is CORRECT. When we enter the kernel, we use the `swapgs` instruction
-    // which swaps the kernel GS base with the user GS base. So when we write the kernel GS
-    // base in kernel mode, we actually change the user GS base.
+/// Set the given kernel stack as the current kernel stack. This will update the
+/// TSS, so the CPU can switch to the new kernel stack when an interrupt occurs,
+/// and also set the kernel stack in the percpu structure, to switch stack when
+/// entering in the syscall handler.
+fn set_kernel_stack(stack: &KernelStack) {
     unsafe {
-        msr::write(msr::Register::KERNEL_GS_BASE, gs);
-        msr::write(msr::Register::FS_BASE, fs);
+        percpu::set_kernel_stack(stack.base());
+        TSS.local()
+            .borrow_mut()
+            .set_kernel_stack(u64::from(stack.base()));
     }
-}
-
-/// Return the user GS base
-fn user_gs() -> u64 {
-    // The code here is CORRECT. When we enter the kernel, we use the `swapgs` instruction
-    // which swaps the kernel GS base with the user GS base. So when we read the kernel GS
-    // base in kernel mode, we actually read the user GS base.
-    unsafe { msr::read(msr::Register::KERNEL_GS_BASE) }
-}
-
-/// Return the user FS base
-fn user_fs() -> u64 {
-    unsafe { msr::read(msr::Register::FS_BASE) }
-}
-
-extern "C" {
-    fn switch_context(prev: *mut *mut State, next: *mut *mut State);
-    fn enter_user(stack: u64) -> !;
 }

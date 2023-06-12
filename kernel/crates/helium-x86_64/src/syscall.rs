@@ -2,11 +2,17 @@ use crate::msr;
 
 core::arch::global_asm!(include_str!("asm/syscall.asm"));
 
-pub unsafe fn setup() {
-    extern "C" {
-        fn syscall_enter();
-    }
+extern "C" {
+    fn syscall_enter();
+}
 
+/// Set up the system call mechanism. This function should be called once during the kernel
+/// initialization.
+///
+/// # Safety
+/// This function is unsafe because it assume that the `syscall_enter` function exists in the
+/// kernel code, and is correctly set up to handle system calls.
+pub unsafe fn setup() {
     // The Star MSR is used to set up the kernel segment base in bits 47:32, and the user
     // segment base in bits 63:48. The first 32 bits are not used in 64-bit mode.
     msr::write(msr::Register::STAR, 0x0018_0008_0000_0000);
