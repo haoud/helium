@@ -3,24 +3,41 @@ use addr::Virtual;
 use alloc::sync::Arc;
 use core::cmp::min;
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
-use macros::init;
 use mm::{
     frame::{allocator::Allocator, AllocationFlags},
     FRAME_ALLOCATOR,
 };
 use x86_64::paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE};
 
+/// Error that can occur when loading an ELF file
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoadError {
+    InvalidElf,
+    InvalidAddress,
+    InvalidOffset,
+    UnsupportedArchitecture,
+    UnsupportedEndianness,
+}
+
+impl From<addr::InvalidVirtual> for LoadError {
+    fn from(_: addr::InvalidVirtual) -> Self {
+        LoadError::InvalidAddress
+    }
+}
+
+impl From<elf::ParseError> for LoadError {
+    fn from(_: elf::ParseError) -> Self {
+        LoadError::InvalidElf
+    }
+}
+
 /// Parse an ELF file, load it into the passed page table, and return a new task with the entry
 /// point of the ELF file as the entry point of the task.
-///
-/// # Safety
-/// This function is safe, but since it is called only during the initialization of the kernel,
-/// it does not perform any checks to verify that the ELF file is valid and compatible with the
-/// kernel and the system.
-#[init]
-pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Arc<Task> {
-    let elf = ElfBytes::<NativeEndian>::minimal_parse(file);
-    let elf = elf.expect("failed to parse ELF file");
+/// 
+/// TODO: More check should be done to handle any possible error, especially with ELF offsets,
+/// size or addresses.
+pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError> {
+    let elf = check_elf(ElfBytes::<NativeEndian>::minimal_parse(file)?)?;
 
     // Map all the segments of the ELF file that are loadable
     for phdr in elf
@@ -29,8 +46,18 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Arc<Task> {
         .iter()
         .filter(|phdr| phdr.p_type == elf::abi::PT_LOAD)
     {
-        let end = Virtual::new(phdr.p_vaddr + phdr.p_memsz);
-        let start = Virtual::new(phdr.p_vaddr);
+        let end = Virtual::try_new(phdr.p_vaddr + phdr.p_memsz)?;
+        let start = Virtual::try_new(phdr.p_vaddr)?;
+
+        // Check that the segment is not in the kernel space
+        if start.is_kernel() || end.is_kernel() {
+            return Err(LoadError::InvalidAddress);
+        }
+
+        // Check that there is no overflow when computing the end address
+        if start > end {
+            return Err(LoadError::InvalidOffset);
+        }
 
         let mut page = start;
         while page < end {
@@ -81,7 +108,7 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Arc<Task> {
         }
     }
 
-    Task::new(mm, elf.ehdr.e_entry)
+    Ok(Task::new(mm, elf.ehdr.e_entry))
 }
 
 /// Convert the ELF flags of a section into the paging flags, used to map the section with
@@ -95,4 +122,13 @@ fn section_paging_flags(phdr: &ProgramHeader) -> PageEntryFlags {
         flags |= PageEntryFlags::NO_EXECUTE;
     }
     flags
+}
+
+fn check_elf(elf: ElfBytes<NativeEndian>) -> Result<ElfBytes<NativeEndian>, LoadError> {
+    // Check that the ELF file is for the x86_64 architecture
+    if elf.ehdr.e_machine != elf::abi::EM_X86_64 {
+        return Err(LoadError::UnsupportedArchitecture);
+    }
+
+    Ok(elf)
 }
