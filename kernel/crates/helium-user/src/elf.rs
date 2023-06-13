@@ -1,6 +1,7 @@
 use crate::task::Task;
 use addr::Virtual;
 use alloc::sync::Arc;
+use core::cmp::min;
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
 use macros::init;
 use mm::{
@@ -31,8 +32,8 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Arc<Task> {
         let end = Virtual::new(phdr.p_vaddr + phdr.p_memsz);
         let start = Virtual::new(phdr.p_vaddr);
 
-        // Map and copy the data from the ELF file for each page of the segment
-        for page in (start..end).step_by(PAGE_SIZE) {
+        let mut page = start;
+        while page < end {
             unsafe {
                 let frame = FRAME_ALLOCATOR
                     .lock()
@@ -42,19 +43,41 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Arc<Task> {
                 paging::map(&mm, page, frame, section_paging_flags(&phdr))
                     .unwrap_or_else(|_| panic!("Failed to map a segment of the ELF file"));
 
-                let offset = u64::from(page - start);
-                let dst = Virtual::from(frame.addr()).as_mut_ptr::<u8>();
+                // The start offset of the writing in the page: it is needed to handle the case
+                // where the segment is not page aligned, and therefore the first page of the
+                // segment is not fully filled.
+                let start_offset = u64::from(page - page.page_align_down());
+
+                // The offset of the segment in the ELF file
+                let segment_offset = u64::from(page - start);
+
+                // The source address in the ELF file
                 let src = file
                     .as_ptr()
-                    .offset(phdr.p_offset as isize + offset as isize);
+                    .offset(phdr.p_offset as isize)
+                    .offset(segment_offset as isize);
 
-                let count = core::cmp::min(
-                    PAGE_SIZE,
-                    phdr.p_filesz.checked_sub(offset).map_or(0, |v| v as usize),
-                );
+                // The destination address in the virtual address space (use the HHDM to directly
+                // write to the physical frame)
+                let dst = Virtual::from(frame.addr())
+                    .as_mut_ptr::<u8>()
+                    .offset(start_offset as isize);
 
-                core::ptr::copy_nonoverlapping(src, dst, count)
+                // The remaning bytes to copy from the segment
+                let remaning = phdr
+                    .p_filesz
+                    .checked_sub(segment_offset)
+                    .map_or(0, |v| v as usize);
+
+                // The number of bytes to copy in this iteration: the minimum between the
+                // remaining bytes to copy and the remaining bytes in the page from the current
+                // start offset
+                let size = min(remaning, PAGE_SIZE - start_offset as usize);
+                core::ptr::copy_nonoverlapping(src, dst, size)
             }
+
+            // Advance to the next page
+            page = page.page_align_down() + PAGE_SIZE;
         }
     }
 

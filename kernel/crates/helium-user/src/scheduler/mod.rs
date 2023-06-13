@@ -70,7 +70,7 @@ pub trait Scheduler {
         // we do not need to switch threads (obviously)
         if current.id() != next.id() {
             // Here, we force the lock of the next thread. This is necessary because the switching
-            // code is written in assembly, and we cannot unlock the thread lock in assembly when 
+            // code is written in assembly, and we cannot unlock the thread lock in assembly when
             // we have saved the state of this thread. Therefore, we unlock the thread lock here,
             // but we must forget the lock guard further down, otherwise the lock will be unlocked
             // twice.

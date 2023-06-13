@@ -1,14 +1,17 @@
 build:
-	make -C stub build
+	cd init && cargo build
 
 build-release:
-	make -C stub build-release
-
+	cd init && cargo build --release
+	
 install:
-	make -C stub install
+	cd init && ./install.sh
 
 fmt:
+	cd iron && cargo fmt
+	cd init && cargo fmt
 
 clean:
-	make -C stub clean
+	cd iron && cargo clean
+	cd init && cargo clean
 

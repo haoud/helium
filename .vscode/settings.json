@@ -3,9 +3,12 @@
     "rust-analyzer.linkedProjects": [
         "kernel/Cargo.toml",
         "kernel/crates/helium-sync/Cargo.toml",
+        "kernel/crates/helium-user/Cargo.toml",
         "kernel/crates/helium-utils/Cargo.toml",
         "kernel/crates/helium-x86_64/Cargo.toml",
-        "kernel/crates/helium-user/Cargo.toml",
+
+        "user/iron/Cargo.toml",
+        "user/init/Cargo.toml",
     ],
     "rust-analyzer.check.allTargets": false,
     "rust-analyzer.check.command": "clippy",

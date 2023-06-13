@@ -23,6 +23,7 @@ cp -v                                   \
     bin/src/limine/limine.sys           \
     iso/boot/
 
+# Install the kernel
 # Verify if debug and release builds coexist. If so, copy the most recent one: it is probably
 # the one that the user wants to run.
 if [ -e kernel/target/x86_64/debug/kernel ] && [ -e kernel/target/x86_64/release/kernel ]; then
