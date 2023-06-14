@@ -36,3 +36,8 @@ pub fn destroy(tid: u64) -> Result<SyscallReturn, SyscallError> {
 
     Err(SyscallError::TaskNotFound)
 }
+
+/// Return the identifier of the current task.
+pub fn handle() -> Result<i64, SyscallError> {
+    Ok(scheduler::current_task().unwrap().id().0 as i64)
+}

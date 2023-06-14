@@ -12,6 +12,7 @@ pub struct Syscall;
 impl Syscall {
     pub const TASK_EXIT: u64 = 0;
     pub const TASK_DESTROY: u64 = 1;
+    pub const TASK_HANDLE: u64 = 2;
 }
 
 /// A struct that contains all the possible syscall errors. When a syscall returns, it can
@@ -34,6 +35,7 @@ fn syscall(syscall: u64, arg1: u64, arg2: u64, arg3: u64, arg4: u64, arg5: u64) 
     let result = match syscall {
         Syscall::TASK_EXIT => task::exit(arg1),
         Syscall::TASK_DESTROY => task::destroy(arg1),
+        Syscall::TASK_HANDLE => task::handle(),
         _ => panic!("Unknown syscall {}", syscall),
     };
     result.unwrap_or_else(|e| -(e as i64))
