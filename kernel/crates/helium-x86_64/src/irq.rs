@@ -1,10 +1,12 @@
 use crate::{
-    cpu::{InterruptFrame, Privilege},
-    idt::{self, IDT},
+    cpu::InterruptFrame,
+    idt, lapic,
     pic::{self, IRQ_BASE},
     pit,
 };
 use macros::{init, irq_handler};
+
+const CLOCK_VECTOR: u8 = 0x7E;
 
 /// Install the IRQ handlers.
 ///
@@ -30,6 +32,8 @@ pub unsafe fn install() {
     register_irq_handler(IRQ_BASE + 13, irq_13);
     register_irq_handler(IRQ_BASE + 14, irq_14);
     register_irq_handler(IRQ_BASE + 15, irq_15);
+
+    idt::register_interruption(CLOCK_VECTOR, clock_handler);
 }
 
 /// A convenience function to register an irq handler. The interrupt handler is registered as a
@@ -37,16 +41,7 @@ pub unsafe fn install() {
 /// with interrupts disabled.
 #[init]
 fn register_irq_handler(index: u8, handler: unsafe extern "C" fn()) {
-    let flags = idt::DescriptorFlags::new()
-        .set_privilege_level(Privilege::KERNEL)
-        .present(true);
-
-    let descriptor = idt::Descriptor::new()
-        .set_handler(handler)
-        .set_options(flags)
-        .build();
-
-    IDT.lock().set_descriptor(index, descriptor);
+    idt::register_interruption(index, handler);
 }
 
 /// The IRQ manager. This function is called by the IRQ handlers after they have saved the CPU
@@ -59,8 +54,22 @@ fn register_irq_handler(index: u8, handler: unsafe extern "C" fn()) {
 unsafe fn irq_handler(state: &mut InterruptFrame) {
     let irq = state.code as u8;
     match irq {
-        0 => pit::timer_tick(),
+        0 => {
+            pit::timer_tick();
+            lapic::send_ipi(
+                lapic::IpiDestination::All,
+                lapic::IpiPriority::Normal,
+                CLOCK_VECTOR,
+            );
+        }
         _ => log::error!("Unhandled IRQ: {}", state.code),
     }
     pic::send_eoi(irq);
+}
+
+#[macros::interrupt(0)]
+pub fn clock_handler(_: &mut InterruptFrame) {
+    let cpu = crate::smp::core_id();
+    log::debug!("Tick {cpu}");
+    lapic::send_eoi();
 }

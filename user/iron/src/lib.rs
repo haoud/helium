@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(naked_functions)]
 
 core::arch::global_asm!(include_str!("syscall.asm"));
 

@@ -1,7 +1,7 @@
 use super::{current_task, schedule};
 use crate::task::{self, State, Task};
 use alloc::{sync::Arc, vec::Vec};
-use core::cell::RefCell;
+use core::cell::{RefCell};
 use macros::per_cpu;
 use sync::Spinlock;
 
@@ -135,19 +135,24 @@ impl super::Scheduler for RoundRobin {
     /// Called when the timer interrupt occurs. This function will decrement the quantum of the
     /// current task. If the quantum reaches 0, it will call `schedule` to switch to the next
     /// task.
+    /// If there is no current task, this either means that the CPU is idle or that the CPU has
+    /// not yet been engaged in the scheduler. In this case, we call `run_ap` to run the a task
+    /// on the CPU.
     fn timer_tick(&self) {
-        if let Some(current) = current_task() {
-            let mut run_queue = self.run_queue.lock();
-            let running = run_queue
-                .iter_mut()
-                .find(|t| Arc::ptr_eq(&t.task, &current))
-                .unwrap();
-
-            running.quantum -= 1;
-            if running.quantum == 0 {
-                unsafe {
+        unsafe {
+            if let Some(current) = current_task() {
+                let mut run_queue = self.run_queue.lock();
+                let running = run_queue
+                    .iter_mut()
+                    .find(|t| Arc::ptr_eq(&t.task, &current))
+                    .unwrap();
+    
+                running.quantum -= 1;
+                if running.quantum == 0 {
                     schedule();
                 }
+            } else if self.engaged() {
+                self.engage_cpu();
             }
         }
     }

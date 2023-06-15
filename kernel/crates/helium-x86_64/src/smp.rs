@@ -1,4 +1,4 @@
-use crate as x86_64;
+use crate::{self as x86_64, instruction};
 use crate::{ap_setup, msr, MAX_CPUS};
 use alloc::vec::Vec;
 use core::{
@@ -112,10 +112,11 @@ extern "C" fn ap_start(info: *const LimineSmpInfo) -> ! {
         core::hint::spin_loop();
     }
 
+    // Wait for an interrupt to occur to kick in the scheduler
     loop {
         unsafe {
-            crate::instruction::sti();
-            crate::instruction::hlt();
+            instruction::sti();
+            instruction::hlt();
         }
     }
 }

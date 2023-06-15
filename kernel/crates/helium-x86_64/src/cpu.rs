@@ -50,9 +50,13 @@ impl Privilege {
 
 /// Halt the current CPU core forever.
 #[cold]
-#[naked]
 pub extern "C" fn freeze() -> ! {
-    unsafe { core::arch::asm!("2: cli", "hlt", "jmp 2b", options(noreturn)) }
+    loop {
+        unsafe {
+            core::arch::asm!("cli");
+            core::arch::asm!("hlt");
+        }
+    }
 }
 
 /// Read the current value of the CR2 register. This register contains the address that caused the

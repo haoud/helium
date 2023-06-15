@@ -1,10 +1,9 @@
 use self::round_robin::RoundRobin;
-use crate::task::{self, Identifier, Task};
+use crate::task::{self, Task};
 use alloc::sync::Arc;
-use core::cell::RefCell;
+use core::cell::{RefCell, UnsafeCell};
 use macros::{init, per_cpu};
 use sync::Lazy;
-use x86_64::thread;
 
 pub mod round_robin;
 
@@ -19,6 +18,11 @@ static SCHEDULER: Lazy<RoundRobin> = Lazy::new(RoundRobin::default);
 /// call.
 #[per_cpu]
 static DROP_LATER: RefCell<Option<Arc<Task>>> = RefCell::new(None);
+
+/// A per-CPU variable that indicates if the CPU is engaged in the scheduler. This variable is
+/// used to initialize the scheduler on the each CPU only once.
+#[per_cpu]
+pub static mut ENGAGED: UnsafeCell<bool> = UnsafeCell::new(false);
 
 /// A trait that represents a scheduler. This trait is used to abstract the scheduler
 /// implementation, allowing us to easily switch between different schedulers.
@@ -52,6 +56,26 @@ pub trait Scheduler {
     /// This function is called every time a timer tick occurs. It is used to update thread
     /// scheduling information, and eventually to reschedule the current thread.
     fn timer_tick(&self);
+
+    /// Return `true` if the current CPU is engaged in the scheduler, and `false` otherwise.
+    fn engaged(&self) -> bool {
+        unsafe { *ENGAGED.local().get() }
+    }
+
+    /// Run the AP. This function is called when the scheduler detect that there is no current
+    /// thread running on the CPU. It that context, it can only mean that the CPU is an AP that
+    /// has just been booted, and that it needs to be run a process.
+    /// So, this function should pick a thread to run (and wait if no thread is available), and
+    /// run it.
+    /// 
+    /// # Safety
+    unsafe fn engage_cpu(&self) -> ! {
+        log::debug!("Running AP");
+        ENGAGED.local().get().write(true);
+        let next = self.pick_next();
+        self.set_current_task(Arc::clone(&next));
+        x86_64::thread::jump_to_thread(&mut next.thread().lock());
+    }
 
     /// Schedule the current thread.
     ///
@@ -122,19 +146,6 @@ pub fn setup() {
     Lazy::force(&SCHEDULER);
 }
 
-/// Run the init task. This function is only supposed to be called once, after the kernel startup
-/// in order to run the init task.
-///
-/// # Safety
-/// This function is unsafe because it make some assumptions about the state of the system
-/// (e.g. that the scheduler has been initialized, that the init task exists, etc.). If these
-/// assumptions are not met, this function will panic. Furthermore,
-pub unsafe fn run_init() {
-    let init = task(Identifier::new(1)).expect("Init task not found");
-    SCHEDULER.set_current_task(Arc::clone(&init));
-    thread::jump_to_thread(&mut init.thread().lock());
-}
-
 /// Add a task to the scheduler. The task will be added to the run queue, and will be
 /// available to be run by the scheduler.
 pub fn add_task(task: Arc<Task>) {
@@ -173,6 +184,11 @@ pub unsafe fn schedule() {
         }
     }
     SCHEDULER.schedule();
+}
+
+/// Engage the current CPU in the scheduler.
+pub fn engage_cpu() -> ! {
+    unsafe { SCHEDULER.engage_cpu() }
 }
 
 /// Return the current task running on the CPU. This function should return `None` if no task

@@ -33,7 +33,7 @@ impl From<elf::ParseError> for LoadError {
 
 /// Parse an ELF file, load it into the passed page table, and return a new task with the entry
 /// point of the ELF file as the entry point of the task.
-/// 
+///
 /// TODO: More check should be done to handle any possible error, especially with ELF offsets,
 /// size or addresses.
 pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError> {

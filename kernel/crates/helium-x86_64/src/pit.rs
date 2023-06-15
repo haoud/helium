@@ -62,6 +62,5 @@ pub fn nano_offset() -> u64 {
 
 /// Called every time the PIT generates an IRQ.
 pub fn timer_tick() {
-    // TODO: Send an IPI to all CPUs to notify them of the tick (for the scheduler)
     TICK.fetch_add(1, Ordering::Relaxed);
 }

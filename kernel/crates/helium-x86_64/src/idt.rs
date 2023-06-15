@@ -7,6 +7,8 @@ use crate::{
     gdt, instruction,
 };
 
+core::arch::global_asm!(include_str!("asm/interrupt.asm"));
+
 pub static IDT: Spinlock<Table> = Spinlock::new(Table::empty());
 
 /// All the handlers called when an interrupt is triggered should have this signature.
@@ -240,20 +242,6 @@ impl Register {
     }
 }
 
-/// A macro to swap the kernel gs with the user gs only when needed (i.e. when the CPU was in user
-/// mode before the interrupt, and switched to the kernel mode to invoke the handler).
-/// We need this macro to correctly handle the `swapgs` instruction during nested interrupts,
-/// because calling `swapgs` when gs is already the kernel gs will restore the user gs, which can
-/// cause undefined behavior, that the user can exploit to gain kernel privileges.
-macro_rules! swapgs {
-    () => {
-        "cmp QWORD ptr [rsp + 8 * 19], 0x08
-        je 1f
-        swapgs
-        1:"
-    };
-}
-
 /// Setup the IDT. This function must be called before invoking any interrupt and create an IDT
 /// which contains the default handler for all interrupts.
 ///
@@ -263,20 +251,24 @@ macro_rules! swapgs {
 /// interrupt.
 #[init]
 pub unsafe fn setup() {
-    let mut idt = IDT.lock();
+    for i in 0..Table::SIZE {
+        register_interruption(i as u8, default);
+    }
+
+    IDT.lock().load();
+}
+
+pub fn register_interruption(vector: u8, handler: unsafe extern "C" fn()) {
     let flags = DescriptorFlags::new()
         .set_privilege_level(Privilege::KERNEL)
         .present(true);
 
-    for i in 0..idt.capacity() {
-        let descriptor = Descriptor::new()
-            .set_handler(default)
-            .set_options(flags)
-            .build();
-        idt.set_descriptor(i as u8, descriptor);
-    }
+    let descriptor = Descriptor::new()
+        .set_handler(handler)
+        .set_options(flags)
+        .build();
 
-    idt.load();
+    IDT.lock().set_descriptor(vector, descriptor);
 }
 
 /// Load the IDT register into the current CPU.
@@ -294,83 +286,4 @@ pub unsafe fn load() {
 #[interrupt(0)]
 fn default(state: &mut InterruptFrame) {
     panic!("Unhandled interrupt: {:#x}", state.code);
-}
-
-/// Automatically called before calling the interrupt handler. This function is responsible for
-/// saving the current state.
-/// This function shoult not be called directly.
-//
-/// # Safety
-/// This function is unsafe because it plays with the stack and the CPU registers to save the
-/// current state and invoke the interrupt handler.
-#[naked]
-#[no_mangle]
-pub unsafe extern "C" fn interrupt_enter() {
-    core::arch::asm!(
-        // Save scratch registers
-        "push r11",
-        "push r10",
-        "push r9",
-        "push r8",
-        "push rdi",
-        "push rsi",
-        "push rdx",
-        "push rcx",
-        "push rax",
-        // Save preserved registers
-        "push r15",
-        "push r14",
-        "push r13",
-        "push r12",
-        "push rbx",
-        "push rbp",
-        // Align the stack to 16 bytes and move the pointer to the pushed registers in rdi
-        "mov rdi, rsp",
-        "sub rsp, 8",
-        // Swap the kernel and user GS if we was in user mode
-        swapgs!(),
-        // Jump to the return address
-        "mov rax, [rsp + 16 * 8]",
-        "jmp rax",
-        options(noreturn)
-    );
-}
-
-/// Automatically called before returning from an interrupt. This function restore the state before
-/// the interrupt and return to the interrupted code.
-/// This function shoult not be called directly.
-///
-/// # Safety
-/// This function is unsafe because it plays with the stack and the CPU registers to restore the
-/// state before the interrupt.
-#[naked]
-#[no_mangle]
-pub unsafe extern "C" fn interrupt_exit() {
-    core::arch::asm!(
-        // Swap the kernel and user GS if we was in user mode
-        swapgs!(),
-        // Dealign the stack so we can pop the registers
-        "add rsp, 8",
-        // Restore preserved registers
-        "1: pop rbp",
-        "pop rbx",
-        "pop r12",
-        "pop r13",
-        "pop r14",
-        "pop r15",
-        // Restore scratch registers
-        "pop rax",
-        "pop rcx",
-        "pop rdx",
-        "pop rsi",
-        "pop rdi",
-        "pop r8",
-        "pop r9",
-        "pop r10",
-        "pop r11",
-        // Skip error code and the return address
-        "add rsp, 16",
-        "iretq",
-        options(noreturn)
-    );
 }
