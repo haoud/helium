@@ -1,6 +1,6 @@
 # Helium
 
-Helium is a hobby microkernel x86_64 kernel written from scratch in Rust which aims to be
+Helium is a hobby x86_64 monolithic kernel written from scratch in Rust which aims to be
 compatible with Linux at binary level (running unmodified Linux binaries).
 Helium aims to be simple, readable and well-documented, but relatively fast and efficient.
 

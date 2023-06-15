@@ -27,7 +27,7 @@ log = []
 [profile.release]
 debug-assertions = false
 overflow-checks = false
-opt-level = "s"
 codegen-units = 1
+opt-level = 2
 debug = false
 lto = true
