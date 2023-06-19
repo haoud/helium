@@ -1,10 +1,11 @@
-use crate::{
+use macros::{init, interrupt, irq_handler};
+use user::scheduler;
+use x86_64::{
     cpu::InterruptFrame,
     idt, lapic,
     pic::{self, IRQ_BASE},
     pit,
 };
-use macros::{init, irq_handler};
 
 const CLOCK_VECTOR: u8 = 0x7E;
 
@@ -53,6 +54,8 @@ fn register_irq_handler(index: u8, handler: unsafe extern "C" fn()) {
 #[irq_handler]
 unsafe fn irq_handler(state: &mut InterruptFrame) {
     let irq = state.code as u8;
+
+    pic::send_eoi(irq);
     match irq {
         0 => {
             pit::timer_tick();
@@ -64,12 +67,12 @@ unsafe fn irq_handler(state: &mut InterruptFrame) {
         }
         _ => log::error!("Unhandled IRQ: {}", state.code),
     }
-    pic::send_eoi(irq);
 }
 
-#[macros::interrupt(0)]
+#[interrupt(0)]
 pub fn clock_handler(_: &mut InterruptFrame) {
-    let cpu = crate::smp::core_id();
-    log::debug!("Tick {cpu}");
+    log::debug!("Tick {}", x86_64::smp::core_id());
+
     lapic::send_eoi();
+    scheduler::timer_tick();
 }

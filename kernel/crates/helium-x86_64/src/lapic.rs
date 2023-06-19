@@ -86,6 +86,7 @@ pub enum IpiPriority {
 pub unsafe fn enable() {
     let spurious = read(Register::SpuriousInterruptVector);
     write(Register::SpuriousInterruptVector, spurious | 1 << 8);
+    send_eoi();
 }
 
 /// Send an IPI to the given destination with the given priority to trigger the

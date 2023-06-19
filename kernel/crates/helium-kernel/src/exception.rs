@@ -1,10 +1,8 @@
 use addr::Virtual;
 use macros::{exception, exception_err, init};
-
-use crate::{
-    cpu::{self, InterruptFrame, Privilege},
-    idt::{self, IDT},
-    paging::{self, PageFaultErrorCode},
+use x86_64::{
+    cpu::{InterruptFrame, Privilege},
+    idt::IDT,
 };
 
 /// Setup the exception handlers.
@@ -52,11 +50,11 @@ pub unsafe fn install() {
 #[init]
 fn register_exception_handler(index: u8, handler: unsafe extern "C" fn()) {
     let mut idt = IDT.lock();
-    let flags = idt::DescriptorFlags::new()
+    let flags = x86_64::idt::DescriptorFlags::new()
         .set_privilege_level(Privilege::KERNEL)
         .present(true);
 
-    let descriptor = idt::Descriptor::new()
+    let descriptor = x86_64::idt::Descriptor::new()
         .set_handler(handler)
         .set_options(flags)
         .build();
@@ -76,7 +74,7 @@ fn debug(_state: &InterruptFrame) {
 
 #[exception]
 fn non_maskable_interrupt(_state: &InterruptFrame) {
-    cpu::freeze();
+    x86_64::cpu::freeze();
 }
 
 #[exception]
@@ -137,9 +135,9 @@ fn general_protection_fault(_state: &InterruptFrame) {
 #[exception_err]
 fn page_fault(state: &InterruptFrame) {
     unsafe {
-        paging::handle_page_fault(
-            Virtual::new(cpu::read_cr2()),
-            PageFaultErrorCode::from_bits_truncate(state.code),
+        x86_64::paging::handle_page_fault(
+            Virtual::new(x86_64::cpu::read_cr2()),
+            x86_64::paging::PageFaultErrorCode::from_bits_truncate(state.code),
         );
     }
 }

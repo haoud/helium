@@ -30,6 +30,6 @@ pub fn setup() {
 /// # Safety
 /// This function is unsafe because why not ? More seriously, this function is unsafe simply
 /// because it use pointer and assembly to jump to the init task.
-pub unsafe fn enter_userland() {
+pub unsafe fn enter_userland() -> ! {
     scheduler::engage_cpu();
 }

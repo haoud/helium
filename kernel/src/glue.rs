@@ -1,4 +1,4 @@
-use crate::kernel;
+use crate::{stop, Stop};
 use cfg_if::cfg_if;
 
 #[cold]
@@ -12,7 +12,7 @@ unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
 
             if let Some(message) = info.message() {
                 if let Some(location) = info.location() {
-                    log::error!("{} at {}", message, location);
+                    log::error!("[CPU {}] {} at {}", x86_64::smp::core_id(), message, location);
                 } else {
                     log::error!("{}", message);
                 }
@@ -22,5 +22,5 @@ unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
         }
     );
 
-    kernel::stop(kernel::Stop::Failure);
+    stop(Stop::Failure);
 }

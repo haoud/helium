@@ -22,7 +22,7 @@ SECTIONS
 
     . = ALIGN(4096);
     .text :
-    {
+    {        
         *(.text*)
     }
 
@@ -37,8 +37,6 @@ SECTIONS
     {
         *(.data*)
     }
-
-
 
     . = ALIGN(4096);
     .bss (NOLOAD) :

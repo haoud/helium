@@ -67,7 +67,7 @@ pub trait Scheduler {
     /// has just been booted, and that it needs to be run a process.
     /// So, this function should pick a thread to run (and wait if no thread is available), and
     /// run it.
-    /// 
+    ///
     /// # Safety
     unsafe fn engage_cpu(&self) -> ! {
         log::debug!("Running AP");

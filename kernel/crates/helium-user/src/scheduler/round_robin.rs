@@ -1,7 +1,7 @@
 use super::{current_task, schedule};
 use crate::task::{self, State, Task};
 use alloc::{sync::Arc, vec::Vec};
-use core::cell::{RefCell};
+use core::cell::RefCell;
 use macros::per_cpu;
 use sync::Spinlock;
 
@@ -61,11 +61,15 @@ impl RoundRobin {
         //`None` and wait for the next interrupt.
         // We still need to save the current task because it will be restored when
         // an interrupt will occur because wwe still are in the task context.
-        let current = CURRENT_TASK.local().borrow_mut().take().unwrap();
         unsafe {
-            x86_64::cpu::wait_for_interrupt();
+            let current = CURRENT_TASK.local().borrow_mut().take();
+            if let Some(task) = current {
+                x86_64::cpu::wait_for_interrupt();
+                CURRENT_TASK.local().borrow_mut().replace(task);
+            } else {
+                x86_64::cpu::wait_for_interrupt();
+            }
         }
-        CURRENT_TASK.local().borrow_mut().replace(current);
     }
 }
 
@@ -98,12 +102,11 @@ impl super::Scheduler for RoundRobin {
         if let Some(task) = self.pick_task() {
             task
         } else {
-            self.redistribute();
             loop {
+                self.redistribute();
                 if let Some(task) = self.pick_task() {
                     break task;
                 }
-                self.redistribute();
                 self.idle();
             }
         }
@@ -146,12 +149,12 @@ impl super::Scheduler for RoundRobin {
                     .iter_mut()
                     .find(|t| Arc::ptr_eq(&t.task, &current))
                     .unwrap();
-    
+
                 running.quantum -= 1;
                 if running.quantum == 0 {
                     schedule();
                 }
-            } else if self.engaged() {
+            } else if !self.engaged() {
                 self.engage_cpu();
             }
         }

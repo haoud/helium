@@ -19,12 +19,10 @@ use macros::init;
 
 pub mod apic;
 pub mod cpu;
-pub mod exception;
 pub mod gdt;
 pub mod idt;
 pub mod instruction;
 pub mod io;
-pub mod irq;
 pub mod lapic;
 pub mod msr;
 pub mod paging;
@@ -55,9 +53,7 @@ const CLOCK_HZ: u64 = 200;
 pub unsafe fn early_setup() {
     gdt::setup();
     idt::setup();
-    exception::install();
     pic::remap();
-    irq::install();
     pit::setup();
     tlb::install_int();
     syscall::setup();

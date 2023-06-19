@@ -5,6 +5,7 @@ edition = "2021"
 license = "MIT / Apache-2.0"
 
 [dependencies]
+kernel = { path = "crates/helium-kernel", package = "helium-kernel" }
 macros = { path = "crates/helium-macros", package = "helium-macros" }
 x86_64 = { path = "crates/helium-x86_64", package = "helium-x86_64" }
 utils = { path = "crates/helium-utils", package = "helium-utils" }

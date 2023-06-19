@@ -5,6 +5,7 @@ use crate::{
     lapic::{self, IpiDestination, IpiPriority},
 };
 use addr::Virtual;
+use macros::interrupt;
 
 /// The vector number of the TLB invalidation interrupt.
 pub const SHOOTDOWN_VECTOR: u8 = 0x7F;
@@ -52,7 +53,8 @@ pub fn shootdown(address: Virtual) {
 /// flushes the entire TLB (except for the global pages).
 /// In the future, this function wshould only invalidate the TLB entry for the given virtual
 /// address.
-#[macros::interrupt(0)]
+#[interrupt(0)]
 fn shootdown_handler(_: &mut InterruptFrame) {
+    lapic::send_eoi();
     flush();
 }
