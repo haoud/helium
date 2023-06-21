@@ -288,6 +288,7 @@ impl PageEntry {
     /// # Safety
     /// This function is safe because it only returns a pointer to a page table if the entry is
     /// present. It is up to the caller to ensure that he will manipulate the pointer correctly.
+    #[must_use]
     pub fn table(&self) -> Option<*mut PageTable> {
         if self.flags().contains(PageEntryFlags::PRESENT) {
             let addr = self.0 & Self::ADDRESS_MASK;
@@ -384,6 +385,7 @@ impl PageTable {
     ///
     /// # Panics
     /// This function panics if the page is not page aligned.
+    #[must_use]
     pub unsafe fn from_page(page: Virtual) -> &'static Self {
         assert!(page.is_page_aligned(), "Page {page} is not page aligned");
         &*(page.as_ptr::<Self>())
@@ -398,6 +400,7 @@ impl PageTable {
     ///
     /// # Panics
     /// This function panics if the page is not page aligned.
+    #[must_use]
     pub unsafe fn from_page_mut(page: Virtual) -> &'static mut Self {
         assert!(page.is_page_aligned(), "Page is not page aligned");
         &mut *(page.as_mut_ptr::<Self>())
@@ -478,6 +481,7 @@ impl PageTableRoot {
     /// exclusively owned by the caller, and the ownership of the page is transferred to the page
     /// table root. The caller must also ensure that the page is not freed while the page table
     /// root is in use. The page will be automatically freed when the page table root is dropped.
+    #[must_use]
     pub unsafe fn from_page(page: Physical) -> Self {
         Self {
             frame: Frame::new(page),
@@ -589,9 +593,7 @@ impl<'a> PageTableRootGuard<'a> {
     /// Clear the user space by setting the first 256 entries to 0. This will not free any memory,
     /// it will just set all entries to 0.
     fn clear_userspace(&mut self) {
-        self.user_space_mut()
-            .iter_mut()
-            .for_each(|entry| entry.clear());
+        self.user_space_mut().iter_mut().for_each(PageEntry::clear);
     }
 
     /// Returns a mutable slice to the kernel space entries of the PML4 table.
@@ -605,11 +607,13 @@ impl<'a> PageTableRootGuard<'a> {
     }
 
     /// Returns a slice to the kernel space entries of the PML4 table.
+    #[must_use]
     pub fn kernel_space(&self) -> &[PageEntry] {
         &self[256..512]
     }
 
     /// Returns a slice to the user space entries of the PML4 table.
+    #[must_use]
     pub fn user_space(&self) -> &[PageEntry] {
         &self[0..256]
     }
@@ -751,13 +755,13 @@ pub fn resolve(root: &PageTableRoot, address: Virtual) -> Option<Physical> {
 unsafe fn deallocate_recursive(table: &mut [PageEntry], level: Level) {
     table
         .iter()
-        .flat_map(|entry| entry.address())
+        .filter_map(PageEntry::address)
         .for_each(|address| match level {
             Level::Pml4 | Level::Pdpt | Level::Pd => {
                 let table = PageTable::from_page_mut(Virtual::from(address));
                 deallocate_recursive(table, level.next());
             }
-            _ => {
+            Level::Pt => {
                 FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(address));
             }
         });

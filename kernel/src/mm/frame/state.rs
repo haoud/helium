@@ -97,6 +97,7 @@ pub struct State<T: Default + 'static> {
 impl<T: Default> State<T> {
     /// Create a uninitialized frames state. The frame array is empty and the statistics are
     /// all set to 0.
+    #[must_use]
     pub const fn uninitialized() -> Self {
         Self {
             frames: &mut [],
@@ -107,6 +108,7 @@ impl<T: Default> State<T> {
     /// Setup the frame state by parsing the memory map and filling the frame array, by
     /// parsing the memory map given by Limine.
     #[init]
+    #[must_use]
     pub fn new(mmap: &[NonNullPtr<LimineMemmapEntry>]) -> Self {
         let last = Self::find_last_usable_frame_index(mmap);
         let array_location = Self::find_array_location(mmap, last);
@@ -197,6 +199,7 @@ impl<T: Default> State<T> {
     /// Return an mutable reference to the frame info for the given physical address, or `None` if
     /// the address does not exist.
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     pub fn frame_info_mut(&mut self, address: Physical) -> Option<&mut FrameInfo<T>> {
         self.frames.get_mut(address.frame_index() as usize)
     }
@@ -204,6 +207,7 @@ impl<T: Default> State<T> {
     /// Return an immutable reference to the frame info for the given physical address, or `None`
     /// if the address does not exist.
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     pub fn frame_info(&self, address: Physical) -> Option<&FrameInfo<T>> {
         self.frames.get(address.frame_index() as usize)
     }
@@ -217,6 +221,7 @@ impl<T: Default> State<T> {
     /// issue.
     #[init]
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     fn find_array_location(mmap: &[NonNullPtr<LimineMemmapEntry>], last: FrameIndex) -> Physical {
         mmap.iter()
             .filter(|entry| entry.typ == LimineMemoryMapEntryType::Usable)

@@ -28,10 +28,10 @@ extern "C" {
 /// the state of the kernel when switching to the an another thread. The real state of the thread
 /// are already saved by the interrupt handler when the thread is interrupted. This allow to evict
 /// some register from this structure.
-/// In addition, the switch_context function use advantage of the fact that the system V ABI specify
-/// that some register must be saved by the caller, and some other by the callee. This allow to
-/// save some additional registers without having to save them manually, the compiler will do it
-/// for us, but in a more efficient way.
+/// In addition, the `switch_context` function use advantage of the fact that the system V ABI
+/// specify that some register must be saved by the caller, and some other by the callee. This
+/// allow to save some additional registers without having to save them manually, the compiler will
+/// do it for us, but in a more efficient way.
 #[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
 struct State {
@@ -88,19 +88,19 @@ impl KernelStack {
     /// Write into the stack the trampoline that will be used to switch to the thread for the
     /// first time. A small space of the stack is reserved for this purpose (see the `base`
     /// method for more information).
-    fn write_initial_trampoline(&mut self, rip: u64, rsp: u64) {
+    fn write_initial_trampoline(&mut self, entry: u64, stack: u64) {
         let base = self.base().as_mut_ptr::<u64>();
-        let cs = Selector::USER_CODE.0 as u64;
-        let ss = Selector::USER_DATA.0 as u64;
+        let cs = u64::from(Selector::USER_CODE.0);
+        let ss = u64::from(Selector::USER_DATA.0);
         let rflags = 0x02;
 
         // Write in the stack the trampoline that will be used to switch to the thread for the
         // first time. It is simply the registers that will be restored by the iretq instruction.
         unsafe {
-            base.offset(0).write(rip);
+            base.offset(0).write(entry);
             base.offset(1).write(cs);
             base.offset(2).write(rflags);
-            base.offset(3).write(rsp);
+            base.offset(3).write(stack);
             base.offset(4).write(ss);
         }
     }
@@ -126,7 +126,7 @@ impl KernelStack {
 
     /// Return a mutable pointer to the saved state of this thread.
     pub fn state_ptr_mut(&mut self) -> *mut *mut State {
-        &mut self.state as *mut *mut State
+        core::ptr::addr_of_mut!(self.state)
     }
 
     /// Verify if the kernel stack contains the state of the thread.
@@ -160,8 +160,12 @@ impl Thread {
     /// segment base addresses. It will allocate a kernel stack and write the initial
     /// state of the thread on the stack. It will also allocate the user stack with
     /// the given top address and size.
+    ///
+    /// # Panics
+    /// Panics an allocation failed, either the kernel stack or the user stack. Also panic
+    /// if the user stack cannot be mapped for a reason or another.
     #[must_use]
-    pub fn new(mm: Arc<PageTableRoot>, rip: u64, rsp: u64, size: u64) -> Self {
+    pub fn new(mm: Arc<PageTableRoot>, entry: u64, rsp: u64, size: u64) -> Self {
         let mut kstack = KernelStack::new(unsafe {
             FRAME_ALLOCATOR
                 .lock()
@@ -174,7 +178,7 @@ impl Thread {
         // `iretq` instruction. We can safely use the base address of the stack, because
         // the stack base is 64 bytes before the real end of the stack, allowing us to
         // use this space to create the stack frame.
-        kstack.write_initial_trampoline(rip, rsp);
+        kstack.write_initial_trampoline(entry, rsp);
         kstack.write_initial_state(State::default());
 
         // Compute the start and end address of the user stack
@@ -206,6 +210,7 @@ impl Thread {
     }
 
     /// Clone and return a `Arc` to the paging table used by this thread.
+    #[must_use]
     pub fn mm(&self) -> Arc<PageTableRoot> {
         Arc::clone(&self.mm)
     }
@@ -235,7 +240,7 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 
     set_kernel_stack(&next.kstack);
     PageTableRoot::switch(&prev.mm, &next.mm);
-    switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut())
+    switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut());
 }
 
 /// Jump to the given thread. This function should be used when there is no need
@@ -247,7 +252,7 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 /// # Safety
 /// This function is unsafe for approximately the same reasons as the `switch`
 /// function.
-pub unsafe fn jump_to_thread(thread: &mut Thread) -> ! {
+pub unsafe fn jump_to(thread: &mut Thread) -> ! {
     unsafe {
         msr::write(msr::Register::KERNEL_GS_BASE, thread.gsbase);
         msr::write(msr::Register::FS_BASE, thread.fsbase);

@@ -33,17 +33,20 @@ impl FrameIndex {
     /// information)
     #[must_use]
     pub const fn from_address(addr: u64) -> Self {
+        #[allow(clippy::cast_possible_truncation)]
         Self::new(Physical::new(addr).frame_index() as usize)
     }
 }
 
 impl From<Frame> for FrameIndex {
+    #[allow(clippy::cast_possible_truncation)]
     fn from(frame: Frame) -> Self {
         Self::new(frame.addr().frame_index() as usize)
     }
 }
 
 impl From<Physical> for FrameIndex {
+    #[allow(clippy::cast_possible_truncation)]
     fn from(physical: Physical) -> Self {
         Self::new(physical.frame_index() as usize)
     }
@@ -94,16 +97,16 @@ impl Frame {
     }
 
     /// Creates a new frame and truncates the address to the previous page boundary if necessary.
-    /// For example, if the address is 0xFFFF_FFF8_0000_1234, the returned frame will have the
-    /// address 0xFFFF_FFF8_0000_1000.
+    /// For example, if the address is `0xFFFF_FFF8_0000_1234`, the returned frame will have the
+    /// address `0xFFFF_FFF8_0000_1000`.
     #[must_use]
     pub fn truncate<T: Into<Physical>>(address: T) -> Self {
         Self(address.into().page_align_down())
     }
 
     /// Creates a new frame and rounds the address up to the next page boundary if necessary.
-    /// For example, if the address is 0xFFFF_FFF8_0000_1234, the returned frame will have the
-    /// address 0xFFFF_FFF8_0000_2000.
+    /// For example, if the address is `0xFFFF_FFF8_0000_1234`, the returned frame will have the
+    /// address `0xFFFF_FFF8_0000_2000`.
     #[must_use]
     pub fn upper<T: Into<Physical>>(address: T) -> Self {
         Self(address.into().page_align_up())
@@ -138,8 +141,9 @@ impl Frame {
 
     /// Return the index of the frame. This is an identifier that is unique for each different
     /// frame. The first frame  in memory has index 0, the second frame has index 1, etc.
+    #[must_use]
     pub fn index(&self) -> FrameIndex {
-        FrameIndex::from(self.clone())
+        FrameIndex::from(*self)
     }
 }
 
@@ -221,6 +225,7 @@ pub struct Stats {
 }
 
 impl Stats {
+    #[must_use]
     pub const fn uninitialized() -> Self {
         Self {
             total: FrameCount::new(0),

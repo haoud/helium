@@ -1,5 +1,6 @@
 /// Represents an MSR register. For more information about MSR registers, see
 /// the Intel manual, volume 4, chapter 2.
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Register(u32);
 
 impl Register {
@@ -19,6 +20,7 @@ impl Register {
 /// This function is unsafe because writing to an MSR can cause unexpected side effects and
 /// potentially violate memory safety. It can also cause undefined behavior if the MSR is not
 /// supported by the CPU.
+#[allow(clippy::cast_possible_truncation)]
 pub unsafe fn write(msr: Register, value: u64) {
     core::arch::asm!("wrmsr", in("ecx") msr.0, in("eax") (value as u32), in("edx") (value >> 32));
 }
@@ -29,9 +31,10 @@ pub unsafe fn write(msr: Register, value: u64) {
 /// This function is unsafe because reading from an MSR can cause unexpected side effects and
 /// potentially violate memory safety. It can also cause undefined behavior if the MSR is not
 /// supported by the
+#[must_use]
 pub unsafe fn read(msr: Register) -> u64 {
     let low: u32;
     let high: u32;
     core::arch::asm!("rdmsr", in("ecx") msr.0, out("eax") low, out("edx") high);
-    (high as u64) << 32 | (low as u64)
+    u64::from(high) << 32 | u64::from(low)
 }

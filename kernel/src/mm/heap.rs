@@ -8,16 +8,16 @@ use sync::Spinlock;
 
 /// A heap that can be used for memory allocation. The inner heap is protected by a spinlock,
 /// allowing for concurrent access to the heap.
-pub struct LockedHeap {
+pub struct Heap {
     inner: Spinlock<linked_list_allocator::Heap>,
 }
 
-impl LockedHeap {
+impl Heap {
     /// Create a new heap with the given inner heap. This function does not initialise the heap,
     /// it is the responsibility of the caller to do so with the `init` function.
     #[must_use]
     pub const fn new(inner: linked_list_allocator::Heap) -> Self {
-        LockedHeap {
+        Heap {
             inner: Spinlock::new(inner),
         }
     }
@@ -36,14 +36,14 @@ impl LockedHeap {
     }
 }
 
-impl Deref for LockedHeap {
+impl Deref for Heap {
     type Target = Spinlock<linked_list_allocator::Heap>;
     fn deref(&self) -> &Spinlock<linked_list_allocator::Heap> {
         &self.inner
     }
 }
 
-unsafe impl GlobalAlloc for LockedHeap {
+unsafe impl GlobalAlloc for Heap {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         self.inner
             .lock()

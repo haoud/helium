@@ -100,7 +100,7 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError>
                 // remaining bytes to copy and the remaining bytes in the page from the current
                 // start offset
                 let size = min(remaning, PAGE_SIZE - start_offset as usize);
-                core::ptr::copy_nonoverlapping(src, dst, size)
+                core::ptr::copy_nonoverlapping(src, dst, size);
             }
 
             // Advance to the next page

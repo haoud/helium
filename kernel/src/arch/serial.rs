@@ -1,7 +1,7 @@
 use super::io;
 
 /// Represents a serial port. Currently, only COM1-4 are supported, and are statically mapped to
-/// their respective addresses. This should be a safe assumption, as most x86_64 systems try to
+/// their respective addresses. This should be a safe assumption, as most x86-64 systems try to
 /// keep compatibility with the original IBM PC. Furthermore, the serial ports are only used for
 /// debugging purposes, and are not required for the kernel to function properly.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

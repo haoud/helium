@@ -27,6 +27,7 @@ pub struct TaskStateSegment {
 }
 
 impl TaskStateSegment {
+    #[must_use]
     pub const fn default() -> Self {
         Self {
             reserved_1: 0,
@@ -50,6 +51,7 @@ impl TaskStateSegment {
 /// This function is unsafe because it can crash the kernel if the TSS is not properly
 /// configured, or if the TSS selector is invalid.
 #[init]
+#[allow(clippy::cast_possible_truncation)]
 pub unsafe fn install() {
     let index = SELECTOR_BASE_IDX + (smp::core_id() * 2) as u16;
     let descriptor = gdt::Descriptor::tss(&TSS.local().borrow());

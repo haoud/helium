@@ -71,8 +71,8 @@ pub unsafe fn per_cpu_setup(lapic_id: u32) {
 
     // Allocate the memory for the per CPU data and copy the per-cpu
     // data from the kernel to the allocated memory
-    let per_cpu = Vec::with_capacity(per_cpu_size).leak().as_mut_ptr();
-    core::ptr::copy_nonoverlapping(per_cpu_start as *const u8, per_cpu as *mut u8, per_cpu_size);
+    let per_cpu: *mut u8 = Vec::with_capacity(per_cpu_size).leak().as_mut_ptr();
+    core::ptr::copy_nonoverlapping(per_cpu_start as *const u8, per_cpu, per_cpu_size);
 
     // Load the per CPU structure in the kernel GS base.
     msr::write(msr::Register::KERNEL_GS_BASE, per_cpu as *const _ as u64);
@@ -87,8 +87,9 @@ pub unsafe fn per_cpu_setup(lapic_id: u32) {
 }
 
 /// Return the ID of the current core.
+#[must_use]
 pub fn core_id() -> u32 {
-    *CPU_ID.local().get().unwrap()
+    *CPU_ID.local().get().unwrap_or(&0)
 }
 
 /// Tell the APs that they can terminate their initialization and start

@@ -65,7 +65,7 @@ pub trait Scheduler {
         log::debug!("Running AP");
         let next = self.pick_next();
         self.set_current_task(Arc::clone(&next));
-        arch::thread::jump_to_thread(&mut next.thread().lock());
+        arch::thread::jump_to(&mut next.thread().lock());
     }
 
     /// Schedule the current thread.
@@ -97,7 +97,7 @@ pub trait Scheduler {
                 // does not need to save its state, since it will never be scheduled again.
                 task::State::Terminated => {
                     DROP_LATER.local().borrow_mut().replace(current);
-                    arch::thread::jump_to_thread(&mut next)
+                    arch::thread::jump_to(&mut next)
                 }
 
                 // If the current task is still in the running state, we need to change its
@@ -163,6 +163,9 @@ pub fn timer_tick() {
 /// This function is unsafe because it performs a context switch, and thus must be called
 /// with care, as it may break code, cause memory corruption, deadlocks... if not used
 /// correctly.
+///
+/// # Panics
+/// This function panics if there is not current thread running on the CPU
 pub unsafe fn schedule() {
     {
         // If the current thread state is `Running`, we change it to `Ready`. We do

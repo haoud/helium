@@ -56,6 +56,7 @@ pub unsafe fn remap() {
 /// Check if the given IRQ number is in the range of the PICs. This is useful for checking if an
 /// interrupt handler should send an EOI to the PICs.
 /// The parameter `int` is the interrupt number raised by the CPU.
+#[must_use]
 pub fn concerned(int: u8) -> bool {
     (IRQ_BASE..IRQ_BASE + 16).contains(&int)
 }

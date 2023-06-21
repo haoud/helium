@@ -1,8 +1,8 @@
+use self::heap::Heap;
 use frame::{
     allocator::{dummy, Allocator},
     AllocationFlags,
 };
-use heap::LockedHeap;
 use limine::{LimineHhdmRequest, LimineMemmapRequest};
 use macros::init;
 use sync::Spinlock;
@@ -14,7 +14,7 @@ pub mod heap;
 pub static LIMINE_MEMMAP: LimineMemmapRequest = LimineMemmapRequest::new(0);
 
 /// The request to the limine bootloader to get a HHDM, mapping all the physical memory at a
-/// specific address (0xFFFF_8000_0000_0000).
+/// specific address (`0xFFFF_8000_0000_0000`).
 pub static LIMINE_HHDM: LimineHhdmRequest = LimineHhdmRequest::new(0);
 
 /// The frame allocator used by the kernel.
@@ -23,7 +23,7 @@ pub static FRAME_ALLOCATOR: Spinlock<dummy::Allocator> =
 
 /// The heap allocator used by the kernel
 #[global_allocator]
-static HEAP_ALLOCATOR: LockedHeap = LockedHeap::new(linked_list_allocator::Heap::empty());
+static HEAP_ALLOCATOR: Heap = Heap::new(linked_list_allocator::Heap::empty());
 
 /// The number of pages allocated for the heap (16 MiB).
 const HEAP_PAGE_COUNT: usize = 4096;

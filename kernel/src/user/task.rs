@@ -108,7 +108,7 @@ impl Task {
 /// Destroy a task by its identifier. Actually, this function just removes the task from the
 /// task list. In most cases, this function will effectively destroy the task, but there are
 /// more references to the task, it will not be destroyed until all references are dropped.
-pub fn destroy_task(tid: Identifier) {
+pub fn destroy(tid: Identifier) {
     TASK_LIST.lock().retain(|t| t.id() != tid);
 }
 
