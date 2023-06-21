@@ -3,14 +3,53 @@
 #![allow(dead_code)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
+#![feature(asm_const)]
+#![feature(step_trait)]
+#![feature(const_mut_refs)]
+#![feature(naked_functions)]
 #![feature(panic_info_message)]
+
+use macros::init;
+
+extern crate alloc;
 
 #[cfg(not(target_arch = "x86_64"))]
 compile_error!("Helium only supports x86_64 computers");
 
-extern crate alloc;
+pub mod arch;
+pub mod logger;
+pub mod mm;
+pub mod panic;
+pub mod syscall;
+pub mod user;
 
-use macros::init;
+#[init]
+#[no_mangle]
+pub unsafe extern "C" fn _start() -> ! {
+    // Initialize the logging system
+    logger::setup();
+
+    // Initialize the necessary x86_64 stuff that does not need the memory
+    // manager to be initialized
+    arch::early_setup();
+
+    // Initialize the memory manager and the allocators
+    mm::setup();
+
+    // Initialize the x86_64 architecture dependent code that
+    // needs the memory manager to be initialized first
+    arch::setup();
+
+    // Setup the userland environment
+    user::setup();
+
+    // Run the APs
+    arch::smp::go();
+
+    // Jump to userland
+    log::info!("Helium booted successfully !");
+    user::enter_userland();
+}
 
 /// A enum that represents the stopping reason of the kernel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -31,27 +70,8 @@ pub enum Stop {
 pub unsafe fn stop(code: Stop) -> ! {
     cfg_if::cfg_if! {
         if #[cfg(feature = "test")] {
-            crate::emulator::qemu::exit(code as u32);
+            qemu::exit(code as u32);
         }
     }
-    x86_64::cpu::freeze();
-}
-
-pub mod emulator;
-pub mod glue;
-pub mod logger;
-
-/// The entry point of the kernel. It setups the logger and the kernel.
-///
-/// # Safety
-/// Do I really have to explain why the entry point of the function that will initialize the kernel
-/// in a baremetal environment is not safe ? Anything can go wrong here...
-#[init]
-#[no_mangle]
-pub unsafe extern "C" fn _start() -> ! {
-    // Initialize the logging system
-    logger::setup();
-
-    // Initialize the kernel and jump into the userland
-    kernel::setup();
+    arch::cpu::freeze();
 }

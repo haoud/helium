@@ -37,17 +37,8 @@ name = "helium-addr"
 version = "0.1.0"
 
 [[package]]
-name = "helium-kernel"
+name = "helium-lib"
 version = "0.1.0"
-dependencies = [
- "helium-addr",
- "helium-macros",
- "helium-mm",
- "helium-sync",
- "helium-user",
- "helium-x86_64",
- "log",
-]
 
 [[package]]
 name = "helium-macros"
@@ -59,57 +50,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "helium-mm"
-version = "0.1.0"
-dependencies = [
- "bitfield",
- "bitflags",
- "helium-addr",
- "helium-macros",
- "helium-sync",
- "helium-utils",
- "limine",
- "linked_list_allocator",
- "log",
-]
-
-[[package]]
 name = "helium-sync"
 version = "0.1.0"
 dependencies = [
  "spin",
-]
-
-[[package]]
-name = "helium-user"
-version = "0.1.0"
-dependencies = [
- "elf",
- "helium-addr",
- "helium-macros",
- "helium-mm",
- "helium-sync",
- "helium-x86_64",
- "log",
-]
-
-[[package]]
-name = "helium-utils"
-version = "0.1.0"
-
-[[package]]
-name = "helium-x86_64"
-version = "0.1.0"
-dependencies = [
- "bitfield",
- "bitflags",
- "helium-addr",
- "helium-macros",
- "helium-mm",
- "helium-sync",
- "helium-utils",
- "limine",
- "log",
 ]
 
 [[package]]
@@ -119,13 +63,13 @@ dependencies = [
  "bitfield",
  "bitflags",
  "cfg-if",
- "helium-kernel",
+ "elf",
+ "helium-addr",
+ "helium-lib",
  "helium-macros",
- "helium-mm",
  "helium-sync",
- "helium-user",
- "helium-utils",
- "helium-x86_64",
+ "limine",
+ "linked_list_allocator",
  "log",
 ]
 
