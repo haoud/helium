@@ -1,6 +1,6 @@
 use super::task::{self, State, Task};
 use super::{current_task, schedule};
-use crate::arch;
+use crate::x86_64;
 use alloc::{sync::Arc, vec::Vec};
 use core::cell::RefCell;
 use macros::per_cpu;
@@ -152,10 +152,10 @@ fn idle() {
     unsafe {
         let current = CURRENT_TASK.local().borrow_mut().take();
         if let Some(task) = current {
-            arch::cpu::wait_for_interrupt();
+            x86_64::cpu::wait_for_interrupt();
             CURRENT_TASK.local().borrow_mut().replace(task);
         } else {
-            arch::cpu::wait_for_interrupt();
+            x86_64::cpu::wait_for_interrupt();
         }
     }
 }

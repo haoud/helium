@@ -1,4 +1,4 @@
-use crate::arch::{paging::PageTableRoot, thread::Thread};
+use crate::x86_64::{paging::PageTableRoot, thread::Thread};
 use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
 use sync::Spinlock;

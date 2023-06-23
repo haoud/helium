@@ -1,9 +1,7 @@
-use crate::arch;
-
 use self::round_robin::RoundRobin;
 use super::task::{self, Task};
+use crate::x86_64;
 use alloc::sync::Arc;
-use core::cell::RefCell;
 use macros::{init, per_cpu};
 use sync::Lazy;
 
@@ -19,7 +17,7 @@ static SCHEDULER: Lazy<RoundRobin> = Lazy::new(RoundRobin::default);
 /// To solve this problem, we store the task to drop here, and drop it after the next scheduler
 /// call.
 #[per_cpu]
-static DROP_LATER: RefCell<Option<Arc<Task>>> = RefCell::new(None);
+static mut DROP_LATER: Option<Arc<Task>> = None;
 
 /// A trait that represents a scheduler. This trait is used to abstract the scheduler
 /// implementation, allowing us to easily switch between different schedulers.
@@ -65,7 +63,7 @@ pub trait Scheduler {
         log::debug!("Running AP");
         let next = self.pick_next();
         self.set_current_task(Arc::clone(&next));
-        arch::thread::jump_to(&mut next.thread().lock());
+        x86_64::thread::jump_to(&mut next.thread().lock());
     }
 
     /// Schedule the current thread.
@@ -79,7 +77,8 @@ pub trait Scheduler {
 
         // If the previous thread was terminated, we need to drop it here. For more information,
         // see the comment on the `DROP_LATER` static variable.
-        DROP_LATER.local().borrow_mut().take();
+        // TODO: SAFETY
+        DROP_LATER.local_mut().take();
 
         // If the next thread is the same as the current one,
         // we do not need to switch threads (obviously)
@@ -96,8 +95,9 @@ pub trait Scheduler {
                 // If the current task is terminated, we need drop the thread later, and we
                 // does not need to save its state, since it will never be scheduled again.
                 task::State::Terminated => {
-                    DROP_LATER.local().borrow_mut().replace(current);
-                    arch::thread::jump_to(&mut next)
+                    // TODO: SAFETY
+                    DROP_LATER.local_mut().replace(current);
+                    x86_64::thread::jump_to(&mut next)
                 }
 
                 // If the current task is still in the running state, we need to change its
@@ -117,7 +117,7 @@ pub trait Scheduler {
 
             // Lock the current thread to allow switching saving its state
             let mut prev = current.thread().lock();
-            arch::thread::switch(&mut prev, &mut next);
+            x86_64::thread::switch(&mut prev, &mut next);
 
             // If we are here, that means that we have been rescheduled and our thread
             // has been switched back to. We can now safely unlock the thread lock.

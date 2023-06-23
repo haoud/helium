@@ -1,9 +1,9 @@
 use super::task::Task;
-use crate::arch::paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE};
 use crate::mm::{
     frame::{allocator::Allocator, AllocationFlags},
     FRAME_ALLOCATOR,
 };
+use crate::x86_64::paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE};
 use addr::Virtual;
 use alloc::sync::Arc;
 use core::cmp::min;

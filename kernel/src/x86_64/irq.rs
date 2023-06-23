@@ -7,9 +7,13 @@ use super::{
 use crate::user::scheduler;
 use macros::{init, interrupt, irq_handler};
 
+/// The IPI vector used to inform the CPU that a new timer tick is available.
 const CLOCK_VECTOR: u8 = 0x7E;
 
+/// The IRQ number of the PIT.
 const PIT_IRQ: u8 = 0;
+
+/// The IRQ number of the keyboard.
 const KEYBOARD_IRQ: u8 = 1;
 
 /// Install the IRQ handlers.
@@ -47,6 +51,83 @@ pub unsafe fn install() {
 fn register_irq_handler(index: u8, handler: unsafe extern "C" fn()) {
     idt::register_interruption(index, handler);
 }
+
+/// Disables interrupts on the current core.
+/// 
+/// # Safety
+/// This function is unsafe because disabling interrupts can have unexpected side effects if 
+/// a portion of code is designed to be executed with interrupts enabled.
+#[inline]
+pub unsafe fn disable() {
+    super::instruction::cli();
+}
+
+/// Enables interrupts on the current core.
+/// 
+/// # Safety
+/// This function is unsafe because enabling interrupts can cause undefined behavior if the
+/// GDT or the IDT is not properly initialized. It can also have unexpected side effects, and can
+/// create race conditions in some cases. For example, if an interrupt is triggered when a lock
+/// is held and the interrupt handler tries to acquire the same lock, it will deadlock and freeze
+/// the kernel.
+#[inline]
+pub unsafe fn enable() {
+    super::instruction::sti();
+}
+
+/// Returns the current interrupt state on the current core.
+#[inline]
+#[must_use]
+pub fn enabled() -> bool {
+    let flags: u64;
+    unsafe {
+        core::arch::asm!(
+            "pushfq",
+            "pop {}",
+            out(reg) flags
+        );
+    }
+    flags & (1 << 9) != 0
+}
+
+/// Restores a previous interrupt state.
+/// 
+/// # Safety
+/// This function is unsafe because it can cause undefined behavior when enabling or disabling
+/// interrupts. See the documentation of the `enable` and `disable` functions for more details.
+#[inline]
+pub unsafe fn restore(state: bool) {
+    match state {
+        false => disable(),
+        true => enable(),
+    }
+}
+
+/// Executes the given function with interrupts disabled. The previous interrupt state is restored
+/// after the function returns, so interrupts will not be re-enabled if they were disabled before
+/// calling this function. However, this function will not prevent exceptions from happening !
+///
+/// # Safety
+/// This function is safe to use, because it will not enable interrupts if they were disabled before
+/// calling it. We consider that if the interrupts were enabled before calling this function, then
+/// this is safe to re-enable them after the function returns.
+pub fn without<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    unsafe {
+        let irq = enabled();
+        if irq {
+            disable();
+        }
+        let ret = f();
+        if irq {
+            enable();
+        }
+        ret
+    }
+}
+
 
 /// The IRQ manager. This function is called by the IRQ handlers after they have saved the CPU
 /// state, and passed the state to this function. The IRQ triggered is passed as an argument in

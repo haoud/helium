@@ -3,11 +3,11 @@ use super::{
     gdt::{self, Selector},
     instruction, smp,
 };
-use core::cell::RefCell;
+use addr::Virtual;
 use macros::{init, per_cpu};
 
 #[per_cpu]
-pub static TSS: RefCell<TaskStateSegment> = RefCell::new(TaskStateSegment::default());
+static mut TSS: TaskStateSegment = TaskStateSegment::default();
 
 const SELECTOR_BASE_IDX: u16 = 6;
 
@@ -54,10 +54,22 @@ impl TaskStateSegment {
 #[allow(clippy::cast_possible_truncation)]
 pub unsafe fn install() {
     let index = SELECTOR_BASE_IDX + (smp::core_id() * 2) as u16;
-    let descriptor = gdt::Descriptor::tss(&TSS.local().borrow());
+    let descriptor = gdt::Descriptor::tss(&TSS.local());
     let selector = Selector::new(index, Privilege::KERNEL);
     gdt::GDT
         .lock()
         .set_descriptor(selector.index().into(), &descriptor);
     instruction::ltr(selector.0);
+}
+
+/// Set the kernel stack for the current CPU that will be used when handling interrupts: If a
+/// interruption is triggered while the CPU is in user mode (syscall, exception, etc.), the CPU
+/// will switch to the kernel stack before calling the interrupt handler.
+pub fn set_kernel_stack(stack: Virtual) {
+    // SAFETY: This is safe if we make sure that we does not create multiple
+    // mutable references to the TSS. Because this is a per-cpu variable, there
+    // is no data races possible.
+    unsafe {
+        TSS.local_mut().set_kernel_stack(u64::from(stack));
+    }
 }

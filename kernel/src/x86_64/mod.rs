@@ -39,6 +39,9 @@ pub unsafe fn early_setup() {
 
 #[init]
 pub unsafe fn setup() {
+    // Assume that the BSP is CPU 0
+    smp::per_cpu_setup(0);
+
     tss::install();
     paging::setup();
     apic::remap();

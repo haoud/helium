@@ -199,8 +199,8 @@ pub fn per_cpu(_: TokenStream, item: TokenStream) -> TokenStream {
 
     let old_type = var.ty.clone();
     let old_init = var.expr.clone();
-    let new_type = syn::parse_quote!(crate::arch::percpu::PerCpu<#old_type>);
-    let new_init = syn::parse_quote!(crate::arch::percpu::PerCpu::new(#old_init));
+    let new_type = syn::parse_quote!(crate::x86_64::percpu::PerCpu<#old_type>);
+    let new_init = syn::parse_quote!(crate::x86_64::percpu::PerCpu::new(#old_init));
 
     var.ty = Box::new(new_type);
     var.expr = Box::new(new_init);

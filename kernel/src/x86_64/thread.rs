@@ -2,8 +2,7 @@ use super::{
     gdt::Selector,
     msr,
     paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE},
-    percpu,
-    tss::TSS,
+    percpu, tss,
 };
 use crate::mm::{
     frame::{allocator::Allocator, AllocationFlags, Frame},
@@ -270,8 +269,6 @@ pub unsafe fn jump_to(thread: &mut Thread) -> ! {
 fn set_kernel_stack(stack: &KernelStack) {
     unsafe {
         percpu::set_kernel_stack(stack.base());
-        TSS.local()
-            .borrow_mut()
-            .set_kernel_stack(u64::from(stack.base()));
+        tss::set_kernel_stack(stack.base());
     }
 }

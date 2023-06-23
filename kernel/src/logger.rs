@@ -1,4 +1,4 @@
-use crate::arch::serial::{Port, Serial};
+use crate::x86_64::serial::{Port, Serial};
 use cfg_if::cfg_if;
 use core::fmt::Write;
 use macros::init;
