@@ -8,11 +8,11 @@ extern "C" {
     static __percpu_end: [u64; 0];
 }
 
-/// A guard for a per-cpu variable. This wrapper disables preemption when it is created and 
-/// enables it when it is dropped. This is absolutely necessary, because otherwise, the CPU 
+/// A guard for a per-cpu variable. This wrapper disables preemption when it is created and
+/// enables it when it is dropped. This is absolutely necessary, because otherwise, the CPU
 /// could be using the per-cpu variable of another CPU if a context switch happens when the
 /// variable is being accessed, which would be a disaster and very hard to debug.
-/// 
+///
 /// However, there is no need to disable interruptions: this is the caller responsibility to
 /// take care of that if necessary.
 pub struct PerCpuGuard<'a, T> {
@@ -110,10 +110,10 @@ impl<T> PerCpu<T> {
     }
 
     /// Return a reference to the per-cpu variable for the current CPU.
-    /// 
+    ///
     /// # Safety
     /// This function is return a reference to the per-cpu variable without any wrapper. This is
-    /// unsafe because he caller must ensure that the thread will not be switched to another CPU 
+    /// unsafe because he caller must ensure that the thread will not be switched to another CPU
     /// while it is using the per-cpu variable. For a safe version of this function, see the
     /// `local` method.
     pub unsafe fn local_unchecked(&self) -> &T {
@@ -122,10 +122,10 @@ impl<T> PerCpu<T> {
     }
 
     /// Return a mutable reference to the per-cpu variable for the current CPU.
-    /// 
+    ///
     /// # Safety
     /// This function is return a reference to the per-cpu variable without any wrapper. This is
-    /// unsafe because he caller must ensure that the thread will not be switched to another CPU 
+    /// unsafe because he caller must ensure that the thread will not be switched to another CPU
     /// while it is using the per-cpu variable. For a safe version of this function, see the
     /// `local_mut` method.
     pub unsafe fn local_mut_unchecked(&mut self) -> &mut T {

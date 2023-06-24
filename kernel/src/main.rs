@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 #![allow(clippy::match_bool)]
 #![allow(clippy::unreadable_literal)]
+#![allow(clippy::module_name_repetitions)]
 #![feature(asm_const)]
 #![feature(step_trait)]
 #![feature(const_mut_refs)]

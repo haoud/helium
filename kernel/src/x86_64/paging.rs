@@ -691,18 +691,15 @@ pub unsafe fn map(
         .fetch_last_entry(address, FetchBehavior::Allocate)
         .map_err(|_| MapError::OutOfMemory)?;
 
-    if !pte.present() {
+    if let Some(addr) = pte.address() {
+        log::warn!("Attempt to map an already mapped page (frame: {})", addr);
+        Err(MapError::AlreadyMapped)
+    } else {
         pte.set_flags(PageEntryFlags::PRESENT | flags);
         pte.set_address(frame.addr());
         tlb::shootdown(address);
-        return Ok(());
+        Ok(())
     }
-
-    log::warn!(
-        "Attempt to map an already mapped page (frame: {})",
-        pte.address().unwrap()
-    );
-    Err(MapError::AlreadyMapped)
 }
 
 /// Unmap the page mapped at the specified address. If an entry is the hierarchy is not present,

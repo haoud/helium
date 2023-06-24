@@ -47,8 +47,13 @@ pub fn destroy(tid: u64) -> Result<SyscallReturn, SyscallError> {
 
 /// Return the identifier of the current task.
 ///
+/// # Errors
+/// This function returns the identifier of the current task and should never fail.
+///
 /// # Panics
-/// This function panics if there is no current task running on the CPU.
-pub fn handle() -> Result<i64, SyscallError> {
+/// This function panics if there is no current task running on the CPU (which should
+/// never happen and is a bug).
+#[allow(clippy::cast_possible_wrap)]
+pub fn handle() -> Result<SyscallReturn, SyscallError> {
     Ok(scheduler::current_task().unwrap().id().0 as i64)
 }

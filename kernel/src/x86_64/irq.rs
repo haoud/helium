@@ -53,9 +53,9 @@ fn register_irq_handler(index: u8, handler: unsafe extern "C" fn()) {
 }
 
 /// Disables interrupts on the current core.
-/// 
+///
 /// # Safety
-/// This function is unsafe because disabling interrupts can have unexpected side effects if 
+/// This function is unsafe because disabling interrupts can have unexpected side effects if
 /// a portion of code is designed to be executed with interrupts enabled.
 #[inline]
 pub unsafe fn disable() {
@@ -63,7 +63,7 @@ pub unsafe fn disable() {
 }
 
 /// Enables interrupts on the current core.
-/// 
+///
 /// # Safety
 /// This function is unsafe because enabling interrupts can cause undefined behavior if the
 /// GDT or the IDT is not properly initialized. It can also have unexpected side effects, and can
@@ -91,7 +91,7 @@ pub fn enabled() -> bool {
 }
 
 /// Restores a previous interrupt state.
-/// 
+///
 /// # Safety
 /// This function is unsafe because it can cause undefined behavior when enabling or disabling
 /// interrupts. See the documentation of the `enable` and `disable` functions for more details.
@@ -127,7 +127,6 @@ where
         ret
     }
 }
-
 
 /// The IRQ manager. This function is called by the IRQ handlers after they have saved the CPU
 /// state, and passed the state to this function. The IRQ triggered is passed as an argument in

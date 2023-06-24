@@ -1,5 +1,10 @@
-# Parameters:
-# 
+# This is the function called when a syscall is made from user mode. It is written in assembly 
+# because the syscall instruction is a bit special because of some optimizations that are done
+# by the CPU. The most important one is that the CPU will not save the user stack pointer nor
+# switch to the kernel stack. Of course, it does not save any register either. So we have to
+# do all of this manually, and this cannot be done in Rust.
+#
+# Parameters: 
 # - RAX: syscall number
 # - RSI: arg1 (optional)
 # - RDX: arg2 (optional)
@@ -11,7 +16,7 @@
 # - RAX contains the return value (if the syscall return to user mode)
 syscall_enter:
     swapgs              # Switch to the kernel GS
-    mov gs:0x08, rsp    # Save the user stack pointer
+    mov gs:0x08, rsp    # Save the user stack pointer in the per-cpu area
     mov rsp, gs:0x0     # Set the kernel stack pointer
 
     # Save the user's stack pointer. We cannot rely where we just saved it

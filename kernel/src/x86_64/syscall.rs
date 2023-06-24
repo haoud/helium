@@ -1,6 +1,8 @@
 use super::msr;
+
 core::arch::global_asm!(include_str!("asm/syscall.asm"));
 
+// The entry point for system calls is defined in assembly
 extern "C" {
     fn syscall_enter();
 }
