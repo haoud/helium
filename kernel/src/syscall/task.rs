@@ -9,7 +9,7 @@ use crate::user::{scheduler, task};
 /// is rescheduled after it has exited.
 pub fn exit(code: u64) -> ! {
     let current = scheduler::current_task().unwrap();
-    current.change_state(task::State::Terminated);
+    current.change_state(task::State::Exiting);
 
     log::debug!("Task {} exited with code {}", current.id(), code);
     unsafe {
@@ -30,19 +30,21 @@ pub fn exit(code: u64) -> ! {
 /// # Errors
 /// This function returns `SyscallError::TaskNotFound` if the task does not exist, or
 /// `SyscallError::TaskInUse` if the task has not exited yet.
-pub fn destroy(tid: u64) -> Result<SyscallReturn, SyscallError> {
+#[must_use]
+pub fn destroy(tid: u64) -> SyscallReturn {
     let tid = task::Identifier::new(tid);
 
     if let Some(task) = task::get(tid) {
-        if task.state() != task::State::Terminated {
-            return Err(SyscallError::TaskInUse);
+        if task.state() != task::State::Exited {
+            return SyscallReturn::failure(SyscallError::TaskInUse);
         }
+        task.change_state(task::State::Terminated);
         scheduler::remove_task(tid);
-        task::destroy(tid);
-        return Ok(0);
+        task::remove(tid);
+        return SyscallReturn::success();
     }
 
-    Err(SyscallError::TaskNotFound)
+    SyscallReturn::failure(SyscallError::TaskNotFound)
 }
 
 /// Return the identifier of the current task.
@@ -53,7 +55,8 @@ pub fn destroy(tid: u64) -> Result<SyscallReturn, SyscallError> {
 /// # Panics
 /// This function panics if there is no current task running on the CPU (which should
 /// never happen and is a bug).
+#[must_use]
 #[allow(clippy::cast_possible_wrap)]
-pub fn handle() -> Result<SyscallReturn, SyscallError> {
-    Ok(scheduler::current_task().unwrap().id().0 as i64)
+pub fn handle() -> SyscallReturn {
+    SyscallReturn::from(scheduler::current_task().unwrap().id().0)
 }
