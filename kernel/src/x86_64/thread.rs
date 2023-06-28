@@ -4,19 +4,27 @@ use super::{
     paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE},
     percpu, tss,
 };
-use crate::mm::{
-    frame::{allocator::Allocator, AllocationFlags, Frame},
-    FRAME_ALLOCATOR,
+use crate::{
+    mm::{
+        frame::{allocator::Allocator, AllocationFlags, Frame},
+        FRAME_ALLOCATOR,
+    },
+    user::task::Task,
 };
 use addr::Virtual;
 use alloc::sync::Arc;
-use core::ops::Range;
+use core::ops::{Range, Sub};
+use lib::align::Align;
 
 core::arch::global_asm!(include_str!("asm/thread.asm"));
 
 extern "C" {
     fn switch_context(prev: *mut *mut State, next: *mut *mut State);
-    fn enter_userland(stack: u64) -> !;
+    fn restore_context(next: *mut *mut State) -> !;
+    fn enter_thread() -> !;
+
+    #[allow(improper_ctypes)]
+    fn exit_thread(current: *const Task, next: &mut Thread, stack: u64) -> !;
 }
 
 /// The state of a thread is saved in this structure when the thread is not running. This
@@ -34,28 +42,28 @@ extern "C" {
 #[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
 struct State {
-    pub rip: u64,
-    pub rbp: u64,
-    pub rbx: u64,
-    pub r12: u64,
-    pub r13: u64,
-    pub r14: u64,
-    pub r15: u64,
     pub rflags: u64,
+    pub r15: u64,
+    pub r14: u64,
+    pub r13: u64,
+    pub r12: u64,
+    pub rbx: u64,
+    pub rbp: u64,
+    pub rip: u64,
 }
 
 impl Default for State {
     #[allow(clippy::fn_to_numeric_cast)]
     fn default() -> Self {
         Self {
-            rip: enter_userland as u64,
-            rbp: 0,
-            rbx: 0,
-            r12: 0,
-            r13: 0,
-            r14: 0,
+            rflags: 0x202, // Interrupts enabled
             r15: 0,
-            rflags: 0x02, // Interrupts enabled
+            r14: 0,
+            r13: 0,
+            r12: 0,
+            rbx: 0,
+            rbp: 0,
+            rip: enter_thread as u64,
         }
     }
 }
@@ -84,14 +92,21 @@ impl KernelStack {
         }
     }
 
-    /// Write into the stack the trampoline that will be used to switch to the thread for the
-    /// first time. A small space of the stack is reserved for this purpose (see the `base`
-    /// method for more information).
-    fn write_initial_trampoline(&mut self, entry: u64, stack: u64) {
-        let base = self.base().as_mut_ptr::<u64>();
+    fn write_initial_kernel_trampoline(&mut self, entry: u64, stack: u64) {
+        let cs = u64::from(Selector::KERNEL_CODE.0);
+        let ss = u64::from(Selector::KERNEL_DATA.0);
+        self.write_initial_trampoline(entry, stack, cs, ss);
+    }
+
+    fn write_initial_user_trampoline(&mut self, entry: u64, stack: u64) {
         let cs = u64::from(Selector::USER_CODE.0);
         let ss = u64::from(Selector::USER_DATA.0);
-        let rflags = 0x02;
+        self.write_initial_trampoline(entry, stack, cs, ss);
+    }
+
+    fn write_initial_trampoline(&mut self, entry: u64, stack: u64, cs: u64, ss: u64) {
+        let base = self.base().as_mut_ptr::<u64>();
+        let rflags = 0x202;
 
         // Write in the stack the trampoline that will be used to switch to the thread for the
         // first time. It is simply the registers that will be restored by the iretq instruction.
@@ -128,6 +143,10 @@ impl KernelStack {
         core::ptr::addr_of_mut!(self.state)
     }
 
+    pub fn state_addr(&self) -> u64 {
+        self.state as u64
+    }
+
     /// Verify if the kernel stack contains the state of the thread.
     pub fn has_saved_state(&self) -> bool {
         self.state.is_null()
@@ -153,7 +172,7 @@ pub struct Thread {
 
 impl Thread {
     /// The number of frames used for the kernel stack
-    const KSTACK_FRAMES: usize = 4;
+    const KSTACK_FRAMES: usize = 40;
 
     /// Create a new thread with the given kernel stack, paging table, and FS and GS
     /// segment base addresses. It will allocate a kernel stack and write the initial
@@ -177,7 +196,7 @@ impl Thread {
         // `iretq` instruction. We can safely use the base address of the stack, because
         // the stack base is 64 bytes before the real end of the stack, allowing us to
         // use this space to create the stack frame.
-        kstack.write_initial_trampoline(entry, rsp);
+        kstack.write_initial_user_trampoline(entry, rsp);
         kstack.write_initial_state(State::default());
 
         // Compute the start and end address of the user stack
@@ -244,7 +263,8 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 
 /// Jump to the given thread. This function should be used when there is no need
 /// to save any thread state, for example when the kernel is starting the first
-/// thread after the boot process.
+/// thread after the boot process or when the kernel switch from a thread that
+/// has exited.
 /// Because this function doesn't save any thread state, it will never return to
 /// the caller. The thread will only be controlled by the interruption handlers.
 ///
@@ -258,8 +278,55 @@ pub unsafe fn jump_to(thread: &mut Thread) -> ! {
 
         thread.mm.set_current();
         set_kernel_stack(&thread.kstack);
-        enter_userland(u64::from(thread.kstack.base()))
+        restore_context(thread.kstack.state_ptr_mut());
     }
+}
+
+/// Exit the current thread and switch to the next thread. This function simply call
+/// the `exit_thread` function written in assembly with the right arguments. Because
+/// this function doesn't save any thread state, it will never return tothe caller after
+/// switching to the next thread.
+///
+/// # Safety
+/// This function is unsafe because it plays with raw pointers and CPU registers in order
+/// to be able to free the memory used by the current task and to switch to the next task.
+/// No need to say that this is highly unsafe, any bug or undefined behavior here can lead
+/// to a kernel panic or a security issue.
+pub unsafe fn exit(current: Arc<Task>, thread: &mut Thread) -> ! {
+    let stack = thread.kstack.state_addr().sub(16).align_down(16);
+    let prev = Arc::into_raw(current);
+    exit_thread(prev, thread, stack)
+}
+
+/// Terminates the current thread by changing the current page table to the next thread
+/// page table, drop the Arc to the current thread and jump to the next thread.
+///
+/// TODO: Explain why some precautions are taken here before dropping the Arc to the
+/// current thread.
+///
+/// This function should only be called the `exit_thread` function, written is assembly. That's
+/// why it is public, and should not be called directly.
+///
+/// # Safety
+/// This function is unsafe because it plays with raw pointers and CPU registers in order
+/// to be able to free the memory used by the current task and to switch to the next task.
+/// No need to say that this is highly unsafe, any bug or undefined behavior here can lead
+/// to a kernel panic or a security issue.
+/// 
+/// # Panics
+/// This function panic if the Arc counter of the current thread is less than 2, meaning that
+/// the kernel has a bug in the management of the Arc to threads. This should never happen.
+#[no_mangle]
+pub unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread) {
+    let prev = Arc::from_raw(current);
+    PageTableRoot::switch(&prev.thread().lock().mm(), &thread.mm());
+
+    // FIXME: Explain why we need to manually decrement the Arc counter here.
+    assert!(Arc::strong_count(&prev) >= 2);
+    log::debug!("counter: {}", Arc::strong_count(&prev));
+    Arc::decrement_strong_count(current);
+    core::mem::drop(prev);
+    jump_to(thread);
 }
 
 /// Set the given kernel stack as the current kernel stack. This will update the

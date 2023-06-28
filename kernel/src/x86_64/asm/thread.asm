@@ -1,3 +1,7 @@
+# Switch between the current and the next state. The current state will be saved on the stack
+# and then this function will restore the next state from the stack. This function may not
+# return to the caller if the task is destroyed.
+#
 # Parameters:
 # - rdi: Pointer to a pointer to the current state struct from where the current state will 
 #        be saved. The pointer to the pointer will be updated to point to the new state struct,
@@ -5,10 +9,9 @@
 #
 # - rsi: Pointer to a pointer to the new state struct from where the new state will be loaded. It
 #        will be set to null, because the state is no longer valid after the context switch.
-# 
-# This function may return to the caller if the saved state is restored. If the task is
-# detroyed, this function will not return, but this should not be a problem since this is
-# the desired behavior.
+#
+# Return value:
+#  - This function does not return any value.
 switch_context:
     # Save the current state on the stack
     push r15
@@ -19,10 +22,23 @@ switch_context:
     push rbp
     pushfq
 
-    # Set the pointer to the pointer to the current state struct to point to 
-    # the stack and then change the stack pointer to the top of the new kernelstack
+    # Set the pointer to the pointer to the current state struct to point to the stack
+    # and then call the restore_context function to restore the next state from the stack.
     mov [rdi], rsp
-    mov rsp, [rsi]
+    mov rdi, rsi
+    jmp restore_context
+
+# Restore a previously saved state from the stack.
+#
+# Parameters:
+# - rdi:  Pointer to a pointer to the state struct to be restored. The pointer to the pointer
+#         will be set to null, because the state is no longer valid after the context restore.
+#
+# Return value:
+#  - This function does not return.
+restore_context:
+    mov rsp, [rdi]          # Restore the stack pointer of the thread
+    mov DWORD ptr [rdi], 0  # Set the pointer to the new state struct to null
 
     # Restore the next state from the stack
     popfq
@@ -34,19 +50,19 @@ switch_context:
     pop r15
     ret
 
-# Enter to userland. This function is called from the kernel when it wants to enter to userland
-# for a task for the first time. It will set the stack pointer to the top of the new stack, clear
-# all registers to avoid leaking sensitive data and then swap to the user GS segment and go to
-# userland with the iretq instruction.
+# Called when a thread is executed for the first time. This function will clear all registers
+# to avoid leaking sensitive data and then go to the thread entry point, stored on the stack.
+# For more information about the stack layout, see the documentation for the thread struct and
+# its `new` method.
+# This function should not be called directly as it assume a specific stack layout that should
+# only be created by the `new` method of the thread struct.
 #
 # Parameters:
-# - rdi: Pointer to the top of the new stack
-# 
-# This function never returns to the caller.
-enter_userland:
-    # Set the stack pointer to the new stack 
-    mov rsp, rdi
-
+# - This function does not take any parameters.
+#
+# Return value:
+# - This function does not return.
+enter_thread:
     # Clear all registers to avoid leaking sensitive data
     xor r8, r8
     xor r9, r9
@@ -64,6 +80,24 @@ enter_userland:
     xor rdi, rdi
     xor rbp, rbp
 
-    # Swap to the user GS segment and go to userland
+    # Restore user GS if we was in user mode
+    cmp QWORD ptr [rsp + 8], 0x1B
+    jne 1f
     swapgs
+
+1:
     iretq
+
+# Called when a thread is terminated. This function simply change the kernel stack to the
+# one passed as parameter and then call the `terminate_thread` function to terminate the
+# thread and switch to the next thread.
+# 
+# Parameters:
+# - rdi: The task that will be exited. This not used by this function but passed to the 
+#        `terminate_thread` function.
+# - rsi: The next thread to be executed after the current thread is terminated. This not
+#        used by this function but passed to the `terminate_thread` function.
+# - rdx: The stack that will be used before calling the `terminate_thread` function.
+exit_thread:
+    mov rsp, rdx
+    jmp terminate_thread

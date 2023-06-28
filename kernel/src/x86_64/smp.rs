@@ -98,18 +98,22 @@ pub fn go() {
     GO.store(true, Ordering::Relaxed);
 }
 
+/// Tell the kernel that this AP has finished its initialization and wait for the BSP to finish
+/// its before returning.
+fn ap_wait() {
+    CPU_COUNT.fetch_add(1, Ordering::Relaxed);
+    while !GO.load(Ordering::Relaxed) {
+        core::hint::spin_loop();
+    }
+}
+
 /// This function is called when an AP is started. This initialize the AP, increment the CPU count
 /// and wait for the BSP to finish its initialization.
 #[no_mangle]
 extern "C" fn ap_start(info: *const LimineSmpInfo) -> ! {
     unsafe {
         ap_setup(&*info);
+        ap_wait();
+        user::scheduler::engage_cpu();
     }
-
-    CPU_COUNT.fetch_add(1, Ordering::Relaxed);
-    while !GO.load(Ordering::Relaxed) {
-        core::hint::spin_loop();
-    }
-
-    user::scheduler::engage_cpu();
 }

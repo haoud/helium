@@ -4,7 +4,7 @@
 .globl interrupt_enter
 interrupt_enter:
     # Swap the kernel and user GS if we was in user mode
-    cmp QWORD ptr [rsp + 8 * 4], 0x2B
+    cmp QWORD ptr [rsp + 8 * 3], 0x1B
     jne 1f
     swapgs
 
@@ -68,7 +68,7 @@ interrupt_exit:
     pop r11
 
     # Restore user GS if we was in user mode
-    cmp QWORD ptr [rsp + 8 * 4], 0x2B
+    cmp QWORD ptr [rsp + 8 * 3], 0x1B
     jne 1f
     swapgs
 

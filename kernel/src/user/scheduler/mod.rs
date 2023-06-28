@@ -2,7 +2,7 @@ use self::round_robin::RoundRobin;
 use super::task::{self, Task};
 use crate::x86_64;
 use alloc::sync::Arc;
-use macros::{init, per_cpu};
+use macros::init;
 use sync::Lazy;
 
 pub mod round_robin;
@@ -10,14 +10,6 @@ pub mod round_robin;
 /// The scheduler used by the kernel. This is a global variable to allow changing the scheduler
 /// implementation at compile time more easily.
 static SCHEDULER: Lazy<RoundRobin> = Lazy::new(RoundRobin::default);
-
-/// When a task is terminated, we cannot drop it immediately because it will be still used until
-/// the scheduler has scheduled another task. Unfortunately, the scheduling is done in assembly,
-/// meaning that we cannot drop the task here.
-/// To solve this problem, we store the task to drop here, and drop it after the next scheduler
-/// call.
-#[per_cpu]
-static mut DROP_LATER: Option<Arc<Task>> = None;
 
 /// A trait that represents a scheduler. This trait is used to abstract the scheduler
 /// implementation, allowing us to easily switch between different schedulers.
@@ -60,7 +52,6 @@ pub trait Scheduler {
     ///
     /// # Safety
     unsafe fn engage_cpu(&self) -> ! {
-        log::debug!("Running AP");
         let next = self.pick_next();
         self.set_current_task(Arc::clone(&next));
         x86_64::thread::jump_to(&mut next.thread().lock());
@@ -70,44 +61,31 @@ pub trait Scheduler {
     ///
     /// # Safety
     unsafe fn schedule(&self) {
-        let next = self.pick_next();
         let current = self.current_task().unwrap();
+        if current.state() == task::State::Running {
+            current.change_state(task::State::Ready);
+        }
+
+        let next = self.pick_next();
 
         self.set_current_task(Arc::clone(&next));
 
-        // If the previous thread was terminated, we need to drop it here. For more information,
-        // see the comment on the `DROP_LATER` static variable.
-        // TODO: SAFETY
-        DROP_LATER.local_mut().take();
+        log::debug!("Switching from {:?} to {:?}", current.id().0, next.id().0);
 
-        // If the next thread is the same as the current one,
-        // we do not need to switch threads (obviously)
+        // If the next thread is the same as the current one, we do not need to switch threads
         if current.id() != next.id() {
-            // Here, we force the lock of the next thread. This is necessary because the switching
-            // code is written in assembly, and we cannot unlock the thread lock in assembly when
-            // we have saved the state of this thread. Therefore, we unlock the thread lock here,
-            // but we must forget the lock guard further down, otherwise the lock will be unlocked
-            // twice.
+            current.thread().force_unlock();
             next.thread().force_unlock();
 
             let mut next = next.thread().lock();
+
             match current.state() {
-                // If the current task is terminated, we need drop the thread later, and we
-                // does not need to save its state, since it will never be scheduled again.
-                task::State::Terminated => {
-                    // TODO: SAFETY
-                    DROP_LATER.local_mut().replace(current);
-                    x86_64::thread::jump_to(&mut next)
-                }
+                // If the current task is exiting, we call a special function to exit the task
+                // that will do the necessary cleanup in free the memory used by the task before
+                // switching to the next task.
+                task::State::Exited => x86_64::thread::exit(current, &mut next),
 
-                // If the current task is still in the running state, we need to change its
-                // state to `Ready` before switching to the next task.
-                task::State::Running => current.change_state(task::State::Ready),
-
-                // If the current task is blocked, we do not need to do anything, not even
-                // change its state, because it will be automatically changed when it will
-                // be unblocked.
-                task::State::Blocked => (),
+                task::State::Blocked | task::State::Ready => (),
 
                 // Other states are not supposed to be scheduled and it is a bug if we are
                 // here. We panic in this case, because this is a bug in the kernel that
@@ -127,6 +105,7 @@ pub trait Scheduler {
             // be unlocked twice, which is undefined behavior and will most likely cause a
             // panic.
             core::mem::forget(next);
+            core::mem::forget(prev);
         }
     }
 }
@@ -167,22 +146,15 @@ pub fn timer_tick() {
 /// # Panics
 /// This function panics if there is not current thread running on the CPU
 pub unsafe fn schedule() {
-    {
-        // If the current thread state is `Running`, we change it to `Ready`. We do
-        // this here because the schedule function assume that the current thread
-        // state is not `Running`. This also allow the scheduler the continue this
-        // thread immediately if it is the only one available.
-        let current = current_task().unwrap();
-        if let task::State::Running = current.state() {
-            current.change_state(task::State::Ready);
-        }
-    }
     SCHEDULER.schedule();
 }
 
 /// Engage the current CPU in the scheduler.
-pub fn engage_cpu() -> ! {
-    unsafe { SCHEDULER.engage_cpu() }
+/// 
+/// # Safety
+/// This function is unsafe for the same
+pub unsafe fn engage_cpu() -> ! {
+    SCHEDULER.engage_cpu()
 }
 
 /// Return the current task running on the CPU. This function should return `None` if no task

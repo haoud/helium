@@ -156,7 +156,7 @@ pub struct DescriptorFlags(u16);
 impl DescriptorFlags {
     #[must_use]
     pub const fn new() -> Self {
-        Self(0x0F00)
+        Self(0x0E00)
     }
 
     #[must_use]
@@ -176,7 +176,7 @@ impl DescriptorFlags {
     /// enabled is set to false (default), the IF flag is cleared when the handler is invoked.
     #[must_use]
     pub fn with_interrupts(mut self, enabled: bool) -> Self {
-        self.0.set_bit(8, !enabled);
+        self.0.set_bit(8, enabled);
         self
     }
 
@@ -256,6 +256,7 @@ pub unsafe fn setup() {
 pub fn register_interruption(vector: u8, handler: unsafe extern "C" fn()) {
     let flags = DescriptorFlags::new()
         .set_privilege_level(Privilege::KERNEL)
+        .with_interrupts(false)
         .present(true);
 
     let descriptor = Descriptor::new()

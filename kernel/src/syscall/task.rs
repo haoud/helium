@@ -8,10 +8,15 @@ use crate::user::{scheduler, task};
 /// This function panics if there is no current task running on the CPU, or if the current task
 /// is rescheduled after it has exited.
 pub fn exit(code: u64) -> ! {
-    let current = scheduler::current_task().unwrap();
-    current.change_state(task::State::Exiting);
+    {
+        let current = scheduler::current_task().unwrap();
+        current.change_state(task::State::Exited);
+        scheduler::remove_task(current.id());
+        task::remove(current.id());
 
-    log::debug!("Task {} exited with code {}", current.id(), code);
+        log::debug!("Task {} exited with code {}", current.id(), code);
+    }
+
     unsafe {
         scheduler::schedule();
     }

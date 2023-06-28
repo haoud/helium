@@ -38,7 +38,7 @@ impl RoundRobin {
             .lock()
             .iter()
             .filter(|t| t.quantum > 0)
-            .find(|t| t.task.state() == State::Created || t.task.state() == State::Ready)
+            .find(|t| t.task.state().executable())
             .map(|t| {
                 t.task.change_state(State::Running);
                 Arc::clone(&t.task)
@@ -89,6 +89,7 @@ impl super::Scheduler for RoundRobin {
                 if let Some(task) = self.pick_task() {
                     break task;
                 }
+
                 idle();
             }
         }
@@ -126,14 +127,18 @@ impl super::Scheduler for RoundRobin {
     fn timer_tick(&self) {
         unsafe {
             if let Some(current) = current_task() {
-                let mut run_queue = self.run_queue.lock();
-                let running = run_queue
-                    .iter_mut()
-                    .find(|t| Arc::ptr_eq(&t.task, &current))
-                    .unwrap();
+                let quantum = {
+                    let mut run_queue = self.run_queue.lock();
+                    let running = run_queue
+                        .iter_mut()
+                        .find(|t| Arc::ptr_eq(&t.task, &current))
+                        .unwrap();
+    
+                    running.quantum -= 1;
+                    running.quantum
+                };
 
-                running.quantum -= 1;
-                if running.quantum == 0 {
+                if quantum == 0 {
                     schedule();
                 }
             }

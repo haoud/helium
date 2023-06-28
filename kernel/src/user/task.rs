@@ -1,6 +1,7 @@
 use crate::x86_64::{paging::PageTableRoot, thread::Thread};
 use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
+use log::debug;
 use sync::Spinlock;
 
 /// By default, all task stacks as the same base address. This is because we don't have a
@@ -9,6 +10,9 @@ use sync::Spinlock;
 /// this is not a problem for now.
 pub const STACK_BASE: u64 = 0x0000_7FFF_FFFF_0000;
 pub const STACK_SIZE: u64 = 64 * 1024;
+
+/// A counter used to generate unique identifiers for tasks
+static COUNTER: AtomicU64 = AtomicU64::new(1);
 
 /// Contains a list of all tasks in the system
 static TASK_LIST: Spinlock<Vec<Arc<Task>>> = Spinlock::new(Vec::new());
@@ -23,15 +27,24 @@ static TASK_LIST: Spinlock<Vec<Arc<Task>>> = Spinlock::new(Vec::new());
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Identifier(pub u64);
 impl Identifier {
+    /// Create a new identifier with the given value.
     #[must_use]
     pub fn new(id: u64) -> Self {
         Self(id)
     }
 
+    /// Generate a unique identifier. The generated identifier is guaranteed to be unique
+    /// across the lifetime of the kernel (identifier are never reused)
     #[must_use]
     pub fn generate() -> Self {
-        static COUNTER: AtomicU64 = AtomicU64::new(1);
         Self(COUNTER.fetch_add(1, Ordering::Relaxed))
+    }
+
+    /// Return the last identifier generated. This is used to know if an given identifier
+    /// exists (or has existed, since identifiers are never reused)
+    #[must_use]
+    pub fn last(&self) -> Self {
+        Self(COUNTER.load(Ordering::Relaxed))
     }
 }
 
@@ -41,12 +54,21 @@ impl core::fmt::Display for Identifier {
     }
 }
 
+impl From<u64> for Identifier {
+    fn from(id: u64) -> Self {
+        Self::new(id)
+    }
+}
+
 /// Represents the state of a task. A task can be in one of the following states:
 /// - `Created`: the task has been created but has not been scheduled yet
 /// - `Running`: the task is currently running on a CPU
 /// - `Ready`: the task is ready to run but is not currently running
 /// - `Blocked`: the task is blocked and cannot run
-/// - `Terminated`: the task has terminated and is waiting to be destroyed by
+/// - `Exiting`: the task is currently exiting
+/// - `Exited`: the task has exited and is waiting to be destroyed by the `task::destroy`
+/// - `Terminated`: the task was destroyed by the `task::destroy` syscall, but still exists
+///  in memory. It will be deleted when the last reference to it will be dropped.
 /// the `task::destroy` syscall
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum State {
@@ -54,7 +76,18 @@ pub enum State {
     Running,
     Ready,
     Blocked,
+    Exited,
     Terminated,
+}
+
+impl State {
+    /// Verify if the task is in an executable state. This is used to know if the task
+    /// can be picked by the scheduler to be executed or not. If a task is already running,
+    /// this function considers it as not executable (because it is already executed)
+    #[must_use]
+    pub fn executable(&self) -> bool {
+        matches!(self, State::Created | State::Ready)
+    }
 }
 
 pub struct Task {
@@ -78,7 +111,7 @@ impl Task {
         TASK_LIST.lock().push(Arc::clone(&task));
         task
     }
-
+    
     /// Atomically change the state of the task.
     pub fn change_state(&self, state: State) {
         *self.state.lock() = state;
@@ -105,10 +138,16 @@ impl Task {
     }
 }
 
-/// Destroy a task by its identifier. Actually, this function just removes the task from the
+impl Drop for Task {
+    fn drop(&mut self) {
+        debug!("Task {} dropped", self.id);
+    }
+}
+
+/// Remove a task by its identifier. This function just removes the task from the
 /// task list. In most cases, this function will effectively destroy the task, but there are
 /// more references to the task, it will not be destroyed until all references are dropped.
-pub fn destroy(tid: Identifier) {
+pub fn remove(tid: Identifier) {
     TASK_LIST.lock().retain(|t| t.id() != tid);
 }
 
