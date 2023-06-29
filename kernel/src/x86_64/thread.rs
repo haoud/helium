@@ -300,31 +300,27 @@ pub unsafe fn exit(current: Arc<Task>, thread: &mut Thread) -> ! {
 
 /// Terminates the current thread by changing the current page table to the next thread
 /// page table, drop the Arc to the current thread and jump to the next thread.
-///
-/// TODO: Explain why some precautions are taken here before dropping the Arc to the
-/// current thread.
+/// The code may appear more complicated than it should be, but it is needed because we must
+/// change the kernel stack and the page table before dropping the Arc to the current thread
+/// because it belong to the current thread that could be dropped here and thus creating a
+/// use after free.
 ///
 /// This function should only be called the `exit_thread` function, written is assembly. That's
-/// why it is public, and should not be called directly.
+/// why it is public, even if it should not be called directly.
 ///
 /// # Safety
 /// This function is unsafe because it plays with raw pointers and CPU registers in order
 /// to be able to free the memory used by the current task and to switch to the next task.
 /// No need to say that this is highly unsafe, any bug or undefined behavior here can lead
 /// to a kernel panic or a security issue.
-/// 
-/// # Panics
-/// This function panic if the Arc counter of the current thread is less than 2, meaning that
-/// the kernel has a bug in the management of the Arc to threads. This should never happen.
 #[no_mangle]
 pub unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread) {
     let prev = Arc::from_raw(current);
     PageTableRoot::switch(&prev.thread().lock().mm(), &thread.mm());
 
-    // FIXME: Explain why we need to manually decrement the Arc counter here.
-    assert!(Arc::strong_count(&prev) >= 2);
-    log::debug!("counter: {}", Arc::strong_count(&prev));
-    Arc::decrement_strong_count(current);
+    // Drop the Arc to the current thread before leaving this thread forever. This
+    // must be done here because this function will never return to the caller and
+    // therefore the Arc will never be dropped if we don't do it here.
     core::mem::drop(prev);
     jump_to(thread);
 }

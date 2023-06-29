@@ -133,7 +133,7 @@ impl super::Scheduler for RoundRobin {
                         .iter_mut()
                         .find(|t| Arc::ptr_eq(&t.task, &current))
                         .unwrap();
-    
+
                     running.quantum -= 1;
                     running.quantum
                 };

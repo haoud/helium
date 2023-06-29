@@ -1,6 +1,8 @@
 use limine::LimineSmpInfo;
 use macros::init;
 
+use crate::user::scheduler;
+
 pub mod apic;
 pub mod cpu;
 pub mod exception;
@@ -59,4 +61,5 @@ unsafe fn ap_setup(info: &LimineSmpInfo) {
     tss::install();
     lapic::enable();
     syscall::setup();
+    scheduler::setup();
 }

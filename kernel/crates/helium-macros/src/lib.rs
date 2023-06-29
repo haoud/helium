@@ -214,7 +214,6 @@ pub fn per_cpu(_: TokenStream, item: TokenStream) -> TokenStream {
 // `syscall_handler`, and will make sure that the function is exported with the C ABI.
 // This macro should only be used on one function in the entire kernel. Multiple functions
 // with this macro will cause the linker to fail with a duplicate symbol error.
-// TODO: More check to the function (arguments, return type, etc.)
 #[proc_macro_attribute]
 pub fn syscall_handler(_: TokenStream, item: TokenStream) -> TokenStream {
     let mut var = parse_macro_input!(item as ItemFn);

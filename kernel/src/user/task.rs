@@ -111,7 +111,7 @@ impl Task {
         TASK_LIST.lock().push(Arc::clone(&task));
         task
     }
-    
+
     /// Atomically change the state of the task.
     pub fn change_state(&self, state: State) {
         *self.state.lock() = state;
