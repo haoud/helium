@@ -540,9 +540,13 @@ impl PageTableRoot {
     /// freed while it is in use. The caller must also ensure that the page table root is
     /// correctly initialized.
     pub unsafe fn set_current(&self) {
-        // TODO: Read the current CR3 register and only update it if it is different from the
-        // current one. This will avoid unnecessary TLB flushes and should improve performance.
-        cpu::write_cr3(u64::from(self.frame.addr()));
+        // Before changing the CR3 register, we check if the current page table root is already
+        // loaded in the CR3 register. If it is, we do not need to do anything. This improves
+        // performance because ANY write to the CR3 register will flush the TLB, even if the
+        // value is the same as the current one.
+        if cpu::read_cr3() != u64::from(self.frame.addr()) {
+            cpu::write_cr3(u64::from(self.frame.addr()));
+        }
     }
 }
 
@@ -675,6 +679,10 @@ pub unsafe fn setup() {
 
 /// Map a frame at the specified virtual address. If the address is already mapped, an error is
 /// returned.
+/// 
+/// # Errors
+/// If the frame cannot be mapped at the specified address, an `MapError` is returned, containing
+/// the reason why the frame cannot be mapped.
 ///
 /// # Safety
 /// This function is unsafe because the caller must ensure that the frame will remain free until
@@ -706,6 +714,11 @@ pub unsafe fn map(
 /// we return an error, otherwise we clear the entry, flush the TLB on all CPUs, and return the
 /// previously mapped physical frame. It is the responsibility of the caller to free the returned
 /// frame.
+/// 
+/// # Errors
+/// If the address is not mapped, an `UnmapError` is returned, describing the error. Otherwise, 
+/// the function returns the previously mapped frame. The caller is responsible for freeing the
+/// frame if needed.
 ///
 /// # Safety
 /// This function is unsafe because the caller must ensure that the virtual address will not be
@@ -768,6 +781,10 @@ unsafe fn deallocate_recursive(table: &mut [PageEntry], level: Level) {
     FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(phys));
 }
 
+/// Handle a page fault exception. 
+/// 
+/// # Panics
+/// For now, a page fault is always a fatal error since we don't support demand paging yet.
 pub fn handle_page_fault(addr: Virtual, _: PageFaultErrorCode) {
     panic!("Page fault exception at {:#x}", addr);
 }

@@ -1,7 +1,6 @@
+use crate::user::scheduler;
 use limine::LimineSmpInfo;
 use macros::init;
-
-use crate::user::scheduler;
 
 pub mod apic;
 pub mod cpu;
@@ -27,6 +26,15 @@ pub mod tss;
 /// The maximum number of CPUs supported by the kernel. This should be enough for a while.
 const MAX_CPUS: usize = 32;
 
+/// This function is one of the first function called by the kernel during the boot process
+/// and is responsible for initializing basic hardware features like the GDT, IDT, PIC, PIT, etc
+/// in order to have a working environment for the rest of the kernel. This function work in
+/// a minimal environment and should not use any feature that is not already initialized, like
+/// the memory manager.
+///
+/// # Safety
+/// This function is unsafe because it initializes a lot of hardware devices or low level CPU
+/// features that need the use of `unsafe` code to work properly.
 #[init]
 pub unsafe fn early_setup() {
     gdt::setup();
@@ -39,6 +47,11 @@ pub unsafe fn early_setup() {
     syscall::setup();
 }
 
+/// This function is called after the memory manager was initialized.
+///
+/// # Safety
+/// This function is unsafe because it initializes a lot of hardware devices or low level CPU
+/// features that need the use of `unsafe` code to work properly.
 #[init]
 pub unsafe fn setup() {
     // Assume that the BSP is CPU 0
@@ -51,6 +64,9 @@ pub unsafe fn setup() {
     smp::start_cpus();
 }
 
+/// This function is called by the APs after their startup. It is responsible for initializing
+/// per-CPU features like the GDT, IDT, TSS, etc. This function do less work than the BSP setup
+/// function because the BSP already initialized a lot of things that only need to be done once.
 #[init]
 #[inline(never)]
 unsafe fn ap_setup(info: &LimineSmpInfo) {

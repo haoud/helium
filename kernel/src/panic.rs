@@ -1,9 +1,19 @@
-use crate::{stop, x86_64, Stop};
+use crate::{
+    stop,
+    x86_64::{
+        self,
+        lapic::{self, IpiDestination, IpiPriority},
+    },
+    Stop,
+};
 use cfg_if::cfg_if;
 
 #[cold]
 #[panic_handler]
 unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
+    // Send a non-maskable interrupt to all other CPUs to stop them.
+    lapic::send_ipi(IpiDestination::Other, IpiPriority::Nmi, 0);
+
     cfg_if!(
         if #[cfg(feature = "panic-info")] {
             crate::logger::on_panic();

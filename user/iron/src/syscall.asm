@@ -5,5 +5,5 @@
 .globl exit
 exit:
     xor rax, rax
+    mov rsi, rdi
     syscall
-    

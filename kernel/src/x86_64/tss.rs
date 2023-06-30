@@ -66,9 +66,10 @@ pub unsafe fn install() {
 /// interruption is triggered while the CPU is in user mode (syscall, exception, etc.), the CPU
 /// will switch to the kernel stack before calling the interrupt handler.
 pub fn set_kernel_stack(stack: Virtual) {
-    // SAFETY: This is safe if we make sure that we does not create multiple
-    // mutable references to the TSS. Because this is a per-cpu variable, there
-    // is no data races possible.
+    // SAFETY: This is safe if we make sure that we make sure that we does not create multiple
+    // mutable references to the TSS. And because this is a per-cpu variable, this static 
+    // variable is only accessed by the current CPU and therefore implement the Send and Sync
+    // traits.
     unsafe {
         TSS.local_mut().set_kernel_stack(u64::from(stack));
     }

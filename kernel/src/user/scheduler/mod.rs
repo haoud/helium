@@ -174,9 +174,7 @@ pub trait Scheduler {
 
 /// Setup the scheduler
 #[init]
-pub fn setup() {
-
-}
+pub fn setup() {}
 
 /// Add a task to the scheduler. The task will be added to the run queue, and will be
 /// available to be run by the scheduler.

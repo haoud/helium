@@ -74,6 +74,12 @@ fn debug(_state: &InterruptFrame) {
     panic!("Debug exception");
 }
 
+/// A non-maskable interrupt (NMI) is a hardware interrupt that standard interrupt-masking
+/// techniques in the system cannot ignore. It typically occurs to signal attention for
+/// non-recoverable hardware errors.
+/// Since it cannot be ignored, the NMI is often used to handle important tasks such as
+/// the correction of memory errors and other hardware errors but in our case, we just
+/// halt the CPU forever. This is also used when the kernel panics to stop all the CPUs.
 #[exception]
 fn non_maskable_interrupt(_state: &InterruptFrame) {
     cpu::freeze();
