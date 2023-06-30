@@ -27,7 +27,7 @@ pub mod user;
 pub mod x86_64;
 
 /// # The entry point of the kernel. Initialises the kernel and jumps to userland.
-/// 
+///
 /// # Safety
 /// This function is highly unsafe because we are in a minimal environment and we have to
 /// initialize a lot of things before we can do anything. Since we are in a bare metal environment,

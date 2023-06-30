@@ -6,7 +6,7 @@ use crate::mm::{
 use crate::x86_64::paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE};
 use addr::Virtual;
 use alloc::sync::Arc;
-use core::cmp::min;
+use core::{cmp::min, num::TryFromIntError};
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
 
 /// Error that can occur when loading an ELF file
@@ -25,6 +25,12 @@ impl From<addr::InvalidVirtual> for LoadError {
     }
 }
 
+impl From<TryFromIntError> for LoadError {
+    fn from(_: TryFromIntError) -> Self {
+        LoadError::InvalidOffset
+    }
+}
+
 impl From<elf::ParseError> for LoadError {
     fn from(_: elf::ParseError) -> Self {
         LoadError::InvalidElf
@@ -34,8 +40,13 @@ impl From<elf::ParseError> for LoadError {
 /// Parse an ELF file, load it into the passed page table, and return a new task with the entry
 /// point of the ELF file as the entry point of the task.
 ///
-/// TODO: More check should be done to handle any possible error, especially with ELF offsets,
-/// size or addresses.
+/// # Errors
+/// Returns an `LoadError` if the the ELF file could not be loaded. On success, returns a new task
+/// with the entry point of the ELF file as the entry point of the task.
+///
+/// # Panics
+/// Panics if the kernel ran out of memory when loading the ELF file.
+#[allow(clippy::cast_possible_truncation)]
 pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError> {
     let elf = check_elf(ElfBytes::<NativeEndian>::minimal_parse(file)?)?;
 
@@ -81,14 +92,14 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError>
                 // The source address in the ELF file
                 let src = file
                     .as_ptr()
-                    .offset(phdr.p_offset as isize)
-                    .offset(segment_offset as isize);
+                    .offset(isize::try_from(phdr.p_offset)?)
+                    .offset(isize::try_from(segment_offset)?);
 
                 // The destination address in the virtual address space (use the HHDM to directly
                 // write to the physical frame)
                 let dst = Virtual::from(frame.addr())
                     .as_mut_ptr::<u8>()
-                    .offset(start_offset as isize);
+                    .offset(isize::try_from(start_offset)?);
 
                 // The remaning bytes to copy from the segment
                 let remaning = phdr

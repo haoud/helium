@@ -67,7 +67,7 @@ pub unsafe fn install() {
 /// will switch to the kernel stack before calling the interrupt handler.
 pub fn set_kernel_stack(stack: Virtual) {
     // SAFETY: This is safe if we make sure that we make sure that we does not create multiple
-    // mutable references to the TSS. And because this is a per-cpu variable, this static 
+    // mutable references to the TSS. And because this is a per-cpu variable, this static
     // variable is only accessed by the current CPU and therefore implement the Send and Sync
     // traits.
     unsafe {

@@ -5,7 +5,7 @@ use frame::{
 };
 use limine::{LimineHhdmRequest, LimineMemmapRequest};
 use macros::init;
-use sync::Spinlock;
+use sync::{Lazy, Spinlock};
 
 pub mod frame;
 pub mod heap;
@@ -18,8 +18,15 @@ pub static LIMINE_MEMMAP: LimineMemmapRequest = LimineMemmapRequest::new(0);
 pub static LIMINE_HHDM: LimineHhdmRequest = LimineHhdmRequest::new(0);
 
 /// The frame allocator used by the kernel.
-pub static FRAME_ALLOCATOR: Spinlock<dummy::Allocator> =
-    Spinlock::new(dummy::Allocator::uninitialized());
+pub static FRAME_ALLOCATOR: Lazy<Spinlock<dummy::Allocator>> = Lazy::new(|| {
+    let mmap = LIMINE_MEMMAP
+        .get_response()
+        .get()
+        .expect("No memory map found")
+        .memmap();
+
+    Spinlock::new(dummy::Allocator::new(mmap))
+});
 
 /// The heap allocator used by the kernel
 #[global_allocator]
@@ -37,17 +44,9 @@ const HEAP_PAGE_COUNT: usize = 4096;
 /// memory subsystem.
 #[init]
 pub unsafe fn setup() {
-    let mmap = LIMINE_MEMMAP
-        .get_response()
-        .get()
-        .expect("No memory map found")
-        .memmap();
-
-    *FRAME_ALLOCATOR.lock() = dummy::Allocator::new(mmap);
-
     let frames = FRAME_ALLOCATOR
         .lock()
         .allocate_range(HEAP_PAGE_COUNT, AllocationFlags::KERNEL)
-        .expect("Failed to allocate heap");
+        .expect("Failed to allocate memory for the heap");
     HEAP_ALLOCATOR.init(frames);
 }

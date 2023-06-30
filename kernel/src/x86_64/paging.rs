@@ -679,7 +679,7 @@ pub unsafe fn setup() {
 
 /// Map a frame at the specified virtual address. If the address is already mapped, an error is
 /// returned.
-/// 
+///
 /// # Errors
 /// If the frame cannot be mapped at the specified address, an `MapError` is returned, containing
 /// the reason why the frame cannot be mapped.
@@ -714,9 +714,9 @@ pub unsafe fn map(
 /// we return an error, otherwise we clear the entry, flush the TLB on all CPUs, and return the
 /// previously mapped physical frame. It is the responsibility of the caller to free the returned
 /// frame.
-/// 
+///
 /// # Errors
-/// If the address is not mapped, an `UnmapError` is returned, describing the error. Otherwise, 
+/// If the address is not mapped, an `UnmapError` is returned, describing the error. Otherwise,
 /// the function returns the previously mapped frame. The caller is responsible for freeing the
 /// frame if needed.
 ///
@@ -781,8 +781,8 @@ unsafe fn deallocate_recursive(table: &mut [PageEntry], level: Level) {
     FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(phys));
 }
 
-/// Handle a page fault exception. 
-/// 
+/// Handle a page fault exception.
+///
 /// # Panics
 /// For now, a page fault is always a fatal error since we don't support demand paging yet.
 pub fn handle_page_fault(addr: Virtual, _: PageFaultErrorCode) {

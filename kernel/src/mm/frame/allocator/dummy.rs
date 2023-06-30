@@ -28,15 +28,6 @@ impl Allocator {
             state: State::new(mmap),
         }
     }
-
-    /// Creates a new uninitialized allocator. The allocator should not be used in this state, this
-    /// function exists only allowing an runtime initialization of global variables easily.
-    #[must_use]
-    pub const fn uninitialized() -> Self {
-        Self {
-            state: State::uninitialized(),
-        }
-    }
 }
 
 unsafe impl super::Allocator for Allocator {
