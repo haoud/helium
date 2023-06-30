@@ -14,7 +14,7 @@ pub fn exit(code: u64) -> ! {
         scheduler::remove_task(current.id());
         task::remove(current.id());
 
-        log::debug!("Task {} exited with code {}", current.id(), code);
+        log::debug!("Task{} exited with code {}", current.id(), code);
     }
 
     unsafe {

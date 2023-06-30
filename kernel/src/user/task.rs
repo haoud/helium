@@ -1,4 +1,7 @@
-use crate::x86_64::{paging::PageTableRoot, thread::Thread};
+use crate::x86_64::{
+    paging::PageTableRoot,
+    thread::{KernelThreadFn, Thread},
+};
 use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
 use log::debug;
@@ -97,11 +100,23 @@ pub struct Task {
 }
 
 impl Task {
+    #[must_use]
+    pub fn kernel(entry: KernelThreadFn) -> Arc<Task> {
+        let thread = Thread::kernel(entry);
+        let task = Arc::new(Self {
+            id: Identifier::generate(),
+            state: Spinlock::new(State::Created),
+            thread: Spinlock::new(thread),
+        });
+        TASK_LIST.lock().push(Arc::clone(&task));
+        task
+    }
+
     /// Create a new task in the `Created` state with the given memory map and entry
     /// point, add it to the task list and return it. It return an `Arc` to the task
     /// so that it can be shared between multiple kernel subsystems.
     #[must_use]
-    pub fn new(mm: Arc<PageTableRoot>, entry: u64) -> Arc<Task> {
+    pub fn user(mm: Arc<PageTableRoot>, entry: u64) -> Arc<Task> {
         let thread = Thread::new(mm, entry, STACK_BASE, STACK_SIZE);
         let task = Arc::new(Self {
             id: Identifier::generate(),
@@ -110,6 +125,11 @@ impl Task {
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
+    }
+
+    #[must_use]
+    pub fn idle() -> Arc<Task> {
+        Self::kernel(super::idle)
     }
 
     /// Atomically change the state of the task.

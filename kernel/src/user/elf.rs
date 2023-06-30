@@ -108,7 +108,7 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError>
         }
     }
 
-    Ok(Task::new(mm, elf.ehdr.e_entry))
+    Ok(Task::user(mm, elf.ehdr.e_entry))
 }
 
 /// Convert the ELF flags of a section into the paging flags, used to map the section with

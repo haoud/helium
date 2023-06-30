@@ -1,15 +1,20 @@
 use super::task::{self, State, Task};
 use super::{current_task, schedule};
-use crate::x86_64;
 use alloc::{sync::Arc, vec::Vec};
 use core::cell::RefCell;
 use macros::per_cpu;
-use sync::Spinlock;
+use sync::{Lazy, Spinlock};
 
 /// The current task running on the CPU. This is a per-CPU variable, so each CPU has its own
 /// current task. If the CPU is idle, this variable is set to `None`.
 #[per_cpu]
 pub static CURRENT_TASK: RefCell<Option<Arc<Task>>> = RefCell::new(None);
+
+/// The idle task associated with the CPU. This is a per-CPU variable, so each CPU has its own
+/// idle task. The idle task is a task that is always ready to run and is used when no other
+/// task are ready to run.
+#[per_cpu]
+pub static IDLE_TASK: Lazy<Arc<Task>> = Lazy::new(Task::idle);
 
 /// A task that can be run by the scheduler. This structure contains a task and its quantum. The
 /// quantum is the number of ticks that the task can run before being forced to be preempted.
@@ -81,18 +86,16 @@ impl super::Scheduler for RoundRobin {
     /// If no task is ready to run yet, it will wait for the next interrupt and then retry until
     /// a task is found.
     fn pick_next(&self) -> Arc<Task> {
-        if let Some(task) = self.pick_task() {
-            task
-        } else {
-            loop {
+        self.pick_task()
+            .or_else(|| {
                 self.redistribute();
-                if let Some(task) = self.pick_task() {
-                    break task;
-                }
-
-                idle();
-            }
-        }
+                self.pick_task()
+            })
+            .unwrap_or_else(|| {
+                let idle = Arc::clone(&IDLE_TASK.local());
+                idle.change_state(State::Running);
+                idle
+            })
     }
 
     /// Adds a task to the run list
@@ -127,40 +130,27 @@ impl super::Scheduler for RoundRobin {
     fn timer_tick(&self) {
         unsafe {
             if let Some(current) = current_task() {
-                let quantum = {
-                    let mut run_queue = self.run_queue.lock();
-                    let running = run_queue
-                        .iter_mut()
-                        .find(|t| Arc::ptr_eq(&t.task, &current))
-                        .unwrap();
+                let reschedule = if Arc::ptr_eq(&current, &IDLE_TASK.local()) {
+                    true
+                } else {
+                    let quantum = {
+                        let mut run_queue = self.run_queue.lock();
+                        let running = run_queue
+                            .iter_mut()
+                            .find(|t| Arc::ptr_eq(&t.task, &current))
+                            .unwrap();
 
-                    running.quantum -= 1;
-                    running.quantum
+                        running.quantum -= 1;
+                        running.quantum
+                    };
+
+                    quantum == 0
                 };
 
-                if quantum == 0 {
+                if reschedule {
                     schedule();
                 }
             }
-        }
-    }
-}
-
-/// Called when no other task is ready to run. This will simply wait for the next interrupt
-/// and return. This is the caller responsibility to check if there is a task ready to run
-/// after this function returns.
-fn idle() {
-    // We are idle and no task is ready to run, so we set the current task to
-    //`None` and wait for the next interrupt.
-    // We still need to save the current task because it will be restored when
-    // an interrupt will occur because wwe still are in the task context.
-    unsafe {
-        let current = CURRENT_TASK.local().borrow_mut().take();
-        if let Some(task) = current {
-            x86_64::cpu::wait_for_interrupt();
-            CURRENT_TASK.local().borrow_mut().replace(task);
-        } else {
-            x86_64::cpu::wait_for_interrupt();
         }
     }
 }

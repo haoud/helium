@@ -1,4 +1,4 @@
-use crate::mm::frame::{state::State, AllocationFlags, Frame, FrameFlags, FrameIndex};
+use crate::{mm::frame::{state::State, AllocationFlags, Frame, FrameFlags, FrameIndex}};
 use addr::Virtual;
 use core::ops::Range;
 use limine::{LimineMemmapEntry, NonNullPtr};

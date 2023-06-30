@@ -93,10 +93,10 @@ pub trait Scheduler {
 
         self.set_current_task(Arc::clone(&task));
 
-        log::debug!("Switching from {:?} to {:?}", current.id().0, task.id().0);
-
         // If the next thread is the same as the current one, we do not need to switch threads
         if current.id() != task.id() {
+            log::debug!("Switching from {:?} to {:?}", current.id().0, task.id().0);
+
             // Here, we must force the unlocking of the current thread, acquired by the
             // scheduler when it was resumed and of the next thread, acquired by the scheduler
             // when it was suspended. We can consider that as as an advance on the use of locks,
@@ -175,9 +175,7 @@ pub trait Scheduler {
 /// Setup the scheduler
 #[init]
 pub fn setup() {
-    Lazy::force(&SCHEDULER);
 
-    // TODO: Load the idle task
 }
 
 /// Add a task to the scheduler. The task will be added to the run queue, and will be

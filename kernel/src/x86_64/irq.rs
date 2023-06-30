@@ -75,6 +75,17 @@ pub unsafe fn enable() {
     super::instruction::sti();
 }
 
+/// Waits for the next interrupt to happen.
+///
+/// # Safety
+/// This function is unsafe because it can cause unexpected side effects if used incorrectly.
+/// For example, if interrupts are disabled, this function will likely wait forever and freeze
+/// the kernel.
+#[inline]
+pub unsafe fn wait() {
+    super::instruction::hlt();
+}
+
 /// Returns the current interrupt state on the current core.
 #[inline]
 #[must_use]

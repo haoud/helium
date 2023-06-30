@@ -1,4 +1,4 @@
-use crate::x86_64::paging::PageTableRoot;
+use crate::x86_64::{self, paging::PageTableRoot};
 use alloc::sync::Arc;
 use macros::init;
 
@@ -64,4 +64,13 @@ pub fn setup() {
 /// because it use pointer and assembly to jump to the init task.
 pub unsafe fn enter_userland() -> ! {
     scheduler::engage_cpu();
+}
+
+pub fn idle() -> ! {
+    loop {
+        unsafe {
+            x86_64::irq::enable();
+            x86_64::irq::wait();
+        }
+    }
 }

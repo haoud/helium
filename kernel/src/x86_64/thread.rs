@@ -27,6 +27,8 @@ extern "C" {
     fn exit_thread(current: *const Task, next: &mut Thread, stack: u64) -> !;
 }
 
+pub type KernelThreadFn = fn() -> !;
+
 /// The state of a thread is saved in this structure when the thread is not running. This
 /// structure is higly optimized to be as small as possible, and to make context switching
 /// as fast as possible.
@@ -43,12 +45,12 @@ extern "C" {
 #[repr(C)]
 struct State {
     pub rflags: u64,
-    pub r15: u64,
-    pub r14: u64,
-    pub r13: u64,
-    pub r12: u64,
-    pub rbx: u64,
     pub rbp: u64,
+    pub rbx: u64,
+    pub r12: u64,
+    pub r13: u64,
+    pub r14: u64,
+    pub r15: u64,
     pub rip: u64,
 }
 
@@ -56,7 +58,7 @@ impl Default for State {
     #[allow(clippy::fn_to_numeric_cast)]
     fn default() -> Self {
         Self {
-            rflags: 0x202, // Interrupts enabled
+            rflags: 0,
             r15: 0,
             r14: 0,
             r13: 0,
@@ -92,10 +94,20 @@ impl KernelStack {
         }
     }
 
-    fn write_initial_kernel_trampoline(&mut self, entry: u64, stack: u64) {
+    /// Allocate a new kernel stack with the given number of frames.
+    pub fn allocate(frames: usize) -> Self {
+        KernelStack::new(unsafe {
+            FRAME_ALLOCATOR
+                .lock()
+                .allocate_range(frames, AllocationFlags::KERNEL)
+                .expect("Failed to allocate kernel stack")
+        })
+    }
+
+    fn write_initial_kernel_trampoline(&mut self, entry: u64) {
         let cs = u64::from(Selector::KERNEL_CODE.0);
         let ss = u64::from(Selector::KERNEL_DATA.0);
-        self.write_initial_trampoline(entry, stack, cs, ss);
+        self.write_initial_trampoline(entry, u64::from(self.base()), cs, ss);
     }
 
     fn write_initial_user_trampoline(&mut self, entry: u64, stack: u64) {
@@ -135,7 +147,7 @@ impl KernelStack {
     pub fn base(&self) -> Virtual {
         // We substract 64 bytes to the end of the stack, because this space is reserved for
         // when switching to the thread for the first time.
-        Virtual::from(self.frames.end.end() - 64u64)
+        Virtual::from(self.frames.end.addr()) - 64u64
     }
 
     /// Return a mutable pointer to the saved state of this thread.
@@ -184,12 +196,7 @@ impl Thread {
     /// if the user stack cannot be mapped for a reason or another.
     #[must_use]
     pub fn new(mm: Arc<PageTableRoot>, entry: u64, rsp: u64, size: u64) -> Self {
-        let mut kstack = KernelStack::new(unsafe {
-            FRAME_ALLOCATOR
-                .lock()
-                .allocate_range(Self::KSTACK_FRAMES, AllocationFlags::KERNEL)
-                .expect("Failed to allocate kernel stack")
-        });
+        let mut kstack = KernelStack::allocate(Self::KSTACK_FRAMES);
 
         // Create the stack frame for the first time the thread will be executed, so
         // the `enter_user` function will be abled to return to the thread with the
@@ -221,6 +228,24 @@ impl Thread {
 
         Self {
             mm,
+            kstack,
+            gsbase: 0,
+            fsbase: 0,
+        }
+    }
+
+    pub fn kernel(entry: KernelThreadFn) -> Self {
+        // Allocate a kernel stack and write the initial state of the thread into it.
+        let mut kstack = KernelStack::allocate(Self::KSTACK_FRAMES);
+        kstack.write_initial_kernel_trampoline(entry as usize as u64);
+        kstack.write_initial_state(State::default());
+
+        // The gsbase are meaningless in a kernel thread because it will be never used
+        // since the swapgs instruction is only executed when switching to an different
+        // privilege level (user to kernel or kernel to user). The gsbase will be the
+        // same as the one used by the kernel on the current CPU.
+        Self {
+            mm: Arc::new(PageTableRoot::new()),
             kstack,
             gsbase: 0,
             fsbase: 0,

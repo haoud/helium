@@ -1,6 +1,6 @@
 use super::instruction;
 
-#[derive(Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]
 pub struct InterruptFrame {
     // Preserved registers
