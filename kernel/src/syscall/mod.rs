@@ -10,7 +10,7 @@ pub mod task;
 pub struct SyscallReturn(i64);
 
 impl SyscallReturn {
-    /// Create a new `SyscallRetur` from a u64. It can be any value that fits in an u64, but
+    /// Create a new `SyscallReturn` from a u64. It can be any value that fits in an u64, but
     /// values between `0xFFFF_FFFF_FFFF_F000` and `0xFFFF_FFFF_FFFF_FFFF` are reserved for
     /// indicating an error.
     ///

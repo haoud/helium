@@ -9,14 +9,13 @@ pub mod round_robin;
 
 /// The scheduler used by the kernel. This is a global variable to allow changing the scheduler
 /// implementation at compile time more easily.
-static SCHEDULER: Lazy<RoundRobin> = Lazy::new(RoundRobin::default);
+static SCHEDULER: Lazy<RoundRobin> = Lazy::new(RoundRobin::new);
 
 /// A trait that represents a scheduler. This trait is used to abstract the scheduler
 /// implementation, allowing us to easily switch between different schedulers.
 pub trait Scheduler {
-    /// Return the current task running on the CPU. This function should return `None` if no task
-    /// is currently running on the CPU (meaning that the CPU is idle)
-    fn current_task(&self) -> Option<Arc<Task>>;
+    /// Return the current task running on the CPU.
+    fn current_task(&self) -> Arc<Task>;
 
     /// Set the current task running on the CPU, and set the task state to `Running`.
     fn set_current_task(&self, task: Arc<Task>);
@@ -84,13 +83,12 @@ pub trait Scheduler {
     /// panic. This include checking that there is an current task, detecting if the current
     /// and the next task are an invalid strong count, etc.
     unsafe fn schedule(&self) {
-        let current = self.current_task().unwrap();
+        let current = self.current_task();
         if current.state() == task::State::Running {
             current.change_state(task::State::Ready);
         }
 
         let task = self.pick_next();
-
         self.set_current_task(Arc::clone(&task));
 
         // If the next thread is the same as the current one, we do not need to switch threads
@@ -109,7 +107,6 @@ pub trait Scheduler {
             // SAFETY: This is safe, but only if this function is the only place where the
             // thread are acquired and released, excepted for a few functions in the thread.rs
             // module, that should only be called by this function.
-
             current.thread().force_unlock();
             task.thread().force_unlock();
 
@@ -214,9 +211,12 @@ pub unsafe fn engage_cpu() -> ! {
     SCHEDULER.engage_cpu()
 }
 
-/// Return the current task running on the CPU. This function should return `None` if no task
-/// is currently running on the CPU (meaning that the CPU is idle)
-pub fn current_task() -> Option<Arc<Task>> {
+/// Return the current task running on the CPU.
+///
+/// # Panics
+/// This function panics if there is no current task. This should never happen, excepted
+/// if this called during kernel initialization.
+pub fn current_task() -> Arc<Task> {
     SCHEDULER.current_task()
 }
 

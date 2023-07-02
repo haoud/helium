@@ -18,6 +18,7 @@ bitflags = "2.2.1"
 limine = "0.1.10"
 cfg-if = "1.0.0"
 log = "0.4.17"
+tap = "1.0.1"
 
 [features]
 default = ["panic-info", "log"]

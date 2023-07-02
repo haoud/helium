@@ -69,8 +69,8 @@ pub enum Stop {
 }
 
 /// Stop the execution of the kernel. Depending on the features flags, it either closes the
-/// emulator or freezes the CPU. This should be used when the kernel can't continue its execution,
-/// or when the kernel has finished its execution.
+/// emulator or freezes the current CPU. This should be used when the kernel can't continue
+/// its execution or when the kernel has finished its execution during the tests.
 ///
 /// # Safety
 /// This function is unsafe because depending on some features flags, it either closes the emulator

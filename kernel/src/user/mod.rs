@@ -66,8 +66,15 @@ pub unsafe fn enter_userland() -> ! {
     scheduler::engage_cpu();
 }
 
+/// The idle function. This function will be used by the idle kernel task when there is no other
+/// task to run. This function is a simple loop that simply put the CPU in a low power state until
+/// an interrupt is received. When an interrupt is received, the CPU will wake up and the kernel
+/// will be able to eventually switch to an another task.
 pub fn idle() -> ! {
     loop {
+        // SAFETY: Enabling interrupts here is safe because we just enable interrupts to be wake
+        // up by an interrupt later: there is no risk of undefined behavior by enabling interrupts
+        // here.
         unsafe {
             x86_64::irq::enable();
             x86_64::irq::wait();

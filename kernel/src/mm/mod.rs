@@ -17,6 +17,10 @@ pub static LIMINE_MEMMAP: LimineMemmapRequest = LimineMemmapRequest::new(0);
 /// specific address (`0xFFFF_8000_0000_0000`).
 pub static LIMINE_HHDM: LimineHhdmRequest = LimineHhdmRequest::new(0);
 
+/// The heap allocator used by the kernel
+#[global_allocator]
+static HEAP_ALLOCATOR: Heap = Heap::new(linked_list_allocator::Heap::empty());
+
 /// The frame allocator used by the kernel.
 pub static FRAME_ALLOCATOR: Lazy<Spinlock<dummy::Allocator>> = Lazy::new(|| {
     let mmap = LIMINE_MEMMAP
@@ -27,10 +31,6 @@ pub static FRAME_ALLOCATOR: Lazy<Spinlock<dummy::Allocator>> = Lazy::new(|| {
 
     Spinlock::new(dummy::Allocator::new(mmap))
 });
-
-/// The heap allocator used by the kernel
-#[global_allocator]
-static HEAP_ALLOCATOR: Heap = Heap::new(linked_list_allocator::Heap::empty());
 
 /// The number of pages allocated for the heap (16 MiB).
 const HEAP_PAGE_COUNT: usize = 4096;
@@ -48,5 +48,6 @@ pub unsafe fn setup() {
         .lock()
         .allocate_range(HEAP_PAGE_COUNT, AllocationFlags::KERNEL)
         .expect("Failed to allocate memory for the heap");
+
     HEAP_ALLOCATOR.init(frames);
 }

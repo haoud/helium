@@ -31,7 +31,7 @@ impl Heap {
     pub unsafe fn init(&self, range: Range<Frame>) {
         self.inner.lock().init(
             Virtual::from(range.start.addr()).as_mut_ptr::<u8>(),
-            usize::from(range.end.end() - range.start.addr()) * Frame::SIZE,
+            usize::from(range.end.addr() - range.start.addr()) * Frame::SIZE,
         );
     }
 }
@@ -43,7 +43,11 @@ impl Deref for Heap {
     }
 }
 
+/// Implement the global allocator trait for the heap. This allows the heap to be used as the
+/// default allocator, enabling the use of the `alloc` crate like an (almost) normal program.
 unsafe impl GlobalAlloc for Heap {
+    /// Allocate memory with the given layout. This function returns a null pointer if the
+    /// allocation failed.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         self.inner
             .lock()
@@ -52,6 +56,7 @@ unsafe impl GlobalAlloc for Heap {
             .map_or(core::ptr::null_mut(), core::ptr::NonNull::as_ptr)
     }
 
+    /// Deallocate the memory at the given pointer with the given layout. This function does
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         self.inner
             .lock()

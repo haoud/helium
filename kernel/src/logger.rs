@@ -23,10 +23,10 @@ impl log::Log for Logger {
                 log::Level::Trace => "\x1b[1m[~]\x1b[0m",
             };
 
-            SERIAL
+            // Write the log message to the serial port, ignoring any error
+            _ = SERIAL
                 .lock()
-                .write_fmt(format_args!("{} {}\n", level, record.args()))
-                .unwrap();
+                .write_fmt(format_args!("{} {}\n", level, record.args()));
         }
     }
 
@@ -42,7 +42,7 @@ impl log::Log for Logger {
 pub fn setup() {
     cfg_if!(
         if #[cfg(feature = "log")] {
-            let _ = log::set_logger(&Logger);
+            log::set_logger(&Logger).expect("A logger is already set");
             log::set_max_level(log::LevelFilter::Trace);
         }
     );
@@ -51,9 +51,13 @@ pub fn setup() {
 /// Called when the kernel panics. This function force the unlock of the serial port, because the
 /// panic handle could be called while the serial port is locked, which would cause a deadlock and
 /// prevent the panic message from being printed
+///
+/// # Safety
+/// This function is unsafe because it force the unlock of the serial port, which could cause a
+/// undefined behavior if the serial port is used by several threads after this function call.
+/// This is the caller responsability to ensure that thelogging system will only be used by one
+/// thread after this function call.
 #[cold]
-pub fn on_panic() {
-    unsafe {
-        SERIAL.force_unlock();
-    }
+pub unsafe fn on_panic() {
+    SERIAL.force_unlock();
 }

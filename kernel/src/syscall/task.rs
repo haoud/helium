@@ -1,3 +1,5 @@
+use tap::Tap;
+
 use super::{SyscallError, SyscallReturn};
 use crate::user::{scheduler, task};
 
@@ -5,17 +7,15 @@ use crate::user::{scheduler, task};
 /// and the task will not be destroyed until the `TASK_DESTROY` syscall is called.
 ///
 /// # Panics
-/// This function panics if there is no current task running on the CPU, or if the current task
-/// is rescheduled after it has exited.
+/// This function panics if the current task is rescheduled after it has exited.
 pub fn exit(code: u64) -> ! {
-    {
-        let current = scheduler::current_task().unwrap();
-        current.change_state(task::State::Exited);
-        scheduler::remove_task(current.id());
-        task::remove(current.id());
+    let id = scheduler::current_task()
+        .tap(|task| task.change_state(task::State::Exited))
+        .id();
 
-        log::debug!("Task {} exited with code {}", current.id(), code);
-    }
+    log::debug!("Task {} exited with code {}", id, code);
+    scheduler::remove_task(id);
+    task::remove(id);
 
     unsafe {
         scheduler::schedule();
@@ -63,5 +63,5 @@ pub fn destroy(tid: u64) -> SyscallReturn {
 #[must_use]
 #[allow(clippy::cast_possible_wrap)]
 pub fn handle() -> SyscallReturn {
-    SyscallReturn::from(scheduler::current_task().unwrap().id().0)
+    SyscallReturn::from(scheduler::current_task().id().0)
 }

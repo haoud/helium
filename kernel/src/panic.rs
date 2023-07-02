@@ -1,5 +1,5 @@
 use crate::{
-    stop,
+    logger, stop,
     x86_64::{
         self,
         lapic::{self, IpiDestination, IpiPriority},
@@ -8,6 +8,9 @@ use crate::{
 };
 use cfg_if::cfg_if;
 
+/// The panic handler. This function is called when the kernel encounters a fatal error that it
+/// cannot recover from. This function will stop all other CPUs, print the panic message and stop
+/// the kernel.
 #[cold]
 #[panic_handler]
 unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -16,7 +19,7 @@ unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
 
     cfg_if!(
         if #[cfg(feature = "panic-info")] {
-            crate::logger::on_panic();
+            logger::on_panic();
             log::error!("The kernel has encountered a fatal error that it cannot recover from");
             log::error!("The kernel must stop to prevent further damage");
 
@@ -28,6 +31,7 @@ unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
                 }
             }
         } else {
+            // Silence the unused variable warning
             _ = info;
         }
     );

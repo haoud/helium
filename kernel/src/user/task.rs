@@ -4,8 +4,9 @@ use crate::x86_64::{
 };
 use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
-use log::debug;
 use sync::Spinlock;
+
+use super::scheduler;
 
 /// By default, all task stacks as the same base address. This is because we don't have a
 /// user memory manager yet, so we can't dynamically allocate stacks. This means that we
@@ -93,10 +94,30 @@ impl State {
     }
 }
 
+/// The priority of a task. This is used by the scheduler to know which task to pick
+/// when multiple tasks are executable. If an task has a higher priority, it will be
+/// picked before a task with a lower priority. Tasks with the same priority are picked
+/// in a round-robin fashion.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Priority {
+    Idle,
+    Low,
+    Normal,
+    High,
+}
+
+impl Priority {
+    #[must_use]
+    pub fn is_idle(&self) -> bool {
+        matches!(self, Self::Idle)
+    }
+}
+
 pub struct Task {
     id: Identifier,
     state: Spinlock<State>,
     thread: Spinlock<Thread>,
+    priority: Spinlock<Priority>,
 }
 
 impl Task {
@@ -107,6 +128,7 @@ impl Task {
             id: Identifier::generate(),
             state: Spinlock::new(State::Created),
             thread: Spinlock::new(thread),
+            priority: Spinlock::new(Priority::Normal),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
@@ -122,17 +144,39 @@ impl Task {
             id: Identifier::generate(),
             state: Spinlock::new(State::Created),
             thread: Spinlock::new(thread),
+            priority: Spinlock::new(Priority::Normal),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
     }
 
+    /// Create an idle task. This is a special task that is executed when no other task
+    /// is executable. Unlike other task creation functions, this function automatically
+    /// add the task to the scheduler.
+    ///
+    /// # Safety
+    /// This function is technically safe to use, but should only be used by the scheduler
+    /// subsystem.
     #[must_use]
     pub fn idle() -> Arc<Task> {
-        Self::kernel(super::idle)
+        let thread = Thread::kernel(super::idle);
+        let task = Arc::new(Self {
+            id: Identifier::generate(),
+            state: Spinlock::new(State::Created),
+            thread: Spinlock::new(thread),
+            priority: Spinlock::new(Priority::Idle),
+        });
+        TASK_LIST.lock().push(Arc::clone(&task));
+        scheduler::add_task(Arc::clone(&task));
+        task
     }
 
-    /// Atomically change the state of the task.
+    /// Change the priority of the task.
+    pub fn change_priority(&self, priority: Priority) {
+        *self.priority.lock() = priority;
+    }
+
+    /// Change the state of the task.
     pub fn change_state(&self, state: State) {
         *self.state.lock() = state;
     }
@@ -142,6 +186,12 @@ impl Task {
     #[must_use]
     pub fn thread(&self) -> &Spinlock<Thread> {
         &self.thread
+    }
+
+    /// Return the priority of the task.
+    #[must_use]
+    pub fn priority(&self) -> Priority {
+        *self.priority.lock()
     }
 
     /// Return the current state of the task.
@@ -160,7 +210,7 @@ impl Task {
 
 impl Drop for Task {
     fn drop(&mut self) {
-        debug!("Task {} dropped", self.id);
+        log::debug!("Task {} dropped", self.id);
     }
 }
 

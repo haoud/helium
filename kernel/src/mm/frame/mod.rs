@@ -26,6 +26,13 @@ impl FrameIndex {
         Self(index)
     }
 
+    /// Return the first address of the frame. This is the address of the first byte of the frame,
+    /// guaranteed to be page aligned.
+    #[must_use]
+    pub fn address(self) -> Physical {
+        Physical::from(self.0 * Frame::SIZE)
+    }
+
     /// Creates a new frame index from the given address.
     ///
     /// # Panics
@@ -64,6 +71,12 @@ impl FrameCount {
 }
 
 impl core::fmt::Display for FrameCount {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl core::fmt::Debug for FrameCount {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
@@ -176,7 +189,7 @@ impl From<FrameIndex> for Frame {
     /// Panics if the index is greater than [`FrameIndex::MAX`] (meaning that the index does not
     /// represent a valid frame).
     fn from(idx: FrameIndex) -> Self {
-        Self::new(idx.0 as u64 * Frame::SIZE as u64)
+        Self::new(idx.address())
     }
 }
 
@@ -270,20 +283,29 @@ impl Stats {
     }
 }
 
-impl core::fmt::Display for Stats {
+impl core::fmt::Debug for Stats {
+    #[rustfmt::skip]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "Total frames: {}", self.total)?;
-        writeln!(f, "Usable frames: {}", self.usable)?;
-        writeln!(f, "Allocated frames: {}", self.allocated)?;
-        writeln!(f, "Reserved frames: {}", self.reserved)?;
-        writeln!(f, "Kernel frames: {}", self.kernel)?;
-        writeln!(f, "Poisoned frames: {}", self.poisoned)?;
+        let allocated = ByteSize(self.allocated.0 * Frame::SIZE);
+        let poisoned = ByteSize(self.poisoned.0 * Frame::SIZE);
+        let reserved = ByteSize(self.reserved.0 * Frame::SIZE);
+        let usable = ByteSize(self.usable.0 * Frame::SIZE);
+        let kernel = ByteSize(self.kernel.0 * Frame::SIZE);
+        let total = ByteSize(self.total.0 * Frame::SIZE);
+
+        writeln!(f, "Physical memory usage statistics:")?;
+        writeln!(f," - Total memory : {} frames ({})", self.total, total)?;
+        writeln!(f," - Usable memory : {} frames ({})", self.usable, usable)?;
+        writeln!(f," - Poisoned memory : {} frames ({})", self.poisoned, poisoned)?;
+        writeln!(f," - Reserved memory : {} frames ({})",self.reserved, reserved)?;
+        writeln!(f," - Allocated memory : {} frames ({})", self.allocated, allocated)?;
+        writeln!(f," - Kernel memory : {} frames ({})", self.kernel, kernel)?;
         Ok(())
     }
 }
 
 bitflags! {
-    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct FrameFlags : u8 {
         /// If set, the frame is poisoned. This means that the frame is not usable for allocation,
         /// either because it does not exist or because it is poisoned by the firmware (e.g. bad
@@ -312,7 +334,7 @@ bitflags! {
         const BOOT = 1 << 5;
     }
 
-    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct AllocationFlags : u8 {
         /// If set, the allocated frame will be zeroed before being returned
         const ZEROED =  FrameFlags::ZEROED.bits();

@@ -5,7 +5,7 @@ use limine::{LimineMemmapEntry, NonNullPtr};
 
 /// Additional information about a frame. For this allocator, this structure is empty because the
 /// allocator does not need any additional information about a frame.
-#[derive(Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Copy, Clone)]
 pub struct FrameInfo;
 
 /// A dummy allocator that allocates frames from the frame state. This allocator is very inefficient
@@ -19,9 +19,9 @@ pub struct Allocator {
 }
 
 impl Allocator {
-    /// Creates a new allocator from the given memory map. It parse the memory map and fills the
-    /// frame array in order to allow the allocation of physical memory frames, and then initializes
-    /// the allocator.
+    /// Creates a new allocator from the given memory map. It parse the memory map and fills
+    /// the frame array in order to allow the allocation of physical memory frames, and then
+    /// initializes the allocator.
     #[must_use]
     pub fn new(mmap: &[NonNullPtr<LimineMemmapEntry>]) -> Self {
         Self {
@@ -47,12 +47,13 @@ unsafe impl super::Allocator for Allocator {
     /// available, or a range of frames if a range of frames was successfully allocated.
     ///
     /// # Warning
-    /// Avoid using this method as much as posssibe. It is super, super inefficient, and should only
-    /// be used when no allocator is available and for initialization purposes, when allocation
-    /// speed is not important.
+    /// Avoid using this method as much as posssibe. It is super, super inefficient, and should
+    /// only be used when no allocator is available and for initialization purposes, when
+    /// allocation speed is not important. At this state of kernel development, this is totally
+    /// acceptable, but this allocator will be replaced by a more efficient one in the future.
     ///
     /// # Safety
-    /// This function is unsafe because it is the caller's responsibility to correctly use the*
+    /// This function is unsafe because it is the caller's responsibility to correctly use the
     /// allocated frame. The caller must ensure that the frame is freed only once, and when the
     /// frame is no longer used by any component.
     unsafe fn allocate_range(
@@ -62,6 +63,7 @@ unsafe impl super::Allocator for Allocator {
     ) -> Option<Range<Frame>> {
         let len = self.state.frames.len();
         let mut i = 0;
+
         while i + count <= len {
             if self.state.frames[i..i + count]
                 .iter()
@@ -91,6 +93,8 @@ unsafe impl super::Allocator for Allocator {
                     end: Frame::from(FrameIndex::new(i + count)),
                 });
             }
+
+            // TODO: Skip all the frames that are not free
             i += 1;
         }
         None
@@ -98,7 +102,7 @@ unsafe impl super::Allocator for Allocator {
 
     /// Reference a frame in the frame state, meaning that the frame is used many times. This method
     /// is unsafe because it can cause memory leaks if the frame is not freed the same number of
-    /// times it is referenced.
+    /// times it is referenced
     ///
     /// # Safety
     /// This method is unsafe because it can cause memory leaks if the frame is not freed the same
@@ -111,6 +115,7 @@ unsafe impl super::Allocator for Allocator {
             .state
             .frame_info_mut(frame.addr())
             .expect("Invalid frame address");
+
         assert!(
             !frame.is_free(),
             "Referencing a frame that is not allocated"
@@ -118,13 +123,13 @@ unsafe impl super::Allocator for Allocator {
         frame.retain();
     }
 
-    /// Free a frame in the frame state. The frame is freed only if the frame count is 0, so you
-    /// should not assume that the frame is freed after calling this method.
+    /// Decrement the reference count of a frame in the frame state .The frame is freed only if
+    /// the frame count is 0, so you should not assume that the frame is freed after calling
+    /// this method.
     ///
     /// # Safety
-    /// This method is unsafe because it can cause a use-after-free if the frame is freed but
-    /// used after this method is called. Double free are not possible because the frame count is
-    /// checked, and panics if the frame is already free.
+    /// This method is unsafe because it can cause a use-after-free or a double free if the frame
+    /// is freed but used after this method is called.
     ///
     /// # Panics
     /// This method panics if the frame is already free.
@@ -139,9 +144,8 @@ unsafe impl super::Allocator for Allocator {
     /// so you should not assume that the frames are freed after calling this method.
     ///
     /// # Safety
-    /// This method is unsafe because it can cause a use-after-free if the frame range is freed but
-    /// used after this method is called. Double free are not possible because the frame count is
-    /// checked, and panics if a frame is already free.
+    /// This method is unsafe because it can cause a use-after-free or a double free if the frame
+    /// is freed but used after this method is called.
     ///
     /// # Panics
     /// This method panics if one or more frames in the range are already free.
@@ -153,6 +157,7 @@ unsafe impl super::Allocator for Allocator {
         let flags = self.state.frames[start].flags;
         for frame in self.state.frames[start..=end].iter_mut() {
             if frame.release() {
+                frame.flags.remove(FrameFlags::ZEROED);
                 frame.flags.insert(FrameFlags::FREE);
                 if frame.flags.contains(FrameFlags::KERNEL) {
                     frame.flags.remove(FrameFlags::KERNEL);
