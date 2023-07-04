@@ -8,7 +8,6 @@ pub extern "C" fn _start() -> ! {
         x = core::hint::black_box(i);
     }
 
-    unsafe {
-        iron::exit(x as i32);
-    }
+    _ = x;
+    iron::exit(iron::task::id() as i32);
 }

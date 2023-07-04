@@ -85,8 +85,7 @@ impl SyscallError {
 #[repr(u64)]
 pub enum Syscall {
     TaskExit = 0,
-    TaskDestroy = 1,
-    TaskHandle = 2,
+    TaskId = 1,
     Last,
 }
 
@@ -111,8 +110,7 @@ impl Syscall {
 fn syscall(id: u64, a: u64, b: u64, c: u64, d: u64, e: u64) -> i64 {
     match Syscall::from(id) {
         Some(Syscall::TaskExit) => task::exit(a),
-        Some(Syscall::TaskDestroy) => task::destroy(a),
-        Some(Syscall::TaskHandle) => task::handle(),
+        Some(Syscall::TaskId) => task::id(),
 
         Some(Syscall::Last) | None => SyscallReturn::failure(SyscallError::NoSuchSyscall),
     }
