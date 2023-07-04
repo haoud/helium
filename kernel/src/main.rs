@@ -1,16 +1,65 @@
 #![no_std]
 #![no_main]
-#![allow(dead_code)]
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
+#![allow(dead_code)]
+#![allow(clippy::match_bool)]
+#![allow(clippy::unreadable_literal)]
+#![allow(clippy::module_name_repetitions)]
+#![feature(asm_const)]
+#![feature(step_trait)]
+#![feature(const_mut_refs)]
+#![feature(naked_functions)]
 #![feature(panic_info_message)]
+
+use macros::init;
+
+extern crate alloc;
 
 #[cfg(not(target_arch = "x86_64"))]
 compile_error!("Helium only supports x86_64 computers");
 
-extern crate alloc;
+pub mod logger;
+pub mod mm;
+pub mod panic;
+pub mod syscall;
+pub mod user;
+pub mod x86_64;
 
-use macros::init;
+/// # The entry point of the kernel. Initialises the kernel and jumps to userland.
+///
+/// # Safety
+/// This function is highly unsafe because we are in a minimal environment and we have to
+/// initialize a lot of things before we can do anything. Since we are in a bare metal environment,
+/// a lot of initialization code is written in assembly or need the use of `unsafe` code to work
+/// properly, this is an necessary evil.
+#[init]
+#[no_mangle]
+pub unsafe extern "C" fn _start() -> ! {
+    // Initialize the logging system
+    logger::setup();
+
+    // Initialize the necessary x86_64 stuff that does not need the memory
+    // manager to be initialized
+    x86_64::early_setup();
+
+    // Initialize the memory manager and the allocators
+    mm::setup();
+
+    // Initialize the x86_64 architecture dependent code that
+    // needs the memory manager to be initialized first
+    x86_64::setup();
+
+    // Setup the userland environment
+    user::setup();
+
+    // Run the APs
+    x86_64::smp::go();
+
+    // Jump to userland
+    log::info!("Helium booted successfully !");
+    user::enter_userland();
+}
 
 /// A enum that represents the stopping reason of the kernel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -20,8 +69,8 @@ pub enum Stop {
 }
 
 /// Stop the execution of the kernel. Depending on the features flags, it either closes the
-/// emulator or freezes the CPU. This should be used when the kernel can't continue its execution,
-/// or when the kernel has finished its execution.
+/// emulator or freezes the current CPU. This should be used when the kernel can't continue
+/// its execution or when the kernel has finished its execution during the tests.
 ///
 /// # Safety
 /// This function is unsafe because depending on some features flags, it either closes the emulator
@@ -31,27 +80,8 @@ pub enum Stop {
 pub unsafe fn stop(code: Stop) -> ! {
     cfg_if::cfg_if! {
         if #[cfg(feature = "test")] {
-            crate::emulator::qemu::exit(code as u32);
+            qemu::exit(code as u32);
         }
     }
     x86_64::cpu::freeze();
-}
-
-pub mod emulator;
-pub mod glue;
-pub mod logger;
-
-/// The entry point of the kernel. It setups the logger and the kernel.
-///
-/// # Safety
-/// Do I really have to explain why the entry point of the function that will initialize the kernel
-/// in a baremetal environment is not safe ? Anything can go wrong here...
-#[init]
-#[no_mangle]
-pub unsafe extern "C" fn _start() -> ! {
-    // Initialize the logging system
-    logger::setup();
-
-    // Initialize the kernel and jump into the userland
-    kernel::setup();
 }

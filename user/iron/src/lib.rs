@@ -1,17 +1,23 @@
 #![no_std]
 
-core::arch::global_asm!(include_str!("syscall.asm"));
+pub mod task;
 
-extern "C" {
-    pub fn exit(code: i32) -> !;
+/// Terminates the current process with the specified exit code. This function will never
+/// return and will immediately terminate the current process. Because this function never
+/// returns, and that it terminates the process, no destructors on the current stack will
+/// be run.
+pub fn exit(code: i32) -> ! {
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") 0,
+            in("rsi") code,
+            options(noreturn)
+        );
+    }
 }
 
 #[panic_handler]
 pub fn panic(_: &core::panic::PanicInfo) -> ! {
-    // SAFETY: This is safe because we are in a panic handler, so we can
-    // exit here without any worries, because the application is already
-    // in an invalid state.
-    unsafe {
-        exit(-1);
-    }
+    exit(-1);
 }

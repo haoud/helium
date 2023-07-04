@@ -28,14 +28,10 @@ run-test:
 
 # Format the code using rustfmt
 fmt:
-	cd kernel/crates/helium-kernel && cargo fmt
 	cd kernel/crates/helium-macros && cargo fmt
-	cd kernel/crates/helium-x86_64 && cargo fmt
-	cd kernel/crates/helium-utils && cargo fmt
 	cd kernel/crates/helium-addr && cargo fmt
 	cd kernel/crates/helium-sync && cargo fmt
-	cd kernel/crates/helium-user && cargo fmt
-	cd kernel/crates/helium-mm && cargo fmt
+	cd kernel/crates/helium-lib && cargo fmt
 	cd kernel && cargo fmt
 	make -C user fmt
 
