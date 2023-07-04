@@ -6,9 +6,13 @@ use super::{
 use addr::Virtual;
 use macros::{init, per_cpu};
 
+/// The Task State Segment (TSS) for the current CPU. This is a per-cpu variable, and therefore
+/// each CPU has its own TSS.
 #[per_cpu]
-static mut TSS: TaskStateSegment = TaskStateSegment::default();
+static mut TSS: TaskStateSegment = TaskStateSegment::new();
 
+/// The index of the first TSS selector in the GDT. The TSS selector associated with the
+/// current CPU is `SELECTOR_BASE_IDX + (smp::core_id() * 2)`.
 const SELECTOR_BASE_IDX: u16 = 6;
 
 /// Represents the Task State Segment (TSS) structure. It is used by the interrupt to determine
@@ -27,8 +31,10 @@ pub struct TaskStateSegment {
 }
 
 impl TaskStateSegment {
+    /// Create a new TSS with default values: All fields are set to 0, except the I/O map base
+    /// field which is set to 104 (meaning that the I/O permission bitmap does not exist).
     #[must_use]
-    pub const fn default() -> Self {
+    pub const fn new() -> Self {
         Self {
             reserved_1: 0,
             stack_table: [0; 3],
@@ -40,6 +46,8 @@ impl TaskStateSegment {
         }
     }
 
+    /// Set the kernel stack for the current CPU that will be used when handling interrupts if
+    /// the CPU is in user mode and needs to switch to the kernel.
     pub fn set_kernel_stack(&mut self, stack: u64) {
         self.stack_table[0] = stack;
     }

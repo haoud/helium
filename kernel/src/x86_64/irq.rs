@@ -168,7 +168,7 @@ unsafe fn irq_handler(state: &mut InterruptFrame) {
     }
 }
 
-#[interrupt(0)]
+#[interrupt]
 pub fn clock_handler(_: &mut InterruptFrame) {
     lapic::send_eoi();
     scheduler::timer_tick();

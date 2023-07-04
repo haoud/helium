@@ -25,7 +25,7 @@ pub unsafe fn setup() {
     // The SFMask MSR is used to set up mask applied to the RFLAGS register when a system
     // call is made. Currently, we mask out the interrupt flag, so that interrupts are
     // disabled during system calls, and the direction flag (required by System V ABI).
-    msr::write(msr::Register::FMASK, 0x0000_0000_0000_0202);
+    msr::write(msr::Register::FMASK, 0x0000_0000_0000_0600);
 
     // Enable the Sytem Call Extension (bit 0 of the EFER MSR), allowing the use of the
     // SYSCALL/SYSRET instructions.

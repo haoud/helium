@@ -62,11 +62,19 @@ pub enum Register {
     DivideConfiguration = 0x03E0,
 }
 
+/// Represents the destination of an IPI
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IpiDestination {
+    /// Send the IPI to the given core
     Core(u8),
+
+    /// Send the IPI to the current core
     Current,
+
+    /// Send the IPI to all cores
     All,
+
+    // Send the IPI to all cores except the current one
     Other,
 }
 
@@ -134,9 +142,7 @@ pub fn send_eoi() {
 pub unsafe fn write(register: Register, value: u32) {
     let addr = LAPIC_BASE + register as u64;
     let ptr = addr as *mut u32;
-    unsafe {
-        ptr.write_volatile(value);
-    }
+    ptr.write_volatile(value);
 }
 
 /// Read the value of the given register.
@@ -148,5 +154,5 @@ pub unsafe fn write(register: Register, value: u32) {
 pub unsafe fn read(register: Register) -> u32 {
     let addr = LAPIC_BASE + register as u64;
     let ptr = addr as *const u32;
-    unsafe { ptr.read_volatile() }
+    ptr.read_volatile()
 }

@@ -4,7 +4,6 @@ use crate::mm::{
     FRAME_ALLOCATOR,
 };
 use addr::{Physical, Virtual};
-use alloc::sync::Arc;
 use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},
@@ -17,6 +16,8 @@ use sync::Lazy;
 pub static KERNEL_PML4: Lazy<PageTableRoot> =
     Lazy::new(|| unsafe { PageTableRoot::from_page(Physical::new(cpu::read_cr3())) });
 
+/// The size of a page. This is always 4096 bytes, Helium does not support 2 MiB or 1 GiB pages
+/// to keep the code simple.
 pub const PAGE_SIZE: usize = 4096;
 
 bitflags::bitflags! {
@@ -118,18 +119,15 @@ pub enum Level {
 }
 
 impl Level {
-    /// Get the next level in the page table hierarchy from this level. Returns `None` if this is
-    /// the last level.
-    ///
-    /// # Panics
-    /// Panics if the current level is the last level in the hierarchy.
+    /// Get the next level in the page table hierarchy from this level. If this is the last level
+    /// (`Level::Pt`), this function returns `None`.
     #[must_use]
-    pub fn next(self) -> Self {
+    pub fn next(self) -> Option<Self> {
         match self {
-            Self::Pml4 => Self::Pdpt,
-            Self::Pdpt => Self::Pd,
-            Self::Pd => Self::Pt,
-            Self::Pt => panic!("No next level after PT"),
+            Self::Pml4 => Some(Self::Pdpt),
+            Self::Pdpt => Some(Self::Pd),
+            Self::Pd => Some(Self::Pt),
+            Self::Pt => None,
         }
     }
 
@@ -373,7 +371,7 @@ impl PageTable {
         }
 
         let table = &mut *entry.table().unwrap();
-        PageTable::fetch(table, level.next(), addr, behavior)
+        PageTable::fetch(table, level.next().unwrap(), addr, behavior)
     }
 
     /// Creates a new page table from a page, and returns a reference to it.
@@ -487,32 +485,6 @@ impl PageTableRoot {
             frame: Frame::new(page),
             lock: AtomicBool::new(false),
             pml4: Virtual::from(page),
-        }
-    }
-
-    /// Switch between two page table roots, the current one and the next one. This will update the
-    /// CR3 register to point to the next page table root, but only if the next page table root is
-    /// different from the current one, avoiding unnecessary TLB flushes.
-    ///
-    /// # Safety
-    /// This function is unsafe because the caller must ensure that:
-    ///  - the page table root is not freed while it is in use.
-    ///  - The page table root is correctly initialized.
-    ///  - The current page table root  passed as argument is the one currently in use.
-    /// Failure to ensure these conditions will result in undefined behavior or a panic.
-    pub unsafe fn switch(current: &Arc<PageTableRoot>, next: &Arc<PageTableRoot>) {
-        // Verify that the previous page table root is the same as the current one. We only
-        // check this in debug mode because it is expensive and should not happen in normal
-        // conditions (it is a bug if it happens).
-        debug_assert!(
-            u64::from(current.frame.addr()) == cpu::read_cr3(),
-            "Incorrect previous page table root"
-        );
-
-        if !Arc::ptr_eq(current, next) {
-            unsafe {
-                next.set_current();
-            }
         }
     }
 
@@ -657,6 +629,10 @@ impl<'a> DerefMut for PageTableRootGuard<'a> {
 /// This function is unsafe because the caller must ensure that it is called only once, and before
 /// any other function in this module. The caller must also ensure that the current page table will
 /// remain valid for the lifetime of the kernel.
+/// 
+/// # Panics
+/// This function will panic if the kernel ran out of memory while preallocating the kernel page
+/// tables.
 #[init]
 pub unsafe fn setup() {
     let mut pml4 = KERNEL_PML4.lock();
@@ -769,7 +745,7 @@ unsafe fn deallocate_recursive(table: &mut [PageEntry], level: Level) {
         .for_each(|address| match level {
             Level::Pml4 | Level::Pdpt | Level::Pd => {
                 let table = PageTable::from_page_mut(Virtual::from(address));
-                deallocate_recursive(table, level.next());
+                deallocate_recursive(table, level.next().unwrap());
             }
             Level::Pt => {
                 FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(address));

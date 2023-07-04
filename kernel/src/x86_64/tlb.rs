@@ -53,7 +53,7 @@ pub fn shootdown(address: Virtual) {
 /// flushes the entire TLB (except for the global pages).
 /// In the future, this function wshould only invalidate the TLB entry for the given virtual
 /// address.
-#[interrupt(0)]
+#[interrupt]
 fn shootdown_handler(_: &mut InterruptFrame) {
     lapic::send_eoi();
     flush();

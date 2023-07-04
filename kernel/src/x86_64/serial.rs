@@ -29,62 +29,76 @@ impl Serial {
     /// Create a new serial channel and initialize the serial port. Currently, serial port are only
     /// used for debugging using QEMU's serial port, and this function even required to print
     /// anything to the QEMU console, so this function probably doesn't work on real hardware.
+    /// 
+    /// # Safety
+    /// This function is unsafe because it writes to the serial port, which could cause a undefined
+    /// behavior if the serial port doesn't exist or is used by another device. This is the caller
+    /// responsability to ensure that a serial port exists and is not used by another kernel
+    /// component.
     #[must_use]
-    pub fn new(com: Port) -> Serial {
-        unsafe {
-            let serial = Serial {
-                data: io::Port::new(com as u16),
-                interrupt_enable: io::Port::new(com as u16 + 1),
-                fifo_control: io::Port::new(com as u16 + 2),
-                line_control: io::Port::new(com as u16 + 3),
-                modem_control: io::Port::new(com as u16 + 4),
-                line_status: io::Port::new(com as u16 + 5),
-                _modem_status: io::Port::new(com as u16 + 6),
-                _scratch: io::Port::new(com as u16 + 7),
-            };
+    pub unsafe fn new(com: Port) -> Serial {
+        let serial = Serial {
+            data: io::Port::new(com as u16),
+            interrupt_enable: io::Port::new(com as u16 + 1),
+            fifo_control: io::Port::new(com as u16 + 2),
+            line_control: io::Port::new(com as u16 + 3),
+            modem_control: io::Port::new(com as u16 + 4),
+            line_status: io::Port::new(com as u16 + 5),
+            _modem_status: io::Port::new(com as u16 + 6),
+            _scratch: io::Port::new(com as u16 + 7),
+        };
 
-            serial.interrupt_enable.write(0x00);
-            serial.line_control.write(0x80);
-            serial.data.write(0x03);
-            serial.interrupt_enable.write(0x00);
-            serial.line_control.write(0x03);
-            serial.fifo_control.write(0xC7);
-            serial.modem_control.write(0x0B);
-            // We don't test if the line is ready to be written to here (I'm lazy)
-            serial
-        }
+        serial.interrupt_enable.write(0x00);
+        serial.line_control.write(0x80);
+        serial.data.write(0x03);
+        serial.interrupt_enable.write(0x00);
+        serial.line_control.write(0x03);
+        serial.fifo_control.write(0xC7);
+        serial.modem_control.write(0x0B);
+        // We don't test if the line is ready to be written to here (I'm lazy)
+        serial
     }
 
     /// Check if the serial port is ready to be written to.
     #[must_use]
     pub fn is_transmit_empty(&self) -> bool {
+        // SAFETY: This is safe because reading from the serial port line status
+        // should not cause any side effects nor undefined behavior.
         unsafe { self.line_status.read() & 0x20 != 0 }
     }
 
     /// Check if the serial port has data to be read.
     #[must_use]
     pub fn data_pending(&self) -> bool {
+        // SAFETY: This is safe because reading from the serial port line status
+        // should not cause any side effects nor undefined behavior.
         unsafe { self.line_status.read() & 0x01 != 0 }
     }
 
-    /// Write a byte to the serial port.
+    /// Write a byte to the serial port. If the serial port is not ready to be written to, this
+    /// function will block until it is.
     pub fn write(&self, byte: u8) {
         while !self.is_transmit_empty() {
             core::hint::spin_loop();
         }
 
+        // SAFETY: This is safe because writing to the serial port should not
+        // cause any side effects nor undefined behavior.
         unsafe {
             self.data.write(byte);
         }
     }
 
-    /// Read a byte from the serial port.
+    /// Read a byte from the serial port. If there is no data to be read, this function will
+    /// block until there is.
     #[must_use]
     pub fn read(&self) -> u8 {
         while !self.data_pending() {
             core::hint::spin_loop();
         }
 
+        // SAFETY: This is safe because reading from the serial port should not
+        // cause any side effects nor undefined behavior.
         unsafe { self.data.read() }
     }
 }

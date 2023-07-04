@@ -27,6 +27,8 @@ extern "C" {
     fn exit_thread(current: *const Task, next: &mut Thread, stack: u64) -> !;
 }
 
+/// When a kernel thread is created, the function that will be executed by the thread
+/// should have the same signature as this type.
 pub type KernelThreadFn = fn() -> !;
 
 /// The state of a thread is saved in this structure when the thread is not running. This
@@ -95,6 +97,9 @@ impl KernelStack {
     }
 
     /// Allocate a new kernel stack with the given number of frames.
+    ///
+    /// # Panics
+    /// Panics if the kernel stack could not be allocated.
     pub fn allocate(frames: usize) -> Self {
         KernelStack::new(unsafe {
             FRAME_ALLOCATOR
@@ -116,12 +121,24 @@ impl KernelStack {
         self.write_initial_trampoline(entry, stack, cs, ss);
     }
 
+    /// Write the initial trampoline of the thread on the stack. This function will write
+    /// on the kernel stack a fake interrupt frame that will be used to switch to the thread
+    /// for the first time with the `iretq` instruction and allow specify the initial state
+    /// of the thread:
+    /// - The instruction pointer will be set to the given entry point.
+    /// - The stack pointer will be set to the given stack.
+    /// - The code segment will be set to the given code segment. Depending on the code segment,
+    ///  the thread will be in kernel mode or in user mode.
+    /// - The stack segment will be set to the given stack segment.
+    /// - The rflags will be set to 0x200, enabling interrupts when jumping to the thread
     fn write_initial_trampoline(&mut self, entry: u64, stack: u64, cs: u64, ss: u64) {
         let base = self.base().as_mut_ptr::<u64>();
-        let rflags = 0x202;
+        let rflags = 0x200;
 
         // Write in the stack the trampoline that will be used to switch to the thread for the
         // first time. It is simply the registers that will be restored by the iretq instruction.
+        // We can write after the stack base because we saved a bit of space in the stack in the
+        // `base` method.
         unsafe {
             base.offset(0).write(entry);
             base.offset(1).write(cs);
@@ -155,6 +172,8 @@ impl KernelStack {
         core::ptr::addr_of_mut!(self.state)
     }
 
+    /// Return the address where the state of the thread is saved. If there is no saved state,
+    /// this will return 0.
     pub fn state_addr(&self) -> u64 {
         self.state as u64
     }
@@ -281,8 +300,8 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
     msr::write(msr::Register::KERNEL_GS_BASE, next.gsbase);
     msr::write(msr::Register::FS_BASE, next.fsbase);
 
+    next.mm().set_current();
     set_kernel_stack(&next.kstack);
-    PageTableRoot::switch(&prev.mm, &next.mm);
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut());
 }
 
@@ -340,13 +359,12 @@ pub unsafe fn exit(current: Arc<Task>, thread: &mut Thread) -> ! {
 /// to a kernel panic or a security issue.
 #[no_mangle]
 pub unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread) {
-    let prev = Arc::from_raw(current);
-    PageTableRoot::switch(&prev.thread().lock().mm(), &thread.mm());
+    thread.mm().set_current();
 
     // Drop the Arc to the current thread before leaving this thread forever. This
     // must be done here because this function will never return to the caller and
     // therefore the Arc will never be dropped if we don't do it here.
-    core::mem::drop(prev);
+    core::mem::drop(Arc::from_raw(current));
     jump_to(thread);
 }
 

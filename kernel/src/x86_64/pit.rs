@@ -2,8 +2,8 @@ use super::io::Port;
 use core::sync::atomic::{AtomicU64, Ordering};
 use macros::init;
 
-/// The number of tick elapsed since the boot of the kernel. This variable is incremented every time
-/// the PIT generates an IRQ.
+/// The number of tick elapsed since the boot of the kernel. This variable is incremented every
+/// time the PIT generates an IRQ.
 pub static TICK: AtomicU64 = AtomicU64::new(0);
 
 static CHANNEL_0: Port<u8> = Port::new(0x40);

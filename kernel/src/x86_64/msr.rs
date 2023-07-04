@@ -22,7 +22,12 @@ impl Register {
 /// supported by the CPU.
 #[allow(clippy::cast_possible_truncation)]
 pub unsafe fn write(msr: Register, value: u64) {
-    core::arch::asm!("wrmsr", in("ecx") msr.0, in("eax") (value as u32), in("edx") (value >> 32));
+    core::arch::asm!(
+        "wrmsr",
+        in("ecx") msr.0,
+        in("eax") (value as u32),
+        in("edx") (value >> 32),
+    );
 }
 
 /// Read the current value of the given MSR.
@@ -35,6 +40,13 @@ pub unsafe fn write(msr: Register, value: u64) {
 pub unsafe fn read(msr: Register) -> u64 {
     let low: u32;
     let high: u32;
-    core::arch::asm!("rdmsr", in("ecx") msr.0, out("eax") low, out("edx") high);
+
+    core::arch::asm!(
+        "rdmsr",
+        in("ecx") msr.0,
+        out("eax") low,
+        out("edx") high,
+    );
+
     u64::from(high) << 32 | u64::from(low)
 }

@@ -154,11 +154,19 @@ impl Descriptor {
 pub struct DescriptorFlags(u16);
 
 impl DescriptorFlags {
+    /// Create a new descriptor flags with the default values. The default values are:
+    /// - The present bit is not set
+    /// - The descriptor is a interrupt gate (i.e. the CPU will clear the IF flag when the handler
+    ///  is invoked)
+    /// - The privilege level to invoke the handler is set to 0 (i.e. only the kernel can invoke
+    /// the handler manually)
+    /// - The descriptor does not use a special handler stack
     #[must_use]
     pub const fn new() -> Self {
         Self(0x0E00)
     }
 
+    /// Set all flags to 0. This will raise a general protection fault if the handler is invoked.
     #[must_use]
     pub const fn zero() -> Self {
         Self(0)
@@ -278,8 +286,9 @@ pub unsafe fn load() {
 }
 
 /// The default interrupt handler. This function is called when an interrupt is triggered but no
-/// handler is registered for it.
-#[interrupt(0)]
+/// handler is registered for it. It simply write an error message to the log and return to the
+/// interrupted code.
+#[interrupt]
 fn default(state: &mut InterruptFrame) {
-    panic!("Unhandled interrupt: {:#x}", state.code);
+    log::error!("Unhandled interrupt: {:#x}", state.code);
 }

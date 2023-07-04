@@ -5,7 +5,7 @@
 //! I'm not used to write procedural macros in  Rust (in fact, this is the first time) so the
 //! code is probably not the best and may not work in 100% of the cases.
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, AttributeArgs, ItemFn, ItemStatic};
+use syn::{parse_macro_input, ItemFn, ItemStatic};
 
 /// A macro to indicate that a function is only used during the initialization of the kernel.
 /// This macro will this attribute are put in a separate .init section. When the kernel has been
@@ -30,12 +30,8 @@ pub fn init(_: TokenStream, item: TokenStream) -> TokenStream {
 /// A macro to indicate that a function is an interrupt handler. This macro will automatically
 /// add the necessary code to the function to save the state of the CPU before calling the handler
 /// and to restore the state of the CPU after the handler has been called.
-///
-/// This function takes one argument, which is the data that will be pushed to the stack before
-/// saving the state of the CPU (the `code` field of the `x86_64::cpu::State` struct).
 #[proc_macro_attribute]
-pub fn interrupt(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(attr as AttributeArgs);
+pub fn interrupt(_: TokenStream, item: TokenStream) -> TokenStream {
     let mut func = parse_macro_input!(item as ItemFn);
 
     let func_name = func.sig.ident.clone();
@@ -46,18 +42,15 @@ pub fn interrupt(attr: TokenStream, item: TokenStream) -> TokenStream {
     func.sig.abi = Some(syn::parse_quote!(extern "C"));
     func.sig.ident = handler.clone();
 
-    let data = &args[0];
-
     quote::quote! {
         #[no_mangle]
         #[naked]
         unsafe extern "C" fn #func_name() {
             core::arch::asm!("
-                push {data}
+                push 0
                 call interrupt_enter
                 call {handler}
                 jmp interrupt_exit",
-                data = const #data,
                 handler = sym #handler,
                 options(noreturn)
             );

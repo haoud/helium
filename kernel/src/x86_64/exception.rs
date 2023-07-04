@@ -52,6 +52,7 @@ pub unsafe fn install() {
 #[init]
 fn register_exception_handler(index: u8, handler: unsafe extern "C" fn()) {
     let mut idt = IDT.lock();
+
     let flags = idt::DescriptorFlags::new()
         .set_privilege_level(Privilege::KERNEL)
         .present(true);

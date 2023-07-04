@@ -2,6 +2,7 @@ use bitfield::BitRangeMut;
 use bitflags::bitflags;
 use macros::init;
 use sync::Spinlock;
+use tap::Tap;
 
 use super::{cpu::Privilege, instruction, tss::TaskStateSegment, MAX_CPUS};
 
@@ -200,11 +201,12 @@ impl Selector {
 /// or if the selectors are not properly set.
 #[init]
 pub unsafe fn setup() {
-    GDT.lock().set_descriptor(0, &Descriptor::NULL);
-    GDT.lock().set_descriptor(1, &Descriptor::KERNEL_CODE64);
-    GDT.lock().set_descriptor(2, &Descriptor::KERNEL_DATA);
-    GDT.lock().set_descriptor(3, &Descriptor::USER_CODE64);
-    GDT.lock().set_descriptor(4, &Descriptor::USER_DATA);
+    GDT.lock()
+        .tap_mut(|gdt| gdt.set_descriptor(0, &Descriptor::NULL))
+        .tap_mut(|gdt| gdt.set_descriptor(1, &Descriptor::KERNEL_CODE64))
+        .tap_mut(|gdt| gdt.set_descriptor(2, &Descriptor::KERNEL_DATA))
+        .tap_mut(|gdt| gdt.set_descriptor(3, &Descriptor::USER_CODE64))
+        .tap_mut(|gdt| gdt.set_descriptor(4, &Descriptor::USER_DATA));
     load();
 }
 
