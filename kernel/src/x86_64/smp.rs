@@ -31,7 +31,7 @@ extern "C" {
 
 /// This function is called by the BSP to start the APs. It tells Limine to start the APs and then
 /// wait for them to start. Most of the work was done by Limine, so we don't have much to do here.
-/// 
+///
 /// # Panics
 /// This function panics if there is no SMP response from Limine, if there is too many cores (more
 /// than `MAX_CPUS`) or if there is no core in the list returned by Limine.

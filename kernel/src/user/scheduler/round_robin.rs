@@ -55,8 +55,8 @@ impl RoundRobin {
     /// special tasks that are always ready to run, and are only picked when no other task is
     /// ready to run. Returning them here would not make sense.
     fn pick_task(&self) -> Option<Arc<Task>> {
-        self.run_queue
-            .lock()
+        let run_queue = self.run_queue.lock();
+        run_queue
             .iter()
             .filter(|t| t.quantum > 0)
             .filter(|t| !t.task.priority().is_idle())
@@ -111,6 +111,11 @@ impl super::Scheduler for RoundRobin {
     /// Picks the next task to run. This function will first try to find a task to run. If no
     /// task is found, it will redistribute quantum to all tasks and try again. If no task is
     /// found again, it will return the idle task.
+    ///
+    /// FIXME: Due to some limitations in the current implementation, this function will never
+    /// return the current task, even if it is the only task ready to run. This is because the
+    /// scheduler cannot handle this case and panic for obscure reasons. This should be fixed
+    /// in the future.
     fn pick_next(&self) -> Arc<Task> {
         self.pick_task()
             .or_else(|| {
@@ -170,6 +175,7 @@ impl super::Scheduler for RoundRobin {
 
         if reschedule && preempt::enabled() {
             unsafe {
+                current_task().change_state(State::Rescheduled);
                 schedule();
             }
         }

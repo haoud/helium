@@ -137,8 +137,8 @@ fn stack_segment_fault(_state: &InterruptFrame) {
 }
 
 #[exception_err]
-fn general_protection_fault(_state: &InterruptFrame) {
-    panic!("General protection fault exception");
+fn general_protection_fault(state: &InterruptFrame) {
+    panic!("General protection fault exception (code: {:#x})", state.code);
 }
 
 #[exception_err]

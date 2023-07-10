@@ -14,7 +14,7 @@ SECTIONS
         __percpu_start = .;
 
         // Some space for saving and settings stacks during syscall
-        . += 16;
+        . += 32;
         
         *(.percpu*)
         __percpu_end = .;

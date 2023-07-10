@@ -629,7 +629,7 @@ impl<'a> DerefMut for PageTableRootGuard<'a> {
 /// This function is unsafe because the caller must ensure that it is called only once, and before
 /// any other function in this module. The caller must also ensure that the current page table will
 /// remain valid for the lifetime of the kernel.
-/// 
+///
 /// # Panics
 /// This function will panic if the kernel ran out of memory while preallocating the kernel page
 /// tables.

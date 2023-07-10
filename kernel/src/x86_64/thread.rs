@@ -203,7 +203,7 @@ pub struct Thread {
 
 impl Thread {
     /// The number of frames used for the kernel stack
-    const KSTACK_FRAMES: usize = 40;
+    const KSTACK_FRAMES: usize = 4;
 
     /// Create a new thread with the given kernel stack, paging table, and FS and GS
     /// segment base addresses. It will allocate a kernel stack and write the initial

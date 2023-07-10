@@ -16,7 +16,7 @@ extern "C" {
 pub unsafe fn setup() {
     // The Star MSR is used to set up the kernel segment base in bits 47:32, and the user
     // segment base in bits 63:48. The first 32 bits are not used in 64-bit mode.
-    msr::write(msr::Register::STAR, 0x0018_0008_0000_0000);
+    msr::write(msr::Register::STAR, 0x0010_0008_0000_0000);
 
     // The LStar MSR is used to set up the entry point for system calls. This is the address
     // of the entry function.

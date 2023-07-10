@@ -58,36 +58,47 @@ impl core::fmt::Display for Identifier {
     }
 }
 
+impl From<usize> for Identifier {
+    fn from(id: usize) -> Self {
+        Self::new(id as u64)
+    }
+}
+
 impl From<u64> for Identifier {
     fn from(id: u64) -> Self {
         Self::new(id)
     }
 }
 
-/// Represents the state of a task. A task can be in one of the following states:
-/// - `Created`: the task has been created but has not been scheduled yet
-/// - `Running`: the task is currently running on a CPU
-/// - `Ready`: the task is ready to run but is not currently running
-/// - `Blocked`: the task is blocked and cannot run
-/// - `Exiting`: the task is currently exiting
-/// - `Exited`: the task has exited and is waiting to be destroyed by the `task::destroy`
-/// - `Terminated`: the task was destroyed by the `task::destroy` syscall, but still exists
-///  in memory. It will be deleted when the last reference to it will be dropped.
-/// the `task::destroy` syscall
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Represents the state of a task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum State {
+    /// The task has been created but has not been scheduled yet
     Created,
+
+    /// The task is currently running on a CPU
     Running,
+
+    /// The task is ready to run but is not currently running
     Ready,
+
+    /// The task is currently being rescheduled by the scheduler and is next state will
+    /// either be `Running` or `Ready` depending on the scheduler decision
+    Rescheduled,
+
+    /// The task is blocked and cannot run
     Blocked,
-    Exited,
+
+    /// The task execution has been terminated by itself or by a signal but the task still
+    /// exist in memory. It will be deleted when the last reference to it will be dropped.
     Terminated,
 }
 
 impl State {
     /// Verify if the task is in an executable state. This is used to know if the task
-    /// can be picked by the scheduler to be executed or not. If a task is already running,
-    /// this function considers it as not executable (because it is already executed)
+    /// can be picked by the scheduler to be executed or not. If a task is already running
+    /// or being rescheduled, it is npt considered as executable because it is already
+    /// running
     #[must_use]
     pub fn executable(&self) -> bool {
         matches!(self, State::Created | State::Ready)
@@ -98,7 +109,7 @@ impl State {
 /// when multiple tasks are executable. If an task has a higher priority, it will be
 /// picked before a task with a lower priority. Tasks with the same priority are picked
 /// in a round-robin fashion.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Priority {
     Idle,
     Low,

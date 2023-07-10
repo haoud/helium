@@ -1,6 +1,6 @@
-use tap::Tap;
 use super::SyscallReturn;
 use crate::user::{scheduler, task};
+use tap::Tap;
 
 /// Exit the current task with the given exit code. Actually, this function just exit the task,
 /// and the task will not be destroyed until the `TASK_DESTROY` syscall is called.
@@ -9,7 +9,7 @@ use crate::user::{scheduler, task};
 /// This function panics if the current task is rescheduled after it has exited.
 pub fn exit(code: u64) -> ! {
     let id = scheduler::current_task()
-        .tap(|task| task.change_state(task::State::Exited))
+        .tap(|task| task.change_state(task::State::Terminated))
         .id();
 
     log::debug!("Task {} exited with code {}", id, code);

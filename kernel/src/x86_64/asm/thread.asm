@@ -38,7 +38,7 @@ switch_context:
 #  - This function does not return.
 restore_context:
     mov rsp, [rdi]          # Restore the stack pointer of the thread
-    mov DWORD ptr [rdi], 0  # Set the pointer to the new state struct to null
+    mov QWORD ptr [rdi], 0  # Set the pointer to the new state struct to null
 
     # Restore the next state from the stack
     popfq
@@ -81,8 +81,8 @@ enter_thread:
     xor rbp, rbp
 
     # Restore user GS if we was in user mode
-    cmp QWORD ptr [rsp + 8], 0x1B
-    jne 1f
+    cmp QWORD ptr [rsp + 8], 0x08
+    je 1f
     swapgs
 
 1:

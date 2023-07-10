@@ -29,7 +29,7 @@ impl Serial {
     /// Create a new serial channel and initialize the serial port. Currently, serial port are only
     /// used for debugging using QEMU's serial port, and this function even required to print
     /// anything to the QEMU console, so this function probably doesn't work on real hardware.
-    /// 
+    ///
     /// # Safety
     /// This function is unsafe because it writes to the serial port, which could cause a undefined
     /// behavior if the serial port doesn't exist or is used by another device. This is the caller

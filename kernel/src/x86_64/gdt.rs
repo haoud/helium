@@ -118,8 +118,8 @@ impl Descriptor {
     pub const NULL: Self = Self::Segment(0);
     pub const KERNEL_CODE64: Self = Self::Segment(0x00af_9b00_0000_ffff);
     pub const KERNEL_DATA: Self = Self::Segment(0x00cf_9300_0000_ffff);
-    pub const USER_CODE64: Self = Self::Segment(0x00af_fb00_0000_ffff);
     pub const USER_DATA: Self = Self::Segment(0x00cf_f300_0000_ffff);
+    pub const USER_CODE64: Self = Self::Segment(0x00af_fb00_0000_ffff);
 
     /// Create a new TSS descriptor.
     #[must_use]
@@ -177,8 +177,8 @@ impl Selector {
     pub const NULL: Selector = Selector::new(0, Privilege::KERNEL);
     pub const KERNEL_CODE: Selector = Selector::new(1, Privilege::KERNEL);
     pub const KERNEL_DATA: Selector = Selector::new(2, Privilege::KERNEL);
-    pub const USER_CODE: Selector = Selector::new(3, Privilege::USER);
-    pub const USER_DATA: Selector = Selector::new(4, Privilege::USER);
+    pub const USER_DATA: Selector = Selector::new(3, Privilege::USER);
+    pub const USER_CODE: Selector = Selector::new(4, Privilege::USER);
 
     /// Create a new segment selector. The index is the index of the segment in the GDT, and the
     /// privilege is the privilege level used for this segment.
@@ -205,8 +205,8 @@ pub unsafe fn setup() {
         .tap_mut(|gdt| gdt.set_descriptor(0, &Descriptor::NULL))
         .tap_mut(|gdt| gdt.set_descriptor(1, &Descriptor::KERNEL_CODE64))
         .tap_mut(|gdt| gdt.set_descriptor(2, &Descriptor::KERNEL_DATA))
-        .tap_mut(|gdt| gdt.set_descriptor(3, &Descriptor::USER_CODE64))
-        .tap_mut(|gdt| gdt.set_descriptor(4, &Descriptor::USER_DATA));
+        .tap_mut(|gdt| gdt.set_descriptor(3, &Descriptor::USER_DATA))
+        .tap_mut(|gdt| gdt.set_descriptor(4, &Descriptor::USER_CODE64));
     load();
 }
 
