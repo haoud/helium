@@ -19,6 +19,7 @@ extern crate alloc;
 #[cfg(not(target_arch = "x86_64"))]
 compile_error!("Helium only supports x86_64 computers");
 
+pub mod config;
 pub mod logger;
 pub mod mm;
 pub mod panic;

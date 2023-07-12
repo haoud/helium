@@ -1,4 +1,4 @@
-use addr::{Physical, Virtual};
+use addr::{phys::Physical, virt::Virtual};
 use core::mem::size_of;
 use limine::{LimineMemmapEntry, LimineMemoryMapEntryType, NonNullPtr};
 use macros::init;

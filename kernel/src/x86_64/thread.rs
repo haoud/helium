@@ -11,7 +11,7 @@ use crate::{
     },
     user::task::Task,
 };
-use addr::Virtual;
+use addr::virt::Virtual;
 use alloc::sync::Arc;
 use core::ops::{Range, Sub};
 use lib::align::Align;

@@ -3,7 +3,7 @@ use crate::mm::{
     frame::{allocator::Allocator, AllocationFlags, Frame},
     FRAME_ALLOCATOR,
 };
-use addr::{Physical, Virtual};
+use addr::{phys::Physical, virt::Virtual};
 use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},

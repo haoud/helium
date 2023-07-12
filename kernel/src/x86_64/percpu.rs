@@ -1,6 +1,6 @@
 use super::msr;
 use crate::user;
-use addr::Virtual;
+use addr::virt::Virtual;
 use core::ops::{Deref, DerefMut};
 
 extern "C" {

@@ -22,6 +22,7 @@ pub mod syscall;
 pub mod thread;
 pub mod tlb;
 pub mod tss;
+pub mod user;
 
 /// The maximum number of CPUs supported by the kernel. This should be enough for a while.
 const MAX_CPUS: usize = 32;

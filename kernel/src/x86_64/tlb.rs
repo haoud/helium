@@ -4,7 +4,7 @@ use super::{
     instruction::{self, invlpg},
     lapic::{self, IpiDestination, IpiPriority},
 };
-use addr::Virtual;
+use addr::virt::Virtual;
 use macros::interrupt;
 
 /// The vector number of the TLB invalidation interrupt.

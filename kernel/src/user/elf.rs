@@ -4,7 +4,7 @@ use crate::mm::{
     FRAME_ALLOCATOR,
 };
 use crate::x86_64::paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE};
-use addr::Virtual;
+use addr::virt::{InvalidVirtual, Virtual};
 use alloc::sync::Arc;
 use core::{cmp::min, num::TryFromIntError};
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
@@ -19,8 +19,8 @@ pub enum LoadError {
     UnsupportedEndianness,
 }
 
-impl From<addr::InvalidVirtual> for LoadError {
-    fn from(_: addr::InvalidVirtual) -> Self {
+impl From<InvalidVirtual> for LoadError {
+    fn from(_: InvalidVirtual) -> Self {
         LoadError::InvalidAddress
     }
 }

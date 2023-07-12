@@ -1,4 +1,4 @@
-use addr::Physical;
+use addr::phys::Physical;
 use bitflags::bitflags;
 use core::iter::Step;
 use lib::byte::ByteSize;

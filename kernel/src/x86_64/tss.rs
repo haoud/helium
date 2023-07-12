@@ -3,7 +3,7 @@ use super::{
     gdt::{self, Selector},
     instruction, smp,
 };
-use addr::Virtual;
+use addr::virt::Virtual;
 use macros::{init, per_cpu};
 
 /// The Task State Segment (TSS) for the current CPU. This is a per-cpu variable, and therefore

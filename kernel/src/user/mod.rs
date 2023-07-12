@@ -4,7 +4,9 @@ use macros::init;
 
 pub mod elf;
 pub mod preempt;
+pub mod ptr;
 pub mod scheduler;
+pub mod string;
 pub mod task;
 
 #[init]
@@ -19,41 +21,16 @@ pub fn setup() {
     scheduler::setup();
     scheduler::add_task(init);
 
-    scheduler::add_task(
-        elf::load(
-            Arc::new(PageTableRoot::new()),
-            include_bytes!("../../../iso/boot/init.elf"),
-        )
-        .expect("Failed to load init task"),
-    );
-    scheduler::add_task(
-        elf::load(
-            Arc::new(PageTableRoot::new()),
-            include_bytes!("../../../iso/boot/init.elf"),
-        )
-        .expect("Failed to load init task"),
-    );
-    scheduler::add_task(
-        elf::load(
-            Arc::new(PageTableRoot::new()),
-            include_bytes!("../../../iso/boot/init.elf"),
-        )
-        .expect("Failed to load init task"),
-    );
-    scheduler::add_task(
-        elf::load(
-            Arc::new(PageTableRoot::new()),
-            include_bytes!("../../../iso/boot/init.elf"),
-        )
-        .expect("Failed to load init task"),
-    );
-    scheduler::add_task(
-        elf::load(
-            Arc::new(PageTableRoot::new()),
-            include_bytes!("../../../iso/boot/init.elf"),
-        )
-        .expect("Failed to load init task"),
-    );
+    // Load 10 init tasks for testing
+    for _ in 0..10 {
+        scheduler::add_task(
+            elf::load(
+                Arc::new(PageTableRoot::new()),
+                include_bytes!("../../../iso/boot/init.elf"),
+            )
+            .expect("Failed to load init task"),
+        );
+    }
 }
 
 /// Enter userland. This function after the kernel has been initialized and jumps to the init

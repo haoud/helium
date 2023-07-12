@@ -1,4 +1,4 @@
-use addr::Virtual;
+use addr::virt::Virtual;
 use macros::{exception, exception_err, init};
 
 use super::{
@@ -138,7 +138,10 @@ fn stack_segment_fault(_state: &InterruptFrame) {
 
 #[exception_err]
 fn general_protection_fault(state: &InterruptFrame) {
-    panic!("General protection fault exception (code: {:#x})", state.code);
+    panic!(
+        "General protection fault exception (code: {:#x})",
+        state.code
+    );
 }
 
 #[exception_err]
