@@ -1,3 +1,4 @@
+use super::scheduler;
 use crate::x86_64::{
     paging::PageTableRoot,
     thread::{KernelThreadFn, Thread},
@@ -5,7 +6,6 @@ use crate::x86_64::{
 use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
 use sync::Spinlock;
-use super::scheduler;
 
 pub mod elf;
 pub mod preempt;

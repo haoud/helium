@@ -4,7 +4,7 @@ use core::fmt::Write;
 use macros::init;
 use sync::{Lazy, Spinlock};
 
-static SERIAL: Lazy<Spinlock<Serial>> =
+pub static SERIAL: Lazy<Spinlock<Serial>> =
     Lazy::new(|| Spinlock::new(unsafe { Serial::new(Port::COM1) }));
 
 struct Logger;

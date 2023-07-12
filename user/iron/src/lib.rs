@@ -1,5 +1,6 @@
 #![no_std]
 
+pub mod serial;
 pub mod task;
 
 /// Terminates the current process with the specified exit code. This function will never

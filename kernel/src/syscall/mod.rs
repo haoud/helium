@@ -1,5 +1,7 @@
+use addr::user::InvalidUserVirtual;
 use macros::syscall_handler;
 
+pub mod serial;
 pub mod task;
 
 /// The return value of a syscall. A syscall can return any value that fits in an register: u64
@@ -37,6 +39,12 @@ impl SyscallReturn {
     }
 }
 
+impl From<InvalidUserVirtual> for SyscallReturn {
+    fn from(_: InvalidUserVirtual) -> Self {
+        Self::failure(SyscallError::BadAddress)
+    }
+}
+
 impl From<SyscallError> for SyscallReturn {
     fn from(error: SyscallError) -> Self {
         Self(error.errno())
@@ -67,6 +75,8 @@ pub enum SyscallError {
     InvalidArgument = 2,
     TaskNotFound = 3,
     TaskInUse = 4,
+    BadAddress = 5,
+    NotImplemented = 6,
 }
 
 impl SyscallError {
@@ -86,6 +96,8 @@ impl SyscallError {
 pub enum Syscall {
     TaskExit = 0,
     TaskId = 1,
+    SerialRead = 2,
+    SerialWrite = 3,
     Last,
 }
 
@@ -111,6 +123,8 @@ fn syscall(id: u64, a: u64, b: u64, c: u64, d: u64, e: u64) -> i64 {
     match Syscall::from(id) {
         Some(Syscall::TaskExit) => task::exit(a),
         Some(Syscall::TaskId) => task::id(),
+        Some(Syscall::SerialRead) => serial::read(a, b),
+        Some(Syscall::SerialWrite) => serial::write(a, b),
 
         Some(Syscall::Last) | None => SyscallReturn::failure(SyscallError::NoSuchSyscall),
     }

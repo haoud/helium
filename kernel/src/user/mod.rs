@@ -2,11 +2,9 @@ use crate::x86_64::{self, paging::PageTableRoot};
 use alloc::sync::Arc;
 use macros::init;
 
+pub mod buffer;
 pub mod scheduler;
 pub mod task;
-pub mod buffer;
-pub mod ptr;
-pub mod string;
 
 #[init]
 pub fn setup() {
