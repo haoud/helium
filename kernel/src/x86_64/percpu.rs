@@ -34,7 +34,7 @@ impl<'a, T> Deref for PerCpuGuard<'a, T> {
 
 impl<'a, T> Drop for PerCpuGuard<'a, T> {
     fn drop(&mut self) {
-        user::preempt::enable();
+        user::task::preempt::enable();
     }
 }
 
@@ -65,7 +65,7 @@ impl<'a, T> DerefMut for PerCpuGuardMut<'a, T> {
 
 impl<'a, T> Drop for PerCpuGuardMut<'a, T> {
     fn drop(&mut self) {
-        user::preempt::enable();
+        user::task::preempt::enable();
     }
 }
 
@@ -94,7 +94,7 @@ impl<T> PerCpu<T> {
     /// while it is using a per-cpu variable.
     pub fn local(&self) -> PerCpuGuard<T> {
         unsafe {
-            user::preempt::disable();
+            user::task::preempt::disable();
             PerCpuGuard::new(self.local_unchecked())
         }
     }
@@ -104,7 +104,7 @@ impl<T> PerCpu<T> {
     /// while it is using a per-cpu variable.
     pub fn local_mut(&mut self) -> PerCpuGuardMut<T> {
         unsafe {
-            user::preempt::disable();
+            user::task::preempt::disable();
             PerCpuGuardMut::new(self.local_mut_unchecked())
         }
     }

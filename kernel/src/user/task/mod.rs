@@ -5,8 +5,10 @@ use crate::x86_64::{
 use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
 use sync::Spinlock;
-
 use super::scheduler;
+
+pub mod elf;
+pub mod preempt;
 
 /// By default, all task stacks as the same base address. This is because we don't have a
 /// user memory manager yet, so we can't dynamically allocate stacks. This means that we

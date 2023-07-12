@@ -89,7 +89,7 @@ pub trait Scheduler {
     /// and the next task are an invalid strong count, etc.
     unsafe fn schedule(&self) {
         assert!(!x86_64::irq::enabled());
-        assert!(super::preempt::enabled());
+        assert!(task::preempt::enabled());
 
         let current = self.current_task().tap(|current| {
             assert!(current.state() != task::State::Running);

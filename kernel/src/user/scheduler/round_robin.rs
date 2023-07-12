@@ -1,5 +1,3 @@
-use crate::user::preempt;
-
 use super::task::{self, State, Task};
 use super::{current_task, schedule};
 use alloc::{sync::Arc, vec::Vec};
@@ -173,7 +171,7 @@ impl super::Scheduler for RoundRobin {
             running.quantum == 0 || current.priority().is_idle()
         };
 
-        if reschedule && preempt::enabled() {
+        if reschedule && task::preempt::enabled() {
             unsafe {
                 current_task().change_state(State::Rescheduled);
                 schedule();

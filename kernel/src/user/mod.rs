@@ -2,17 +2,16 @@ use crate::x86_64::{self, paging::PageTableRoot};
 use alloc::sync::Arc;
 use macros::init;
 
-pub mod elf;
-pub mod preempt;
-pub mod ptr;
 pub mod scheduler;
-pub mod string;
 pub mod task;
+pub mod buffer;
+pub mod ptr;
+pub mod string;
 
 #[init]
 pub fn setup() {
     // Load the init task
-    let init = elf::load(
+    let init = task::elf::load(
         Arc::new(PageTableRoot::new()),
         include_bytes!("../../../iso/boot/init.elf"),
     )
@@ -24,7 +23,7 @@ pub fn setup() {
     // Load 10 init tasks for testing
     for _ in 0..10 {
         scheduler::add_task(
-            elf::load(
+            task::elf::load(
                 Arc::new(PageTableRoot::new()),
                 include_bytes!("../../../iso/boot/init.elf"),
             )

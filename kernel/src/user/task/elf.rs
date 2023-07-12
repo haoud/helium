@@ -1,4 +1,3 @@
-use super::task::Task;
 use crate::mm::{
     frame::{allocator::Allocator, AllocationFlags},
     FRAME_ALLOCATOR,
@@ -8,6 +7,8 @@ use addr::virt::{InvalidVirtual, Virtual};
 use alloc::sync::Arc;
 use core::{cmp::min, num::TryFromIntError};
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
+
+use super::Task;
 
 /// Error that can occur when loading an ELF file
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
