@@ -5,18 +5,11 @@ use macros::init;
 pub mod buffer;
 pub mod scheduler;
 pub mod task;
+pub mod object;
 
 #[init]
 pub fn setup() {
-    // Load the init task
-    let init = task::elf::load(
-        Arc::new(PageTableRoot::new()),
-        include_bytes!("../../../iso/boot/init.elf"),
-    )
-    .expect("Failed to load init task");
-
     scheduler::setup();
-    scheduler::add_task(init);
 
     // Load 10 init tasks for testing
     for _ in 0..10 {

@@ -48,6 +48,19 @@ pub unsafe fn copy_from<T>(src: *const T, dst: *mut T, len: usize) {
     });
 }
 
+/// Write the given value to the given address. This function is implemented by an simple call
+/// to [`copy_from`] with the same source and destination address and a length of 1. This will
+/// copy one `T` from the userland memory to the kernel.
+/// 
+/// # Safety
+/// This function is unsafe because it dereferences a user raw pointer that could possibly be
+/// invalid: it is the caller's responsibility to ensure that the pointer is valid and does not
+/// overlap with kernel space. However, the caller does not need to ensure that the memory is
+/// readable, as this function will handle page faults and kill the
+pub unsafe fn read<T>(src: *const T, dst: *mut T) {
+    copy_from(src, dst, 1);
+}
+
 /// Copy `len` bytes from the given source address to the given destination address. This function
 /// should only be used to copy data from kernel space to user space. If you want to copy data
 /// from user space to kernel space, then you should use [`copy_from`].
@@ -61,6 +74,19 @@ pub unsafe fn copy_to<T>(src: *const T, dst: *mut T, len: usize) {
     perform_user_operation(|| {
         core::ptr::copy_nonoverlapping(src, dst, len);
     });
+}
+
+/// Write the given value to the given address. This function is implemented by an simple call
+/// to [`copy_to`] with the same source and destination address and a length of 1. This will
+/// copy one `T` from the kernel to the userland memory.
+/// 
+/// # Safety
+/// This function is unsafe because it dereferences a user raw pointer that could possibly be
+/// invalid: it is the caller's responsibility to ensure that the pointer is valid and does not
+/// overlap with kernel space. However, the caller does not need to ensure that the memory is
+/// readable, as this function will handle page faults and kill the
+pub unsafe fn write<T>(src: *const T, dst: *mut T) {
+    copy_to(src, dst, 1);
 }
 
 /// Read an user c-string from the given address. It will try to read all the bytes from the
