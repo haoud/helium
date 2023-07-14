@@ -76,7 +76,7 @@ impl UserString {
         }
 
         // Check if the string is entirely in the userland address space.
-        if UserVirtual::is_user(self.data.inner() as u64 + self.len as u64) {
+        if UserVirtual::is_user(self.data.inner() as usize + self.len) {
             return Err(FetchError::InvalidMemory);
         }
 

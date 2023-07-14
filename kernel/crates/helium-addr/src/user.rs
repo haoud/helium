@@ -5,7 +5,7 @@ use core::{fmt, iter::Step};
 /// 0x0000_0000_0000_0000 to 0x0000_7FFF_FFFF_FFFF).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct UserVirtual(pub(crate) u64);
+pub struct UserVirtual(pub(crate) usize);
 
 /// An invalid virtual address.
 ///
@@ -13,7 +13,7 @@ pub struct UserVirtual(pub(crate) u64);
 /// [`UserVirtual::try_new`] when the given address is not in user space.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct InvalidUserVirtual(pub(crate) u64);
+pub struct InvalidUserVirtual(pub(crate) usize);
 
 impl UserVirtual {
     /// Creates a new canonical virtual address.
@@ -21,7 +21,7 @@ impl UserVirtual {
     /// # Panics
     /// This function panics if the given address is not canonical.
     #[must_use]
-    pub const fn new(address: u64) -> Self {
+    pub const fn new(address: usize) -> Self {
         match Self::try_new(address) {
             Err(InvalidUserVirtual(_)) => panic!("Invalid user virtual address: non user space"),
             Ok(addr) => addr,
@@ -32,7 +32,7 @@ impl UserVirtual {
     ///
     /// # Errors
     /// Returns [`InvalidUserVirtual`] if the given address is not in user space.
-    pub const fn try_new(address: u64) -> Result<Self, InvalidUserVirtual> {
+    pub const fn try_new(address: usize) -> Result<Self, InvalidUserVirtual> {
         if address > 0x0000_7FFF_FFFF_FFFF {
             Err(InvalidUserVirtual(address))
         } else {
@@ -47,13 +47,13 @@ impl UserVirtual {
     /// the caller must ensure that the address is in user space. Otherwise, the behavior is
     /// undefined.
     #[must_use]
-    pub const unsafe fn new_unchecked(address: u64) -> Self {
+    pub const unsafe fn new_unchecked(address: usize) -> Self {
         Self(address)
     }
 
     /// Checks if the given address is in user space.
     #[must_use]
-    pub const fn is_user(address: u64) -> bool {
+    pub const fn is_user(address: usize) -> bool {
         matches!(Self::try_new(address), Ok(_))
     }
 
@@ -61,8 +61,8 @@ impl UserVirtual {
     /// contains the object pointed by the pointer are in user space.
     #[must_use]
     pub fn is_user_ptr<T>(ptr: *const T) -> bool {
-        let length = core::mem::size_of::<T>() as u64;
-        let start = ptr as u64;
+        let length = core::mem::size_of::<T>();
+        let start = ptr as usize;
 
         // There is no need to check overflow because `T` should never be big
         // enough to overflow an u64
@@ -74,26 +74,26 @@ impl UserVirtual {
     pub const fn as_virtual(&self) -> Virtual {
         // No check are needed because an valid user virtual address is always valid virtual
         // address (obviously)
-        Virtual(self.0)
+        Virtual(self.0 as u64)
     }
 
     /// Convert this user virtual address to an usize.
     #[must_use]
     pub const fn as_usize(&self) -> usize {
-        self.0 as usize
+        self.0
     }
 
     /// Convert this user virtual address to an u64.
     #[must_use]
     pub const fn as_u64(&self) -> u64 {
-        self.0
+        self.0 as u64
     }
 
     /// Creates a new canonical virtual address from a pointer. This is a convenience function that
     /// simply casts the pointer address to a `u64`, and then calls [`Self::new`].
     #[must_use]
     pub fn from_ptr<T>(ptr: *const T) -> Self {
-        Self::new(ptr as u64)
+        Self::new(ptr as usize)
     }
 
     #[must_use]
@@ -132,7 +132,7 @@ impl Step for UserVirtual {
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
-        let new = start.0.checked_add(count as u64)?;
+        let new = start.0.checked_add(count)?;
         if !UserVirtual::is_user(new) {
             return None;
         }
@@ -140,7 +140,7 @@ impl Step for UserVirtual {
     }
 
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
-        let new = start.0.checked_sub(count as u64)?;
+        let new = start.0.checked_sub(count)?;
         if !UserVirtual::is_user(new) {
             return None;
         }
@@ -186,7 +186,7 @@ impl fmt::Display for UserVirtual {
 
 impl From<UserVirtual> for u64 {
     fn from(address: UserVirtual) -> Self {
-        address.0
+        address.0 as u64
     }
 }
 
@@ -200,7 +200,7 @@ impl TryFrom<Virtual> for UserVirtual {
     type Error = InvalidUserVirtual;
 
     fn try_from(address: Virtual) -> Result<Self, Self::Error> {
-        Self::try_new(address.0)
+        Self::try_new(address.0 as usize)
     }
 }
 
@@ -208,7 +208,7 @@ impl TryFrom<u64> for UserVirtual {
     type Error = InvalidUserVirtual;
 
     fn try_from(address: u64) -> Result<Self, Self::Error> {
-        Self::try_new(address)
+        Self::try_new(address as usize)
     }
 }
 
@@ -216,6 +216,6 @@ impl TryFrom<usize> for UserVirtual {
     type Error = InvalidUserVirtual;
 
     fn try_from(address: usize) -> Result<Self, Self::Error> {
-        Self::try_new(address as u64)
+        Self::try_new(address)
     }
 }

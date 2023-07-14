@@ -6,13 +6,13 @@ pub mod serial;
 pub mod task;
 
 /// The type of the return value of a syscall. All syscalls must return a value that fits
-/// in an u64. However, some values are reserved for indicating an error: values between
+/// in an usize. However, some values are reserved for indicating an error: values between
 /// -1 and -4095 are reserved for indicating an error (see `SyscallError` for more details).
-pub type SyscallValue = u64;
+pub type SyscallValue = usize;
 
 // A struct that contains all the syscall numbers used by the kernel.
 #[non_exhaustive]
-#[repr(u64)]
+#[repr(usize)]
 pub enum Syscall {
     TaskExit = 0,
     TaskId = 1,
@@ -25,8 +25,8 @@ impl Syscall {
     /// Create a new Syscall from a u64. If the u64 is not a valid syscall number, it
     /// returns None.
     #[must_use]
-    pub fn from(id: u64) -> Option<Syscall> {
-        if id < Self::Last as u64 {
+    pub fn from(id: usize) -> Option<Syscall> {
+        if id < Self::Last as usize {
             Some(unsafe { core::mem::transmute(id) })
         } else {
             None
@@ -54,8 +54,8 @@ impl SyscallError {
     /// error, so we just convert the error to its negative value. This works similarly
     /// to errno in Linux.
     #[must_use]
-    pub fn errno(&self) -> i64 {
-        -(*self as i64)
+    pub fn errno(&self) -> isize {
+        -(*self as isize)
     }
 }
 
@@ -79,7 +79,7 @@ impl From<InvalidUserVirtual> for SyscallError {
 #[syscall_handler]
 #[allow(unused_variables)]
 #[allow(clippy::cast_possible_wrap)]
-fn syscall(id: u64, a: u64, b: u64, c: u64, d: u64, e: u64) -> i64 {
+fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize {
     let result = match Syscall::from(id) {
         Some(Syscall::TaskExit) => task::exit(a),
         Some(Syscall::TaskId) => task::id(),
@@ -91,6 +91,6 @@ fn syscall(id: u64, a: u64, b: u64, c: u64, d: u64, e: u64) -> i64 {
 
     match result {
         Err(error) => error.errno(),
-        Ok(value) => value as i64,
+        Ok(value) => value as isize,
     }
 }

@@ -7,7 +7,7 @@ use tap::Tap;
 ///
 /// # Panics
 /// This function panics if the current task is rescheduled after it has exited.
-pub fn exit(code: u64) -> ! {
+pub fn exit(code: usize) -> ! {
     let id = scheduler::current_task()
         .tap(|task| task.change_state(task::State::Terminated))
         .id();
@@ -31,6 +31,7 @@ pub fn exit(code: u64) -> ! {
 /// # Panics
 /// This function panics if there is no current task running on the CPU (which should
 /// never happen and is a bug).
+#[allow(clippy::cast_possible_truncation)]
 pub fn id() -> Result<SyscallValue, SyscallError> {
-    Ok(scheduler::current_task().id().0)
+    Ok(scheduler::current_task().id().0 as usize)
 }

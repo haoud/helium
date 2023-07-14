@@ -44,7 +44,7 @@ impl<const N: usize> UserBuffer<N> {
     /// # Errors
     /// Return an error if a part of the buffer is not in the user address space.
     pub fn try_new(start: UserVirtual, len: usize) -> Result<Self, BufferError> {
-        if UserVirtual::is_user(start.as_u64() + len as u64) {
+        if UserVirtual::is_user(start.as_usize() + len) {
             Ok(Self {
                 start,
                 offset: 0,
