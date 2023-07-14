@@ -1,11 +1,11 @@
 pub struct Range {
     base: usize,
-    len: usize
+    len: usize,
 }
 
 impl Range {
     /// Creates a new range from a base and a length.
-    /// 
+    ///
     /// # Panics
     /// Panics if the resulting range would overflow.
     #[must_use]

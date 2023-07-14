@@ -31,7 +31,7 @@ pub struct UserString {
 
 impl UserString {
     /// Creates a new user string from a string from a syscall . This function does not copy the
-    /// string from the userland address space to the kernel address space, but simply create a 
+    /// string from the userland address space to the kernel address space, but simply create a
     /// new string with an user pointer to the string in the userland address space and the length
     /// of the string.
     ///

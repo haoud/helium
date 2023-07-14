@@ -32,25 +32,27 @@ impl<const N: usize> UserBuffer<N> {
     #[must_use]
     pub fn new(start: UserVirtual, len: usize) -> Self {
         match Self::try_new(start, len) {
-            None => panic!("UserBuffer: buffer not in user address space"),
-            Some(buffer) => buffer,
+            Err(BufferError::NotInUserSpace) => {
+                panic!("UserBuffer: buffer not in user address space")
+            }
+            Ok(buffer) => buffer,
         }
     }
 
-    /// Try to create a new user buffer from a start address and a length. If a part or all of
-    /// the buffer is not in the user address space, then it will return `None`, otherwise it
-    /// will return `Some(buffer)`.
-    #[must_use]
-    pub fn try_new(start: UserVirtual, len: usize) -> Option<Self> {
+    /// Try to create a new user buffer from a start address and a length.
+    ///
+    /// # Errors
+    /// Return an error if a part of the buffer is not in the user address space.
+    pub fn try_new(start: UserVirtual, len: usize) -> Result<Self, BufferError> {
         if UserVirtual::is_user(start.as_u64() + len as u64) {
-            Some(Self {
+            Ok(Self {
                 start,
                 offset: 0,
                 len,
                 buffer: [0; N],
             })
         } else {
-            None
+            Err(BufferError::NotInUserSpace)
         }
     }
 
@@ -152,4 +154,11 @@ impl<const N: usize> UserBuffer<N> {
 
         Some(())
     }
+}
+
+/// Represent an error that can occur when creating a user buffer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BufferError {
+    /// The buffer is not in the user address space.
+    NotInUserSpace,
 }

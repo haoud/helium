@@ -1,4 +1,4 @@
-use super::SyscallReturn;
+use super::{SyscallError, SyscallValue};
 use crate::user::{scheduler, task};
 use tap::Tap;
 
@@ -24,11 +24,13 @@ pub fn exit(code: u64) -> ! {
 
 /// Return the identifier of the current task.
 ///
+/// # Errors
+/// This function will never return an error, but it is declared as returning a `Result` to
+/// be consistent with the other syscalls.
+///
 /// # Panics
 /// This function panics if there is no current task running on the CPU (which should
 /// never happen and is a bug).
-#[must_use]
-#[allow(clippy::cast_possible_wrap)]
-pub fn id() -> SyscallReturn {
-    SyscallReturn::from(scheduler::current_task().id().0)
+pub fn id() -> Result<SyscallValue, SyscallError> {
+    Ok(scheduler::current_task().id().0)
 }

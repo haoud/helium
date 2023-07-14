@@ -17,7 +17,7 @@ pub struct Pointer<T> {
 
 impl<T> Pointer<T> {
     /// Creates a new user pointer from a raw pointer.
-    /// 
+    ///
     /// # Panics
     /// Panics if the given pointer is not in user space.
     pub fn new(ptr: *mut T) -> Self {
@@ -64,7 +64,7 @@ impl<T> core::fmt::Display for Pointer<T> {
     }
 }
 
-/// Represents an error that can occur when converting a raw 
+/// Represents an error that can occur when converting a raw
 /// pointer to a user pointer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PointerError {
