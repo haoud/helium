@@ -51,10 +51,22 @@ impl UserVirtual {
         Self(address)
     }
 
-    /// Checks if the given address is canonical.
+    /// Checks if the given address is in user space.
     #[must_use]
     pub const fn is_user(address: u64) -> bool {
         matches!(Self::try_new(address), Ok(_))
+    }
+
+    /// Checks if the given pointer is in user space. If check if all the addresses that
+    /// contains the object pointed by the pointer are in user space.
+    #[must_use]
+    pub fn is_user_ptr<T>(ptr: *const T) -> bool {
+        let length = core::mem::size_of::<T>() as u64;
+        let start = ptr as u64;
+
+        // There is no need to check overflow because `T` should never be big
+        // enough to overflow an u64
+        Self::is_user(start) && Self::is_user(start + length)
     }
 
     /// Convert this user virtual address to a virtual address.

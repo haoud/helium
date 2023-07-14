@@ -51,7 +51,7 @@ pub unsafe fn copy_from<T>(src: *const T, dst: *mut T, len: usize) {
 /// Write the given value to the given address. This function is implemented by an simple call
 /// to [`copy_from`] with the same source and destination address and a length of 1. This will
 /// copy one `T` from the userland memory to the kernel.
-/// 
+///
 /// # Safety
 /// This function is unsafe because it dereferences a user raw pointer that could possibly be
 /// invalid: it is the caller's responsibility to ensure that the pointer is valid and does not
@@ -79,7 +79,7 @@ pub unsafe fn copy_to<T>(src: *const T, dst: *mut T, len: usize) {
 /// Write the given value to the given address. This function is implemented by an simple call
 /// to [`copy_to`] with the same source and destination address and a length of 1. This will
 /// copy one `T` from the kernel to the userland memory.
-/// 
+///
 /// # Safety
 /// This function is unsafe because it dereferences a user raw pointer that could possibly be
 /// invalid: it is the caller's responsibility to ensure that the pointer is valid and does not

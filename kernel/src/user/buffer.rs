@@ -1,11 +1,13 @@
 use crate::x86_64;
 use addr::user::UserVirtual;
 
+/// The default user buffer type that should be used in most cases unless you had a
+/// specific reason to use a different buffer size.
 pub type UserBuffered = UserBuffer<{ crate::config::BUFFERED_LEN }>;
 
 /// A user buffer of bytes. This buffer is used to read or write data from the user address
 /// space. This buffer is backed by an internal buffer of size `N` bytes, used to read chunks
-/// of data from the user address space without allocating too much memory.
+/// of data from the user address space without too much overhead in both CPU time and memory.
 pub struct UserBuffer<const N: usize> {
     /// The start address of the buffer in the user address space.
     start: UserVirtual,
@@ -24,7 +26,7 @@ pub struct UserBuffer<const N: usize> {
 
 impl<const N: usize> UserBuffer<N> {
     /// Create a new user buffer from a start address and a length.
-    /// 
+    ///
     /// # Panics
     /// Panic if a part of the buffer is not in the user address space.
     #[must_use]
@@ -109,6 +111,9 @@ impl<const N: usize> UserBuffer<N> {
             return None;
         }
 
+        // SAFETY: This is safe because we checked that the buffer is fully in the
+        // user space. Since the buffer is in the user space, data races are allowed
+        // and are the responsibility of the user to prevent them.
         unsafe {
             let src = self.start.as_ptr::<u8>().add(self.offset);
             let len = core::cmp::min(self.len - self.offset, N);
@@ -133,6 +138,9 @@ impl<const N: usize> UserBuffer<N> {
             return None;
         }
 
+        // SAFETY: This is safe because we checked that the buffer is fully in the
+        // user space. Since the buffer is in the user space, data races are allowed
+        // and are the responsibility of the user to prevent them.
         unsafe {
             let dst = self.start.as_mut_ptr::<u8>().add(self.offset);
             let src = buf.as_ptr();

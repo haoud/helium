@@ -3,9 +3,11 @@ use alloc::sync::Arc;
 use macros::init;
 
 pub mod buffer;
-pub mod scheduler;
-pub mod task;
 pub mod object;
+pub mod pointer;
+pub mod scheduler;
+pub mod string;
+pub mod task;
 
 #[init]
 pub fn setup() {
