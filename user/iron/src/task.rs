@@ -28,3 +28,12 @@ pub fn nanosleep(nano: u64) {
 pub fn sleep(sec: u64) {
     nanosleep(sec * 1000000000)
 }
+
+pub fn yields() {
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") 5,
+        );
+    }
+}

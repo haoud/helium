@@ -1,5 +1,5 @@
 use super::task::{self, State, Task};
-use super::{current_task, schedule};
+use super::{current_task, yield_cpu};
 use alloc::{sync::Arc, vec::Vec};
 use core::cell::RefCell;
 use macros::per_cpu;
@@ -171,11 +171,8 @@ impl super::Scheduler for RoundRobin {
             running.quantum == 0 || current.priority().is_idle()
         };
 
-        if reschedule && task::preempt::enabled() {
-            unsafe {
-                current_task().change_state(State::Rescheduled);
-                schedule();
-            }
+        if reschedule {
+            yield_cpu();
         }
     }
 }

@@ -1,5 +1,5 @@
 use self::round_robin::RoundRobin;
-use super::task::{self, Task};
+use super::task::{self, Task, State};
 use crate::x86_64;
 use alloc::sync::Arc;
 use macros::init;
@@ -205,14 +205,19 @@ pub fn timer_tick() {
     SCHEDULER.timer_tick();
 }
 
-/// Schedule the current thread.
-///
-/// # Safety
-/// This function is unsafe because it performs a context switch, and thus must be called
-/// with care, as it may break code, cause memory corruption, deadlocks... if not used
-/// correctly.
-pub unsafe fn schedule() {
-    SCHEDULER.schedule();
+/// Reschedule the current thread.
+pub fn reschedule() {
+    unsafe {
+        SCHEDULER.schedule();
+    }
+}
+
+/// Yield the current thread. If preemption is disabled, this function does nothing.
+pub fn yield_cpu() {
+    if task::preempt::enabled() {
+        current_task().change_state(State::Rescheduled);
+        reschedule();
+    }
 }
 
 /// Engage the current CPU in the scheduler.

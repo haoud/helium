@@ -22,9 +22,7 @@ pub fn exit(code: usize) -> ! {
     scheduler::remove_task(id);
     task::remove(id);
 
-    unsafe {
-        scheduler::schedule();
-    }
+    scheduler::reschedule();
     unreachable!("Task should never be scheduled again after exiting");
 }
 
@@ -42,17 +40,17 @@ pub fn id() -> Result<SyscallValue, SyscallError> {
     Ok(scheduler::current_task().id().0 as usize)
 }
 
-/// Put the current task to sleep for at least the given number of nanoseconds. The task 
-/// will be woken up when the timer expires. Due to the way the timer system works, the 
-/// task may not be woken up immediately after the timer expires and may be delayed by 
+/// Put the current task to sleep for at least the given number of nanoseconds. The task
+/// will be woken up when the timer expires. Due to the way the timer system works, the
+/// task may not be woken up immediately after the timer expires and may be delayed by
 /// a few milliseconds.
-/// 
+///
 /// # Errors
 /// This function will never return an error, but it is declared as returning a `Result`
 /// to be consistent with the other syscalls. It always returns `0`.
 pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
     let expiration = uptime_fast() + Nanosecond::new(nano as u64);
-    
+
     // Create a timer that will wake up the task when it expires.
     let current = scheduler::current_task();
     let timer = Timer::new(expiration, move |_| {
@@ -65,5 +63,16 @@ pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
     if timer.active() {
         WaitQueue::new().sleep();
     }
+    Ok(0)
+}
+
+/// Yield the CPU to another task. If there is no other task ready to run or if there
+/// is only lower priority tasks, the current task will continue to run.
+/// 
+/// # Errors
+/// This function will never return an error, but it is declared as returning a `Result`
+/// to be consistent with the other syscalls. It always returns `0`.
+pub fn yields() -> Result<SyscallValue, SyscallError> {
+    scheduler::yield_cpu();
     Ok(0)
 }

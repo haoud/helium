@@ -23,9 +23,7 @@ impl WaitQueue {
         current.change_state(State::Blocked);
 
         self.tasks.push_back(Arc::clone(&current));
-        unsafe {
-            scheduler::schedule();
-        }
+        scheduler::reschedule();
 
         // If we get here, we have been woken up by another task. We must make sure that the
         // task is not in the wait queue anymore because it may have been woken up by another
