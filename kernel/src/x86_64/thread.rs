@@ -180,7 +180,7 @@ impl KernelStack {
 
     /// Verify if the kernel stack contains the state of the thread.
     pub fn has_saved_state(&self) -> bool {
-        self.state.is_null()
+        !self.state.is_null()
     }
 }
 
@@ -302,6 +302,16 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 
     next.mm().set_current();
     set_kernel_stack(&next.kstack);
+
+    // FIXME: There is a race condition in the scheduler (AGAIN) that allow the
+    // scheduler to switch to a thread that has a ready state but is not ready
+    // to be executed (because it has not saved its state yet). This is a quick
+    // fix to avoid this problem, but it should be fixed in the scheduler properly.
+    // Given the number of bugs in the scheduler, it should maybe rewritten from scratch.
+    while !next.kstack.has_saved_state() {
+        core::hint::spin_loop();
+    }
+
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut());
 }
 
