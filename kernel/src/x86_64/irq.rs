@@ -4,6 +4,7 @@ use super::{
     idt, lapic,
     pic::{self, IRQ_BASE},
 };
+use crate::time::timer;
 use crate::user::scheduler;
 use macros::{init, interrupt, irq_handler};
 
@@ -154,6 +155,7 @@ unsafe fn irq_handler(state: &mut InterruptFrame) {
     match irq {
         PIT_IRQ => {
             pit::timer_tick();
+            timer::tick();
             lapic::send_ipi(
                 lapic::IpiDestination::All,
                 lapic::IpiPriority::Normal,

@@ -8,6 +8,7 @@
 #![allow(clippy::module_name_repetitions)]
 #![feature(asm_const)]
 #![feature(step_trait)]
+#![feature(drain_filter)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
 #![feature(panic_info_message)]
@@ -24,6 +25,7 @@ pub mod logger;
 pub mod mm;
 pub mod panic;
 pub mod syscall;
+pub mod time;
 pub mod user;
 pub mod x86_64;
 
@@ -50,6 +52,9 @@ pub unsafe extern "C" fn _start() -> ! {
     // Initialize the x86_64 architecture dependent code that
     // needs the memory manager to be initialized first
     x86_64::setup();
+
+    // Initialize dynamic timers
+    time::timer::setup();
 
     // Setup the userland environment
     user::setup();
