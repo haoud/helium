@@ -302,16 +302,6 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 
     next.mm().set_current();
     set_kernel_stack(&next.kstack);
-
-    // FIXME: There is a race condition in the scheduler (AGAIN) that allow the
-    // scheduler to switch to a thread that has a ready state but is not ready
-    // to be executed (because it has not saved its state yet). This is a quick
-    // fix to avoid this problem, but it should be fixed in the scheduler properly.
-    // Given the number of bugs in the scheduler, it should maybe rewritten from scratch.
-    while !next.kstack.has_saved_state() {
-        core::hint::spin_loop();
-    }
-
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut());
 }
 
@@ -326,14 +316,12 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 /// This function is unsafe for approximately the same reasons as the `switch`
 /// function.
 pub unsafe fn jump_to(thread: &mut Thread) -> ! {
-    unsafe {
-        msr::write(msr::Register::KERNEL_GS_BASE, thread.gsbase);
-        msr::write(msr::Register::FS_BASE, thread.fsbase);
+    msr::write(msr::Register::KERNEL_GS_BASE, thread.gsbase);
+    msr::write(msr::Register::FS_BASE, thread.fsbase);
 
-        thread.mm.set_current();
-        set_kernel_stack(&thread.kstack);
-        restore_context(thread.kstack.state_ptr_mut());
-    }
+    thread.mm.set_current();
+    set_kernel_stack(&thread.kstack);
+    restore_context(thread.kstack.state_ptr_mut());
 }
 
 /// Exit the current thread and switch to the next thread. This function simply call
@@ -359,16 +347,13 @@ pub unsafe fn exit(current: Arc<Task>, thread: &mut Thread) -> ! {
 /// because it belong to the current thread that could be dropped here and thus creating a
 /// use after free.
 ///
-/// This function should only be called the `exit_thread` function, written is assembly. That's
-/// why it is public, even if it should not be called directly.
-///
 /// # Safety
 /// This function is unsafe because it plays with raw pointers and CPU registers in order
 /// to be able to free the memory used by the current task and to switch to the next task.
 /// No need to say that this is highly unsafe, any bug or undefined behavior here can lead
 /// to a kernel panic or a security issue.
 #[no_mangle]
-pub unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread) {
+unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread) {
     thread.mm().set_current();
 
     // Drop the Arc to the current thread before leaving this thread forever. This

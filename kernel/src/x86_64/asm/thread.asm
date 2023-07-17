@@ -63,6 +63,9 @@ restore_context:
 # Return value:
 # - This function does not return.
 enter_thread:
+    # Unlock the previously saved thread to allow it to be resumed
+    call unlock_saved_thread
+
     # Clear all registers to avoid leaking sensitive data
     xor r8, r8
     xor r9, r9

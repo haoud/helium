@@ -2,7 +2,7 @@ use self::round_robin::RoundRobin;
 use super::task::{self, Task, State, Identifier};
 use crate::x86_64;
 use alloc::sync::Arc;
-use macros::init;
+use macros::{init, per_cpu};
 use sync::Lazy;
 use tap::Tap;
 
@@ -11,6 +11,12 @@ pub mod round_robin;
 /// The scheduler used by the kernel. This is a global variable to allow changing the scheduler
 /// implementation at compile time more easily.
 static SCHEDULER: Lazy<RoundRobin> = Lazy::new(RoundRobin::new);
+
+/// The last task that was saved on the current CPU. This is used to unlock the spinlock of the
+/// thread after the context switch, to avoid deadlocks. See the `unlock_saved_thread` function
+/// for more information.
+#[per_cpu]
+static mut SAVED_TASK: Option<Arc<Task>> = None;
 
 /// A trait that represents a scheduler. This trait is used to abstract the scheduler
 /// implementation, allowing us to easily switch between different schedulers.
@@ -64,7 +70,6 @@ pub trait Scheduler {
         // and should also be in the task list and in the run queue. So, decrementing the
         // strong count here is safe and should not result in a use-after-free.
         Arc::decrement_strong_count(Arc::as_ptr(&next));
-
         x86_64::thread::jump_to(&mut next.thread().lock());
     }
 
@@ -86,7 +91,8 @@ pub trait Scheduler {
     /// This function should never panic in normal conditions. However, it performs some checks
     /// to ensure that the scheduler is in a valid state, and if it is not the case, it will
     /// panic. This include checking that there is an current task, detecting if the current
-    /// and the next task are an invalid strong count, etc.
+    /// and the next task are an invalid strong count, verify that preemption is enabled and
+    /// that interrupts are disabled...
     unsafe fn schedule(&self) {
         assert!(!x86_64::irq::enabled());
         assert!(task::preempt::enabled());
@@ -105,20 +111,11 @@ pub trait Scheduler {
         log::debug!("Switching from {:?} to {:?}", current.id().0, task.id().0);
         self.set_current_task(Arc::clone(&task));
 
-        // Here, we must force the unlocking of the current thread, acquired by the
-        // scheduler when it was resumed and of the next thread, acquired by the scheduler
-        // when it was suspended. We can consider that as as an advance on the use of locks,
-        // since the place where the lock was acquired will never be reached again or will
-        // forget about the lock (for an example, see below at the end of this function).
-
-        // This is possible that the next thread is not locked if it was never ran before,
-        // but in this case, the force_unlock function will do nothing.
-        //
-        // SAFETY: This is safe, but only if this function is the only place where the
-        // thread are acquired and released, excepted for a few functions in the thread.rs
-        // module, that should only be called by this function.
+        // SAFETY: Here, we must force the unlocking of the current thread, acquired by the
+        // scheduler when it was resumed. This is safe because this is guaranteed that the
+        // thread is not used anymore by the scheduler, but due to some constraints (we cannot
+        // drop a lock in assembly), we must force the unlocking of the thread here.
         current.thread().force_unlock();
-        task.thread().force_unlock();
 
         // Here, we manually decrement the strong count of the next task. This is needed
         // because when we switch to the next task, this is not guaranteed that it will
@@ -126,9 +123,9 @@ pub trait Scheduler {
         // the strong count will not be decremented at the end of the this function. It
         // would result in a memory leak, because the strong count would never reach 0.
         //
-        // SAFETY: The Arc is stored at least in the  current task variable (set above)
-        // and should also be in the task list and in the run queue. So, decrementing the
-        // strong count here is safe andthe task will not be freed while we are using it.
+        // SAFETY: The Arc is stored at least in the current task variable (set above), in
+        // the task list and in the run queue. So, decrementing the strong count here is safe
+        // and the task will not be freed while we are using it.
         debug_assert!(Arc::strong_count(&task) > 1);
         Arc::decrement_strong_count(Arc::as_ptr(&task));
 
@@ -156,24 +153,30 @@ pub trait Scheduler {
         // reference to the task, and decrementing the strong count before calling the
         // exit function could cause an use after free. So, we decrement the strong count
         // here because it cannot be reached if the current task is exiting.
+        //
+        // SAFETY: The Arc is stored at least in the task list and in the run queue. So,
+        // decrementing the strong count here is safe and the task will not be freed while
+        // we are using it.
         debug_assert!(Arc::strong_count(&current) > 1);
         Arc::decrement_strong_count(Arc::as_ptr(&current));
 
-        // Lock the current thread to allow switching saving its state
+        // Store the task that will be saved in a global variable to allow unlock it
+        // after the contexte switch to avoid deadlocks, since some of the code called
+        // is written in assembly and cannot drop a lock guard.
+        *SAVED_TASK.local_mut() = Some(Arc::clone(&current));
+
         let mut prev = current.thread().lock();
         x86_64::thread::switch(&mut prev, &mut next);
 
-        // If we are here, that means that we have been rescheduled and our thread
-        // has been switched back to. We can now safely unlock the thread lock.
-        //
-        // We must forget the lock guard, because the lock was previously unlocked when
-        // reswitching to this thread. If we do not forget the lock guard, the lock will
-        // be unlocked twice, which is undefined behavior and will most likely cause a
-        // panic.
+        // Unlock the previously saved thread.
+        unlock_saved_thread();
+
+        // We must forget the lock guard, because there was already manually unlocked
+        // and we must not unlock it again to avoid undefined behavior.
         core::mem::forget(next);
         core::mem::forget(prev);
 
-        // Here, since we already decremented the strong count of current and task, we
+        // Here, since we already decremented the strong count of `current` and `task`, we
         // must not decrement it again to avoid undefined behavior and a potential
         // double free.
         core::mem::forget(current);
@@ -222,11 +225,14 @@ pub fn reschedule() {
     }
 }
 
-/// Yield the current thread. If preemption is disabled, this function does nothing.
+/// Yield the current thread. If preemption is disabled, this function prints a warning
+/// message and does nothing.
 pub fn yield_cpu() {
     if task::preempt::enabled() {
         current_task().change_state(State::Rescheduled);
         reschedule();
+    } else {
+        log::warn!("scheduler: yield_cpu called with preemption disabled");
     }
 }
 
@@ -262,4 +268,26 @@ pub fn terminate(_code: u64) -> Identifier {
     task::remove(tid);
     remove_task(tid);
     tid
+}
+
+/// Unlock the thread that was saved by the scheduler before switching to this task.
+/// This is needed to avoid deadlocks when a task is preempted, because the thread
+/// switch function locks the thread before switching to it and cannot release the
+/// guard because it is written in assembly.
+/// 
+/// To avoid this, when the scheduler switches to a task, it force unlock the current
+/// thread (because it should not used since it is currently running), lock the current
+/// and the next thread and switch to the next thread. When the next thread is resumed,
+/// the previous thread (that was the current one before the switch) is unlocked again,
+/// because it has been saved and is available to be resumed.
+/// 
+/// It must exist a better design to avoid this, but this is the best I found that works
+/// well and is not absurdly complicated.
+#[no_mangle]
+extern "C" fn unlock_saved_thread() {
+    unsafe {
+        if let Some(saved) = SAVED_TASK.local_mut().take() {
+            saved.thread().force_unlock();
+        }
+    }
 }
