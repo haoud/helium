@@ -1,5 +1,5 @@
 use self::round_robin::RoundRobin;
-use super::task::{self, Task, State};
+use super::task::{self, Task, State, Identifier};
 use crate::x86_64;
 use alloc::sync::Arc;
 use macros::init;
@@ -187,6 +187,10 @@ pub fn setup() {}
 
 /// Add a task to the scheduler. The task will be added to the run queue, and will be
 /// available to be run by the scheduler.
+/// 
+/// # Panics
+/// This function panics if the task is already in the run queue. This should never happen
+/// and is a bug in the kernel.
 pub fn add_task(task: Arc<Task>) {
     SCHEDULER.add_task(task);
 }
@@ -195,17 +199,23 @@ pub fn add_task(task: Arc<Task>) {
 /// cannot be run until it is added again. If the task is currently running, this function
 /// removes it from the run queue, but does not stop it, only preventing it from being
 /// rexecuted when it yields.
+/// If the task is not in the run queue, this function does nothing.
 pub fn remove_task(tid: task::Identifier) {
     SCHEDULER.remove_task(tid);
 }
 
 /// Called every time a timer tick occurs. It is used to update thread scheduling
-/// information, and eventually to reschedule the current thread.
+/// information, and eventually reschedule the current thread if it has exceeded
+/// its time slice.
 pub fn timer_tick() {
     SCHEDULER.timer_tick();
 }
 
 /// Reschedule the current thread.
+/// 
+/// # Panics
+/// This function panics if the state of the current thread is `Running` : If you want
+/// to yield the CPU, call `yield_cpu` instead.
 pub fn reschedule() {
     unsafe {
         SCHEDULER.schedule();
@@ -221,11 +231,10 @@ pub fn yield_cpu() {
 }
 
 /// Engage the current CPU in the scheduler.
-///
-/// # Safety
-/// This function is unsafe for the same
-pub unsafe fn engage_cpu() -> ! {
-    SCHEDULER.engage_cpu()
+pub fn engage_cpu() -> ! {
+    unsafe {
+        SCHEDULER.engage_cpu()
+    }
 }
 
 /// Return the current task running on the CPU.
@@ -240,4 +249,17 @@ pub fn current_task() -> Arc<Task> {
 /// Return a task from its identifier if it exists, or `None` otherwise.
 pub fn task(tid: task::Identifier) -> Option<Arc<Task>> {
     SCHEDULER.task(tid)
+}
+
+/// Terminate the current task. It change the state of the current task to `Terminated`
+/// and remove it from the scheduler and from the task list, and return its identifier.
+#[allow(clippy::must_use_candidate)]
+pub fn terminate(_code: u64) -> Identifier {
+    let current = current_task();
+    let tid = current.id();
+
+    current.change_state(State::Terminated);
+    task::remove(tid);
+    remove_task(tid);
+    tid
 }

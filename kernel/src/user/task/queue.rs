@@ -19,16 +19,13 @@ impl WaitQueue {
     /// and allowing other tasks to run. The task will not be resumed until another
     /// task sets its state to `State::Ready`.
     pub fn sleep(&mut self) {
-        let current = scheduler::current_task();
-        current.change_state(State::Blocked);
-
-        self.tasks.push_back(Arc::clone(&current));
-        scheduler::reschedule();
+        self.tasks.push_back(scheduler::current_task());
+        super::sleep();
 
         // If we get here, we have been woken up by another task. We must make sure that the
         // task is not in the wait queue anymore because it may have been woken up by another
         // method that the `wake_up_someone` method, for example, when receiving a signal.
-        self.tasks.retain(|task| task.id() != current.id());
+        self.tasks.retain(|task| task.id() != scheduler::current_task().id());
     }
 
     /// Wake up a blocked task in the wait queue. If there is no blocked task in the

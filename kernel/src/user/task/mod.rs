@@ -240,3 +240,12 @@ pub fn remove(tid: Identifier) {
 pub fn get(tid: Identifier) -> Option<Arc<Task>> {
     TASK_LIST.lock().iter().find(|t| t.id() == tid).cloned()
 }
+
+/// Sleep the current task. This function will change the state of the current task to
+/// `Blocked` and reschedule the next task to run. The current task will not be picked
+/// by the scheduler until its state is changed back to `Ready` by another kernel 
+/// subsystem.
+pub fn sleep() {
+    scheduler::current_task().change_state(State::Blocked);
+    scheduler::reschedule();
+}

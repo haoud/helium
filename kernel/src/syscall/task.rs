@@ -3,25 +3,18 @@ use crate::{
     time::{timer::Timer, uptime_fast, Nanosecond},
     user::{
         scheduler,
-        task::{self, queue::WaitQueue},
+        task,
     },
 };
-use tap::Tap;
 
-/// Exit the current task with the given exit code. Actually, this function just exit the task,
-/// and the task will not be destroyed until the `TASK_DESTROY` syscall is called.
+/// Exit the current task with the given exit code. The task will be terminated and
+/// will not be scheduled again. If there is no other reference to the task, it will
+/// be deallocated.
 ///
 /// # Panics
 /// This function panics if the current task is rescheduled after it has exited.
 pub fn exit(code: usize) -> ! {
-    let id = scheduler::current_task()
-        .tap(|task| task.change_state(task::State::Terminated))
-        .id();
-
-    log::debug!("Task {} exited with code {}", id, code);
-    scheduler::remove_task(id);
-    task::remove(id);
-
+    scheduler::terminate(code as u64);
     scheduler::reschedule();
     unreachable!("Task should never be scheduled again after exiting");
 }
@@ -61,7 +54,7 @@ pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
 
     // Put the task to sleep if the timer is active (i.e nanoseconds > 0)
     if timer.active() {
-        WaitQueue::new().sleep();
+        task::sleep();
     }
     Ok(0)
 }
