@@ -18,6 +18,7 @@ pub enum Syscall {
     TaskId = 1,
     SerialRead = 2,
     SerialWrite = 3,
+    TaskSleep = 4,
     Last,
 }
 
@@ -85,6 +86,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::TaskId) => task::id(),
         Some(Syscall::SerialRead) => serial::read(a, b),
         Some(Syscall::SerialWrite) => serial::write(a, b),
+        Some(Syscall::TaskSleep) => task::sleep(a),
 
         Some(Syscall::Last) | None => Err(SyscallError::NoSuchSyscall),
     };

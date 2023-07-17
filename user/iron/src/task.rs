@@ -14,3 +14,17 @@ pub fn id() -> u64 {
     }
     id
 }
+
+pub fn nanosleep(nano: u64) {
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") 4,
+            in("rsi") nano,
+        );
+    }
+}
+
+pub fn sleep(sec: u64) {
+    nanosleep(sec * 1000000000)
+}

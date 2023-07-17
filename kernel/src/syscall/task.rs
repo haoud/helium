@@ -1,5 +1,11 @@
 use super::{SyscallError, SyscallValue};
-use crate::user::{scheduler, task};
+use crate::{
+    time::{timer::Timer, uptime_fast, Nanosecond},
+    user::{
+        scheduler,
+        task::{self, queue::WaitQueue},
+    },
+};
 use tap::Tap;
 
 /// Exit the current task with the given exit code. Actually, this function just exit the task,
@@ -34,4 +40,30 @@ pub fn exit(code: usize) -> ! {
 #[allow(clippy::cast_possible_truncation)]
 pub fn id() -> Result<SyscallValue, SyscallError> {
     Ok(scheduler::current_task().id().0 as usize)
+}
+
+/// Put the current task to sleep for at least the given number of nanoseconds. The task 
+/// will be woken up when the timer expires. Due to the way the timer system works, the 
+/// task may not be woken up immediately after the timer expires and may be delayed by 
+/// a few milliseconds.
+/// 
+/// # Errors
+/// This function will never return an error, but it is declared as returning a `Result`
+/// to be consistent with the other syscalls. It always returns `0`.
+pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
+    let expiration = uptime_fast() + Nanosecond::new(nano as u64);
+    
+    // Create a timer that will wake up the task when it expires.
+    let current = scheduler::current_task();
+    let timer = Timer::new(expiration, move |_| {
+        if current.state() == task::State::Blocked {
+            current.change_state(task::State::Ready);
+        }
+    });
+
+    // Put the task to sleep if the timer is active (i.e nanoseconds > 0)
+    if timer.active() {
+        WaitQueue::new().sleep();
+    }
+    Ok(0)
 }
