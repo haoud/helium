@@ -1,5 +1,5 @@
 use self::round_robin::RoundRobin;
-use super::task::{self, Task, State, Identifier};
+use super::task::{self, Identifier, State, Task};
 use crate::x86_64;
 use alloc::sync::Arc;
 use macros::{init, per_cpu};
@@ -111,12 +111,6 @@ pub trait Scheduler {
         log::debug!("Switching from {:?} to {:?}", current.id().0, task.id().0);
         self.set_current_task(Arc::clone(&task));
 
-        // SAFETY: Here, we must force the unlocking of the current thread, acquired by the
-        // scheduler when it was resumed. This is safe because this is guaranteed that the
-        // thread is not used anymore by the scheduler, but due to some constraints (we cannot
-        // drop a lock in assembly), we must force the unlocking of the thread here.
-        current.thread().force_unlock();
-
         // Here, we manually decrement the strong count of the next task. This is needed
         // because when we switch to the next task, this is not guaranteed that it will
         // be rescheduled (for example, if the task exits), and if it is not rescheduled,
@@ -169,7 +163,7 @@ pub trait Scheduler {
         x86_64::thread::switch(&mut prev, &mut next);
 
         // Unlock the previously saved thread.
-        unlock_saved_thread();
+        unlock_threads();
 
         // We must forget the lock guard, because there was already manually unlocked
         // and we must not unlock it again to avoid undefined behavior.
@@ -190,7 +184,7 @@ pub fn setup() {}
 
 /// Add a task to the scheduler. The task will be added to the run queue, and will be
 /// available to be run by the scheduler.
-/// 
+///
 /// # Panics
 /// This function panics if the task is already in the run queue. This should never happen
 /// and is a bug in the kernel.
@@ -215,7 +209,7 @@ pub fn timer_tick() {
 }
 
 /// Reschedule the current thread.
-/// 
+///
 /// # Panics
 /// This function panics if the state of the current thread is `Running` : If you want
 /// to yield the CPU, call `yield_cpu` instead.
@@ -238,9 +232,7 @@ pub fn yield_cpu() {
 
 /// Engage the current CPU in the scheduler.
 pub fn engage_cpu() -> ! {
-    unsafe {
-        SCHEDULER.engage_cpu()
-    }
+    unsafe { SCHEDULER.engage_cpu() }
 }
 
 /// Return the current task running on the CPU.
@@ -270,24 +262,23 @@ pub fn terminate(_code: u64) -> Identifier {
     tid
 }
 
-/// Unlock the thread that was saved by the scheduler before switching to this task.
-/// This is needed to avoid deadlocks when a task is preempted, because the thread
-/// switch function locks the thread before switching to it and cannot release the
-/// guard because it is written in assembly.
+/// Unlock the threads that was involved in the last context switch (the current thread
+/// and the previous thread)
+/// This is needed because how the scheduler is implemented: the code that switch the
+/// threads is written in assembly and cannot drop a lock guard. So, we must manually
+/// unlock the threads after the context switch. Otherwise, those threads will remain
+/// locked, and it will cause a deadlock sooner or later.
 /// 
-/// To avoid this, when the scheduler switches to a task, it force unlock the current
-/// thread (because it should not used since it is currently running), lock the current
-/// and the next thread and switch to the next thread. When the next thread is resumed,
-/// the previous thread (that was the current one before the switch) is unlocked again,
-/// because it has been saved and is available to be resumed.
-/// 
-/// It must exist a better design to avoid this, but this is the best I found that works
-/// well and is not absurdly complicated.
+/// # Safety
+/// This function must be called only after a context switch and only once, otherwise
+/// it will cause undefined behavior.
 #[no_mangle]
-extern "C" fn unlock_saved_thread() {
-    unsafe {
-        if let Some(saved) = SAVED_TASK.local_mut().take() {
-            saved.thread().force_unlock();
-        }
+unsafe extern "C" fn unlock_threads() {
+    // SAFETY: This is safe because this function must be called just before the
+    // context switch, and therefor the current thread and the previous thread
+    // are still locked, but not used anymore. So, we can safely unlock them.
+    current_task().thread().force_unlock();
+    if let Some(saved) = SAVED_TASK.local_mut().take() {
+        saved.thread().force_unlock();
     }
 }
