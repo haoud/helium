@@ -15,6 +15,12 @@ pub static LIMINE_SMP: LimineSmpRequest = LimineSmpRequest::new(0);
 /// variable could be used to determine the number of CPUs in the system.
 pub static CPU_COUNT: AtomicU64 = AtomicU64::new(1);
 
+/// A boolean to know if the APs have finished their initialization. This is used because some
+/// code can only be executed after the APs have finished their initialization. For example, if
+/// the panic handler try to send an IPI to an CPU that is not yet initialized, the computer will
+/// triple fault try to call an uninitialized interrupt handler.
+pub static AP_BOOTED: AtomicBool = AtomicBool::new(false);
+
 /// A boolean to know if the APs can terminate their initialization. This is used to avoid APs to
 /// start before the BSP has finished its initialization.
 static GO: AtomicBool = AtomicBool::new(false);
@@ -59,6 +65,9 @@ pub unsafe fn start_cpus() {
     while CPU_COUNT.load(Ordering::Relaxed) != cpu_count {
         core::hint::spin_loop();
     }
+
+    // Tell the kernel that the APs have finished their initialization
+    AP_BOOTED.store(true, Ordering::Relaxed);
 }
 
 /// Setup the per CPU structure for the current CPU. This function is called by the BSP and the APs.
@@ -88,6 +97,13 @@ pub unsafe fn per_cpu_setup(lapic_id: u32) {
         .set(lapic_id)
         .expect("CPU ID was already set on the current CPU");
     log::debug!("CPU {} started", core_id());
+}
+
+/// Return `true` if the AP has finished their initialization,
+/// `false` otherwise.
+#[must_use]
+pub fn ap_booted() -> bool {
+    AP_BOOTED.load(Ordering::Relaxed)
 }
 
 /// Return the ID of the current core.

@@ -2,7 +2,7 @@ use crate::{
     logger, stop,
     x86_64::{
         self,
-        lapic::{self, IpiDestination, IpiPriority},
+        lapic::{IpiDestination, IpiPriority},
     },
     Stop,
 };
@@ -14,8 +14,11 @@ use cfg_if::cfg_if;
 #[cold]
 #[panic_handler]
 unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
-    // Send a non-maskable interrupt to all other CPUs to stop them.
-    lapic::send_ipi(IpiDestination::Other, IpiPriority::Nmi, 0);
+    // Send a non-maskable interrupt to all other CPUs to stop them, but only if
+    // they have finished their initialization (otherwise, they will triple fault)
+    if x86_64::smp::ap_booted() {
+        x86_64::lapic::send_ipi(IpiDestination::Other, IpiPriority::Nmi, 0);
+    }
 
     cfg_if!(
         if #[cfg(feature = "panic-info")] {
