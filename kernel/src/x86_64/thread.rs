@@ -1,4 +1,4 @@
-use super::{gdt::Selector, msr, paging::PAGE_SIZE, percpu, tss};
+use super::{gdt::Selector, msr, paging::PAGE_SIZE, percpu, tss, fpu};
 use crate::{
     mm::{
         frame::{allocator::Allocator, AllocationFlags, Frame},
@@ -12,7 +12,7 @@ use crate::{
 };
 use addr::{user::UserVirtual, virt::Virtual};
 use alloc::sync::Arc;
-use core::ops::{Range, Sub};
+use core::{ops::{Range, Sub}, num::NonZeroU64};
 use lib::align::Align;
 use sync::{Lazy, Spinlock};
 
@@ -28,7 +28,8 @@ extern "C" {
 }
 
 /// The virtual memory manager of the kernel. All kernel threads share the same
-/// virtual memory manager to save some memory and share the same address space.
+/// virtual memory manager to save some memory since they share the same address
+/// space.
 static KERNEL_VMM: Lazy<Arc<Spinlock<vmm::Manager>>> =
     Lazy::new(|| Arc::new(Spinlock::new(vmm::Manager::kernel())));
 
@@ -48,7 +49,7 @@ pub type KernelThreadFn = fn() -> !;
 /// specify that some register must be saved by the caller, and some other by the callee. This
 /// allow to save some additional registers without having to save them manually, the compiler will
 /// do it for us, but in a more efficient way.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[repr(C)]
 struct State {
     pub rflags: usize,
@@ -79,6 +80,7 @@ impl Default for State {
 /// The kernel stack of a thread. This structure is used to know where the kernel stack
 /// of a thread is located, and to know the base address of the stack. This also contain
 /// a pointer to the saved state of the thread if the thread is not running.
+#[derive(Debug, PartialEq, Eq)]
 struct KernelStack {
     frames: Range<Frame>,
     state: *mut State,
@@ -199,11 +201,18 @@ pub struct Thread {
     /// The kernel stack for this thread
     kstack: KernelStack,
 
-    /// The user base address for the GS segment
-    gsbase: u64,
+    /// The user base address for the GS segment. If the thread is a kernel thread,
+    /// this field must be `None` because the kernel GS is not thread-local but
+    /// core-local.
+    gsbase: Option<NonZeroU64>,
 
-    /// The user base address for the FS segment
-    fsbase: u64,
+    /// The user base address for the FS segment. If the thread is a kernel thread,
+    /// this field must be `None` because the kernel should not use the FS segment.
+    fsbase: Option<NonZeroU64>,
+
+    /// The FPU state of this thread. If the thread is a kernel thread, this field
+    /// must be `None` because the kernel cannot use the FPU.
+    fpu: Option<fpu::State>,
 }
 
 impl Thread {
@@ -221,6 +230,7 @@ impl Thread {
     #[must_use]
     pub fn new(vmm: Arc<Spinlock<vmm::Manager>>, entry: usize, rsp: usize, size: usize) -> Self {
         let mut kstack = KernelStack::allocate(Self::KSTACK_FRAMES);
+        let fpu = Some(fpu::State::zeroed());
 
         // Create the stack frame for the first time the thread will be executed, so
         // the `enter_user` function will be abled to return to the thread with the
@@ -245,13 +255,18 @@ impl Thread {
         vmm.lock().mmap(area).expect("Failed to map the user stack");
 
         Self {
-            vmm,
+            gsbase: None,
+            fsbase: None,
             kstack,
-            gsbase: 0,
-            fsbase: 0,
+            fpu,
+            vmm,
         }
     }
 
+    /// Create a new kernel thread with the given entry point.
+    /// 
+    /// # Panics
+    /// Panics if the kernel stack could not be allocated.
     pub fn kernel(entry: KernelThreadFn) -> Self {
         // Allocate a kernel stack and write the initial state of the thread into it.
         let mut kstack = KernelStack::allocate(Self::KSTACK_FRAMES);
@@ -260,13 +275,14 @@ impl Thread {
 
         // The gsbase are meaningless in a kernel thread because it will be never used
         // since the swapgs instruction is only executed when switching to an different
-        // privilege level (user to kernel or kernel to user). The gsbase will be the
-        // same as the one used by the kernel on the current CPU.
+        // privilege level (user to kernel or kernel to user). The actual gsbase will be
+        // the same as the one used by the kernel on the current CPU.
         Self {
             vmm: Arc::clone(&KERNEL_VMM),
+            gsbase: None,
+            fsbase: None,
+            fpu: None,
             kstack,
-            gsbase: 0,
-            fsbase: 0,
         }
     }
 
@@ -274,6 +290,51 @@ impl Thread {
     #[must_use]
     pub fn vmm(&self) -> Arc<Spinlock<vmm::Manager>> {
         Arc::clone(&self.vmm)
+    }
+
+    // Save the current GS and FS segment base addresses into the thread structure.
+    unsafe fn save_fsgsbase(&mut self) {
+        // Here, we need to read the kernel GS base to get the user GS base because
+        // the kernel use the `swapgs` instruction when entering in kernel mode, so
+        // the user GS base is saved in the KERNEL_GS_BASE while the kernel GS base
+        // is set in the GS_BASE register (the GS_BASE register is the active GS base)
+        self.gsbase = NonZeroU64::try_from(msr::read(msr::Register::KERNEL_GS_BASE)).ok();
+        self.fsbase = NonZeroU64::try_from(msr::read(msr::Register::FS_BASE)).ok();
+    }
+
+    /// Restore the saved GS and FS segment base addresses into the thread structure.
+    unsafe fn restore_fsgsbase(&self) {
+        if let Some(gsbase) = self.gsbase {
+            msr::write(msr::Register::KERNEL_GS_BASE, u64::from(gsbase));
+        }
+        if let Some(fsbase) = self.fsbase {
+            msr::write(msr::Register::FS_BASE, u64::from(fsbase));
+        }
+    }
+
+    /// Restore the saved FPU state of the thread. If the thread does not have a FPU
+    /// state (because it is a kernel thread), this function does nothing.
+    unsafe fn restore_fpu_state(&mut self) {
+        if let Some(state) = &self.fpu {
+            fpu::restore(state);
+        }
+    }
+
+    /// Save the current FPU state into the thread structure. If the thread does not
+    /// have a FPU state (because it is a kernel thread), this function does nothing.
+    unsafe fn save_fpu_state(&mut self) {
+        if let Some(state) = &mut self.fpu {
+            fpu::save(state);
+        }
+    }
+
+    /// Set the thread kernel stack as the current kernel stack. This will update the
+    /// TSS, so the CPU can switch to the new kernel stack when an interrupt occurs,
+    /// and also set the kernel stack in the percpu structure, to switch stack when
+    /// entering in the syscall handler.
+    unsafe fn set_kernel_stack(&self) {
+        percpu::set_kernel_stack(self.kstack.base());
+        tss::set_kernel_stack(self.kstack.base());
     }
 }
 
@@ -289,18 +350,13 @@ impl Thread {
 /// The caller must ensure that the previous thread is effectively the current thread
 /// running on the CPU (but not for long).
 pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
-    // Here, we need to read the kernel GS base to get the user GS base because
-    // the kernel use the `swapgs` instruction when entering in kernel mode, so
-    // the user GS base is saved in the KERNEL_GS_BASE and the kernel GS base is
-    // set in the GS_BASE register.
-    prev.gsbase = msr::read(msr::Register::KERNEL_GS_BASE);
-    prev.fsbase = msr::read(msr::Register::FS_BASE);
-
-    msr::write(msr::Register::KERNEL_GS_BASE, next.gsbase);
-    msr::write(msr::Register::FS_BASE, next.fsbase);
-
+    prev.save_fsgsbase();
+    prev.save_fpu_state();
+    
+    next.restore_fpu_state();
+    next.restore_fsgsbase();
+    next.set_kernel_stack();
     next.vmm().lock().table().set_current();
-    set_kernel_stack(&next.kstack);
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut());
 }
 
@@ -315,11 +371,10 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 /// This function is unsafe for approximately the same reasons as the `switch`
 /// function.
 pub unsafe fn jump_to(thread: &mut Thread) -> ! {
-    msr::write(msr::Register::KERNEL_GS_BASE, thread.gsbase);
-    msr::write(msr::Register::FS_BASE, thread.fsbase);
-
+    thread.restore_fpu_state();
+    thread.restore_fsgsbase();
+    thread.set_kernel_stack();
     thread.vmm.lock().table().set_current();
-    set_kernel_stack(&thread.kstack);
     restore_context(thread.kstack.state_ptr_mut());
 }
 
@@ -360,15 +415,4 @@ unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread)
     // therefore the Arc will never be dropped if we don't do it here.
     core::mem::drop(Arc::from_raw(current));
     jump_to(thread);
-}
-
-/// Set the given kernel stack as the current kernel stack. This will update the
-/// TSS, so the CPU can switch to the new kernel stack when an interrupt occurs,
-/// and also set the kernel stack in the percpu structure, to switch stack when
-/// entering in the syscall handler.
-fn set_kernel_stack(stack: &KernelStack) {
-    unsafe {
-        percpu::set_kernel_stack(stack.base());
-        tss::set_kernel_stack(stack.base());
-    }
 }

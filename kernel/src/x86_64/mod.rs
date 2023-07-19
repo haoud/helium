@@ -5,6 +5,7 @@ use macros::init;
 pub mod apic;
 pub mod cpu;
 pub mod exception;
+pub mod fpu;
 pub mod gdt;
 pub mod idt;
 pub mod instruction;
@@ -44,6 +45,7 @@ pub unsafe fn early_setup() {
     irq::install();
     pit::setup();
     pic::remap();
+    fpu::setup();
     tlb::install();
     syscall::setup();
 }
@@ -75,6 +77,7 @@ unsafe fn ap_setup(info: &LimineSmpInfo) {
 
     gdt::load();
     idt::load();
+    fpu::setup();
     tss::install();
     lapic::enable();
     syscall::setup();

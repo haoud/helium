@@ -7,6 +7,7 @@
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::module_name_repetitions)]
 #![feature(asm_const)]
+#![feature(new_uninit)]
 #![feature(step_trait)]
 #![feature(drain_filter)]
 #![feature(const_mut_refs)]
