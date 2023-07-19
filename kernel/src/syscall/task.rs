@@ -1,10 +1,7 @@
 use super::{SyscallError, SyscallValue};
 use crate::{
     time::{timer::Timer, uptime_fast, Nanosecond},
-    user::{
-        scheduler,
-        task,
-    },
+    user::{scheduler, task},
 };
 
 /// Exit the current task with the given exit code. The task will be terminated and
@@ -14,6 +11,11 @@ use crate::{
 /// # Panics
 /// This function panics if the current task is rescheduled after it has exited.
 pub fn exit(code: usize) -> ! {
+    log::debug!(
+        "Task {} exited with code {}",
+        scheduler::current_task().id(),
+        code
+    );
     scheduler::terminate(code as u64);
     scheduler::reschedule();
     unreachable!("Task should never be scheduled again after exiting");
@@ -61,7 +63,7 @@ pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
 
 /// Yield the CPU to another task. If there is no other task ready to run or if there
 /// is only lower priority tasks, the current task will continue to run.
-/// 
+///
 /// # Errors
 /// This function will never return an error, but it is declared as returning a `Result`
 /// to be consistent with the other syscalls. It always returns `0`.

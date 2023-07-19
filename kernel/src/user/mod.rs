@@ -1,6 +1,7 @@
-use crate::x86_64::{self, paging::PageTableRoot};
+use crate::{mm::vmm, x86_64};
 use alloc::sync::Arc;
 use macros::init;
+use sync::Spinlock;
 
 pub mod buffer;
 pub mod object;
@@ -17,7 +18,7 @@ pub fn setup() {
     for _ in 0..10 {
         scheduler::add_task(
             task::elf::load(
-                Arc::new(PageTableRoot::new()),
+                Arc::new(Spinlock::new(vmm::Manager::new())),
                 include_bytes!("../../../iso/boot/init.elf"),
             )
             .expect("Failed to load init task"),

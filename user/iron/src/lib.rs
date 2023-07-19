@@ -1,5 +1,6 @@
 #![no_std]
 
+pub mod mmu;
 pub mod serial;
 pub mod task;
 

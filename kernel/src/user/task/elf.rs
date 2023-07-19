@@ -1,12 +1,13 @@
 use crate::mm::{
     frame::{allocator::Allocator, AllocationFlags},
-    FRAME_ALLOCATOR,
+    vmm, FRAME_ALLOCATOR,
 };
-use crate::x86_64::paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE};
+use crate::x86_64::paging::{self, PageEntryFlags, PAGE_SIZE};
 use addr::virt::{InvalidVirtual, Virtual};
 use alloc::sync::Arc;
 use core::{cmp::min, num::TryFromIntError};
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
+use sync::Spinlock;
 
 use super::Task;
 
@@ -48,7 +49,7 @@ impl From<elf::ParseError> for LoadError {
 /// # Panics
 /// Panics if the kernel ran out of memory when loading the ELF file.
 #[allow(clippy::cast_possible_truncation)]
-pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError> {
+pub fn load(vmm: Arc<Spinlock<vmm::Manager>>, file: &[u8]) -> Result<Arc<Task>, LoadError> {
     let elf = check_elf(ElfBytes::<NativeEndian>::minimal_parse(file)?)?;
 
     // Map all the segments of the ELF file that are loadable
@@ -79,7 +80,7 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError>
                     .allocate_frame(AllocationFlags::ZEROED)
                     .expect("failed to allocate frame for mapping an ELF segment");
 
-                paging::map(&mm, page, frame, section_paging_flags(&phdr))
+                paging::map(vmm.lock().table(), page, frame, section_paging_flags(&phdr))
                     .unwrap_or_else(|_| panic!("Failed to map a segment of the ELF file"));
 
                 // The start offset of the writing in the page: it is needed to handle the case
@@ -120,7 +121,7 @@ pub fn load(mm: Arc<PageTableRoot>, file: &[u8]) -> Result<Arc<Task>, LoadError>
         }
     }
 
-    Ok(Task::user(mm, elf.ehdr.e_entry))
+    Ok(Task::user(vmm, elf.ehdr.e_entry as usize))
 }
 
 /// Convert the ELF flags of a section into the paging flags, used to map the section with

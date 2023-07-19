@@ -1,4 +1,4 @@
-use crate::phys::Physical;
+use crate::{phys::Physical, user::UserVirtual};
 use core::{
     fmt,
     iter::Step,
@@ -330,6 +330,16 @@ impl From<Physical> for Virtual {
         // address to a virtual address, we just need to add 0xFFFF_8000_0000_0000 to the physical
         // address, and then we can access the physical memory from the returned virtual address.
         Self::new(0xFFFF_8000_0000_0000 + address.0)
+    }
+}
+
+impl From<UserVirtual> for Virtual {
+    fn from(address: UserVirtual) -> Self {
+        // A user virtual address is guaranteed to be an valid address, so we
+        // can safely convert it to a virtual address without checking.
+        Self {
+            0: address.0 as u64,
+        }
     }
 }
 

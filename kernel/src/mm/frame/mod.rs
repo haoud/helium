@@ -91,7 +91,7 @@ impl core::fmt::Debug for FrameCount {
 /// unit of physical memory that can be allocated.
 /// This struct is a wrapper around a physical address and guarantees that the address is page
 /// aligned (4 KiB aligned).
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Frame(Physical);
 

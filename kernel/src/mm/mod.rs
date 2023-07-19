@@ -9,6 +9,7 @@ use sync::{Lazy, Spinlock};
 
 pub mod frame;
 pub mod heap;
+pub mod vmm;
 
 /// The request to the limine bootloader to get a memory map.
 pub static LIMINE_MEMMAP: LimineMemmapRequest = LimineMemmapRequest::new(0);

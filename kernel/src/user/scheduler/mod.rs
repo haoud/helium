@@ -268,7 +268,7 @@ pub fn terminate(_code: u64) -> Identifier {
 /// threads is written in assembly and cannot drop a lock guard. So, we must manually
 /// unlock the threads after the context switch. Otherwise, those threads will remain
 /// locked, and it will cause a deadlock sooner or later.
-/// 
+///
 /// # Safety
 /// This function must be called only after a context switch and only once, otherwise
 /// it will cause undefined behavior.

@@ -69,14 +69,6 @@ impl UserVirtual {
         Self::is_user(start) && Self::is_user(start + length)
     }
 
-    /// Convert this user virtual address to a virtual address.
-    #[must_use]
-    pub const fn as_virtual(&self) -> Virtual {
-        // No check are needed because an valid user virtual address is always valid virtual
-        // address (obviously)
-        Virtual(self.0 as u64)
-    }
-
     /// Convert this user virtual address to an usize.
     #[must_use]
     pub const fn as_usize(&self) -> usize {
@@ -114,6 +106,18 @@ impl UserVirtual {
     #[must_use]
     pub const fn zero() -> Self {
         Self(0)
+    }
+
+    /// Returns the last user virtual address that is page aligned.
+    #[must_use]
+    pub const fn last_page_aligned() -> Self {
+        Self(0x0000_7FFF_FFFF_F000)
+    }
+
+    /// Returns the last user virtual address.
+    #[must_use]
+    pub const fn last() -> Self {
+        Self(0x0000_7FFF_FFFF_FFFF)
     }
 
     #[must_use]

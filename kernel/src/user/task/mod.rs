@@ -1,7 +1,7 @@
-use super::scheduler;
-use crate::x86_64::{
-    paging::PageTableRoot,
-    thread::{KernelThreadFn, Thread},
+use super::{idle, scheduler};
+use crate::{
+    mm::vmm,
+    x86_64::thread::{KernelThreadFn, Thread},
 };
 use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -15,8 +15,8 @@ pub mod queue;
 /// user memory manager yet, so we can't dynamically allocate stacks. This means that we
 /// cannot have multiple tasks running in the same address space (multi-threading) but
 /// this is not a problem for now.
-pub const STACK_BASE: u64 = 0x0000_7FFF_FFFF_0000;
-pub const STACK_SIZE: u64 = 64 * 1024;
+pub const STACK_BASE: usize = 0x0000_7FFF_FFFF_0000;
+pub const STACK_SIZE: usize = 64 * 1024;
 
 /// A counter used to generate unique identifiers for tasks
 static COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -136,13 +136,13 @@ pub struct Task {
 
 impl Task {
     #[must_use]
-    pub fn kernel(entry: KernelThreadFn) -> Arc<Task> {
+    pub fn kernel(entry: KernelThreadFn, priority: Priority) -> Arc<Task> {
         let thread = Thread::kernel(entry);
         let task = Arc::new(Self {
             id: Identifier::generate(),
             state: Spinlock::new(State::Created),
             thread: Spinlock::new(thread),
-            priority: Spinlock::new(Priority::Normal),
+            priority: Spinlock::new(priority),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
@@ -152,7 +152,7 @@ impl Task {
     /// point, add it to the task list and return it. It return an `Arc` to the task
     /// so that it can be shared between multiple kernel subsystems.
     #[must_use]
-    pub fn user(mm: Arc<PageTableRoot>, entry: u64) -> Arc<Task> {
+    pub fn user(mm: Arc<Spinlock<vmm::Manager>>, entry: usize) -> Arc<Task> {
         let thread = Thread::new(mm, entry, STACK_BASE, STACK_SIZE);
         let task = Arc::new(Self {
             id: Identifier::generate(),
@@ -173,14 +173,7 @@ impl Task {
     /// subsystem.
     #[must_use]
     pub fn idle() -> Arc<Task> {
-        let thread = Thread::kernel(super::idle);
-        let task = Arc::new(Self {
-            id: Identifier::generate(),
-            state: Spinlock::new(State::Created),
-            thread: Spinlock::new(thread),
-            priority: Spinlock::new(Priority::Idle),
-        });
-        TASK_LIST.lock().push(Arc::clone(&task));
+        let task = Task::kernel(idle, Priority::Idle);
         scheduler::add_task(Arc::clone(&task));
         task
     }
@@ -243,7 +236,7 @@ pub fn get(tid: Identifier) -> Option<Arc<Task>> {
 
 /// Sleep the current task. This function will change the state of the current task to
 /// `Blocked` and reschedule the next task to run. The current task will not be picked
-/// by the scheduler until its state is changed back to `Ready` by another kernel 
+/// by the scheduler until its state is changed back to `Ready` by another kernel
 /// subsystem.
 pub fn sleep() {
     scheduler::current_task().change_state(State::Blocked);

@@ -2,6 +2,7 @@ use crate::user::buffer::BufferError;
 use addr::user::InvalidUserVirtual;
 use macros::syscall_handler;
 
+pub mod mmu;
 pub mod serial;
 pub mod task;
 
@@ -20,6 +21,7 @@ pub enum Syscall {
     SerialWrite = 3,
     TaskSleep = 4,
     TaskYield = 5,
+    MmuMap = 6,
     Last,
 }
 
@@ -48,6 +50,8 @@ pub enum SyscallError {
     TaskInUse = 4,
     BadAddress = 5,
     NotImplemented = 6,
+    OutOfMemory = 7,
+    AlreadyExists = 8,
 }
 
 impl SyscallError {
@@ -89,6 +93,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::SerialWrite) => serial::write(a, b),
         Some(Syscall::TaskSleep) => task::sleep(a),
         Some(Syscall::TaskYield) => task::yields(),
+        Some(Syscall::MmuMap) => mmu::map(a, b, c, d),
 
         Some(Syscall::Last) | None => Err(SyscallError::NoSuchSyscall),
     };

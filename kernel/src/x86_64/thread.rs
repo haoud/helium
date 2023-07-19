@@ -1,20 +1,20 @@
-use super::{
-    gdt::Selector,
-    msr,
-    paging::{self, PageEntryFlags, PageTableRoot, PAGE_SIZE},
-    percpu, tss,
-};
+use super::{gdt::Selector, msr, paging::PAGE_SIZE, percpu, tss};
 use crate::{
     mm::{
         frame::{allocator::Allocator, AllocationFlags, Frame},
+        vmm::{
+            self,
+            area::{self, Area},
+        },
         FRAME_ALLOCATOR,
     },
     user::task::Task,
 };
-use addr::virt::Virtual;
+use addr::{user::UserVirtual, virt::Virtual};
 use alloc::sync::Arc;
 use core::ops::{Range, Sub};
 use lib::align::Align;
+use sync::{Lazy, Spinlock};
 
 core::arch::global_asm!(include_str!("asm/thread.asm"));
 
@@ -24,8 +24,13 @@ extern "C" {
     fn enter_thread() -> !;
 
     #[allow(improper_ctypes)]
-    fn exit_thread(current: *const Task, next: &mut Thread, stack: u64) -> !;
+    fn exit_thread(current: *const Task, next: &mut Thread, stack: usize) -> !;
 }
+
+/// The virtual memory manager of the kernel. All kernel threads share the same
+/// virtual memory manager to save some memory and share the same address space.
+static KERNEL_VMM: Lazy<Arc<Spinlock<vmm::Manager>>> =
+    Lazy::new(|| Arc::new(Spinlock::new(vmm::Manager::kernel())));
 
 /// When a kernel thread is created, the function that will be executed by the thread
 /// should have the same signature as this type.
@@ -46,18 +51,17 @@ pub type KernelThreadFn = fn() -> !;
 #[derive(Clone, PartialEq, Eq)]
 #[repr(C)]
 struct State {
-    pub rflags: u64,
-    pub rbp: u64,
-    pub rbx: u64,
-    pub r12: u64,
-    pub r13: u64,
-    pub r14: u64,
-    pub r15: u64,
-    pub rip: u64,
+    pub rflags: usize,
+    pub rbp: usize,
+    pub rbx: usize,
+    pub r12: usize,
+    pub r13: usize,
+    pub r14: usize,
+    pub r15: usize,
+    pub rip: usize,
 }
 
 impl Default for State {
-    #[allow(clippy::fn_to_numeric_cast)]
     fn default() -> Self {
         Self {
             rflags: 0,
@@ -67,7 +71,7 @@ impl Default for State {
             r12: 0,
             rbx: 0,
             rbp: 0,
-            rip: enter_thread as u64,
+            rip: enter_thread as usize,
         }
     }
 }
@@ -101,6 +105,7 @@ impl KernelStack {
     /// # Panics
     /// Panics if the kernel stack could not be allocated.
     pub fn allocate(frames: usize) -> Self {
+        // FIXME: This memory is never freed
         KernelStack::new(unsafe {
             FRAME_ALLOCATOR
                 .lock()
@@ -109,15 +114,15 @@ impl KernelStack {
         })
     }
 
-    fn write_initial_kernel_trampoline(&mut self, entry: u64) {
-        let cs = u64::from(Selector::KERNEL_CODE.0);
-        let ss = u64::from(Selector::KERNEL_DATA.0);
-        self.write_initial_trampoline(entry, u64::from(self.base()), cs, ss);
+    fn write_initial_kernel_trampoline(&mut self, entry: usize) {
+        let cs = usize::from(Selector::KERNEL_CODE.0);
+        let ss = usize::from(Selector::KERNEL_DATA.0);
+        self.write_initial_trampoline(entry, usize::from(self.base()), cs, ss);
     }
 
-    fn write_initial_user_trampoline(&mut self, entry: u64, stack: u64) {
-        let cs = u64::from(Selector::USER_CODE.0);
-        let ss = u64::from(Selector::USER_DATA.0);
+    fn write_initial_user_trampoline(&mut self, entry: usize, stack: usize) {
+        let cs = usize::from(Selector::USER_CODE.0);
+        let ss = usize::from(Selector::USER_DATA.0);
         self.write_initial_trampoline(entry, stack, cs, ss);
     }
 
@@ -131,8 +136,8 @@ impl KernelStack {
     ///  the thread will be in kernel mode or in user mode.
     /// - The stack segment will be set to the given stack segment.
     /// - The rflags will be set to 0x200, enabling interrupts when jumping to the thread
-    fn write_initial_trampoline(&mut self, entry: u64, stack: u64, cs: u64, ss: u64) {
-        let base = self.base().as_mut_ptr::<u64>();
+    fn write_initial_trampoline(&mut self, entry: usize, stack: usize, cs: usize, ss: usize) {
+        let base = self.base().as_mut_ptr::<usize>();
         let rflags = 0x200;
 
         // Write in the stack the trampoline that will be used to switch to the thread for the
@@ -174,8 +179,8 @@ impl KernelStack {
 
     /// Return the address where the state of the thread is saved. If there is no saved state,
     /// this will return 0.
-    pub fn state_addr(&self) -> u64 {
-        self.state as u64
+    pub fn state_addr(&self) -> usize {
+        self.state as usize
     }
 
     /// Verify if the kernel stack contains the state of the thread.
@@ -188,8 +193,8 @@ impl KernelStack {
 /// associated with a kernel stack, a paging table, and with FS and GS segment
 /// base addresses.
 pub struct Thread {
-    /// The paging table used by this thread
-    mm: Arc<PageTableRoot>,
+    /// The virtual memory manager of this thread
+    vmm: Arc<Spinlock<vmm::Manager>>,
 
     /// The kernel stack for this thread
     kstack: KernelStack,
@@ -214,7 +219,7 @@ impl Thread {
     /// Panics an allocation failed, either the kernel stack or the user stack. Also panic
     /// if the user stack cannot be mapped for a reason or another.
     #[must_use]
-    pub fn new(mm: Arc<PageTableRoot>, entry: u64, rsp: u64, size: u64) -> Self {
+    pub fn new(vmm: Arc<Spinlock<vmm::Manager>>, entry: usize, rsp: usize, size: usize) -> Self {
         let mut kstack = KernelStack::allocate(Self::KSTACK_FRAMES);
 
         // Create the stack frame for the first time the thread will be executed, so
@@ -226,27 +231,21 @@ impl Thread {
         kstack.write_initial_state(State::default());
 
         // Compute the start and end address of the user stack
-        let stack_start = Virtual::new(rsp - size).page_align_down();
-        let stack_end = Virtual::new(rsp).page_align_up();
+        let stack_start = UserVirtual::new((rsp - size).align_down(PAGE_SIZE));
+        let stack_end = UserVirtual::new(rsp.align_down(PAGE_SIZE));
 
         // Map the user stack at the given address with the given size
-        // It allocate a frame for each page of the stack and then map
-        // it in the paging table with user and write access.
-        for virt in (stack_start..stack_end).step_by(PAGE_SIZE) {
-            unsafe {
-                let frame = FRAME_ALLOCATOR
-                    .lock()
-                    .allocate_frame(AllocationFlags::KERNEL)
-                    .expect("Failed to allocate user stack");
+        let area = Area::builder()
+            .flags(area::Flags::FIXED | area::Flags::GROW_DOWN)
+            .access(area::Access::READ | area::Access::WRITE)
+            .range(stack_start..stack_end)
+            .kind(area::Type::Anonymous)
+            .build();
 
-                let flags = PageEntryFlags::USER | PageEntryFlags::WRITABLE;
-                paging::map(&mm, virt, frame, flags)
-                    .unwrap_or_else(|_| panic!("Failed to map the user stack !"));
-            };
-        }
+        vmm.lock().mmap(area).expect("Failed to map the user stack");
 
         Self {
-            mm,
+            vmm,
             kstack,
             gsbase: 0,
             fsbase: 0,
@@ -256,7 +255,7 @@ impl Thread {
     pub fn kernel(entry: KernelThreadFn) -> Self {
         // Allocate a kernel stack and write the initial state of the thread into it.
         let mut kstack = KernelStack::allocate(Self::KSTACK_FRAMES);
-        kstack.write_initial_kernel_trampoline(entry as usize as u64);
+        kstack.write_initial_kernel_trampoline(entry as usize);
         kstack.write_initial_state(State::default());
 
         // The gsbase are meaningless in a kernel thread because it will be never used
@@ -264,17 +263,17 @@ impl Thread {
         // privilege level (user to kernel or kernel to user). The gsbase will be the
         // same as the one used by the kernel on the current CPU.
         Self {
-            mm: Arc::new(PageTableRoot::new()),
+            vmm: Arc::clone(&KERNEL_VMM),
             kstack,
             gsbase: 0,
             fsbase: 0,
         }
     }
 
-    /// Clone and return a `Arc` to the paging table used by this thread.
+    /// Clone and return a `Arc` to the virtual memory manager of this thread.
     #[must_use]
-    pub fn mm(&self) -> Arc<PageTableRoot> {
-        Arc::clone(&self.mm)
+    pub fn vmm(&self) -> Arc<Spinlock<vmm::Manager>> {
+        Arc::clone(&self.vmm)
     }
 }
 
@@ -300,7 +299,7 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
     msr::write(msr::Register::KERNEL_GS_BASE, next.gsbase);
     msr::write(msr::Register::FS_BASE, next.fsbase);
 
-    next.mm().set_current();
+    next.vmm().lock().table().set_current();
     set_kernel_stack(&next.kstack);
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut());
 }
@@ -319,7 +318,7 @@ pub unsafe fn jump_to(thread: &mut Thread) -> ! {
     msr::write(msr::Register::KERNEL_GS_BASE, thread.gsbase);
     msr::write(msr::Register::FS_BASE, thread.fsbase);
 
-    thread.mm.set_current();
+    thread.vmm.lock().table().set_current();
     set_kernel_stack(&thread.kstack);
     restore_context(thread.kstack.state_ptr_mut());
 }
@@ -354,7 +353,7 @@ pub unsafe fn exit(current: Arc<Task>, thread: &mut Thread) -> ! {
 /// to a kernel panic or a security issue.
 #[no_mangle]
 unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread) {
-    thread.mm().set_current();
+    thread.vmm().lock().table().set_current();
 
     // Drop the Arc to the current thread before leaving this thread forever. This
     // must be done here because this function will never return to the caller and

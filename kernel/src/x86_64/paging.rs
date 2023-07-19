@@ -1,9 +1,13 @@
 use super::{cpu, tlb};
-use crate::mm::{
-    frame::{allocator::Allocator, AllocationFlags, Frame},
-    FRAME_ALLOCATOR,
+use crate::{
+    mm::{
+        frame::{allocator::Allocator, AllocationFlags, Frame},
+        vmm::area::Access,
+        FRAME_ALLOCATOR,
+    },
+    user::scheduler,
 };
-use addr::{phys::Physical, virt::Virtual};
+use addr::{phys::Physical, user::UserVirtual, virt::Virtual};
 use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},
@@ -757,10 +761,33 @@ unsafe fn deallocate_recursive(table: &mut [PageEntry], level: Level) {
     FRAME_ALLOCATOR.lock().deallocate_frame(Frame::new(phys));
 }
 
-/// Handle a page fault exception.
+/// Handle a page fault. This function is called by the page fault handler when a page fault
+/// occurs. For now, a page fault that concerned a kernel address is considered unrecoverable,
+/// and will panic. If the page fault concerned a user address, we try to page in the page if
+/// the page is not present in memory. If the page was successfully paged in, we can return
+/// from the page fault handler, otherwise we panic.
 ///
 /// # Panics
-/// For now, a page fault is always a fatal error since we don't support demand paging yet.
-pub fn handle_page_fault(addr: Virtual, _: PageFaultErrorCode) {
+/// This function panics if the page fault is not recoverable.
+pub fn handle_page_fault(addr: Virtual, code: PageFaultErrorCode) {
+    let present = code.contains(PageFaultErrorCode::PRESENT);
+
+    if let Ok(uaddr) = UserVirtual::try_new(addr.as_usize()) {
+        // Try to page in the page if it is not present in memory. If the page
+        // was successfully paged in, we can return immediately, otherwise the
+        // page fault is unrecoverable.
+        if !present
+            && scheduler::current_task()
+                .thread()
+                .lock()
+                .vmm()
+                .lock()
+                .page_in(uaddr, Access::from(code))
+                .is_ok()
+        {
+            return;
+        }
+    }
+
     panic!("Page fault exception at {:#x}", addr);
 }
