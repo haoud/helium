@@ -105,7 +105,7 @@ impl Manager {
     pub fn mmap(&mut self, mut area: Area) -> Result<Range<UserVirtual>, MmapError> {
         // If the area is not page aligned or has a length of zero, then return
         // an error because it is invalid.
-        if !Self::valid_range(area.range()) {
+        if !valid_range(area.range()) {
             return Err(MmapError::InvalidRange);
         }
 
@@ -150,7 +150,7 @@ impl Manager {
     /// can also occur if the code that unmap the range is not correct and is
     /// detected by a few assertions.
     pub fn munmap(&mut self, range: Range<UserVirtual>) -> Result<(), UnmapError> {
-        if !Self::valid_range(&range) {
+        if !valid_range(&range) {
             return Err(UnmapError::InvalidRange);
         }
 
@@ -163,9 +163,9 @@ impl Manager {
             .as_mut()
             .unwrap()
             .drain_filter(|_, area| {
-                Self::range_overlaps(&range, area.range())
-                    || Self::range_contains(&range, area.range())
-                    || Self::range_contained(&range, area.range())
+                range_overlaps(&range, area.range())
+                    || range_contains(&range, area.range())
+                    || range_contained(&range, area.range())
             })
             .map(|(_, area)| area)
             .collect::<Vec<_>>();
@@ -177,7 +177,7 @@ impl Manager {
             let area_start = area.range().start;
             let area_end = area.range().end;
 
-            let unmap_range = if Self::range_contains(&range, area.range()) {
+            let unmap_range = if range_contains(&range, area.range()) {
                 // The area contains the range, so we need to split the area
                 // into two areas, one before the range and one after the range.
                 // Then we insert the two areas into the map and return the
@@ -190,11 +190,11 @@ impl Manager {
                 self.insert_area(split);
                 self.insert_area(area);
                 range.clone()
-            } else if Self::range_contained(&range, area.range()) {
+            } else if range_contained(&range, area.range()) {
                 // The area is fully contained in the range, so we can simply
                 // unmap it
                 area.range().clone()
-            } else if Self::range_overlaps(&range, area.range()) {
+            } else if range_overlaps(&range, area.range()) {
                 // The area overlaps with the range, so we need first need to
                 // change if the range overlaps with the start or the end of
                 // the area to change accordingly the range of the area, and
@@ -257,7 +257,9 @@ impl Manager {
                 let frame = FRAME_ALLOCATOR
                     .lock()
                     .allocate_frame(AllocationFlags::ZEROED)
-                    .ok_or(PageInError::OutOfMemory)?;
+                    .ok_or(PageInError::OutOfMemory)?
+                    .into_inner()
+                    .start;
 
                 let flags = PageEntryFlags::from(area.access()) | PageEntryFlags::USER;
                 let virt = Virtual::from(address);
@@ -269,24 +271,6 @@ impl Manager {
         Ok(())
     }
 
-    /// Verify if the given range is valid. This function reject any range that :
-    /// - Include any address equal or beyond `UserVirtual::last_page_aligned()`
-    /// - Has not a page aligned start
-    /// - Has a length of zero
-    ///
-    /// # Explanation
-    /// - Rejecting any address equal or beyond `UserVirtual::last_page_aligned()` is
-    ///   a security measure to prevent the user to map the last page of the virtual
-    ///   address space, involved in some attacks and hardware bugs.
-    ///   Furthermore, this allow some optimizations: it is possible to safely page
-    ///   align-up any validated user virtual addresses without checking if they are
-    ///   still in user space and not in the canonical hole.
-    fn valid_range(range: &Range<UserVirtual>) -> bool {
-        Virtual::from(range.start).is_page_aligned()
-            && range.end <= UserVirtual::last_page_aligned()
-            && !range.is_empty()
-    }
-
     /// Unmap the range of user virtual addresses and deallocate the frames that
     /// were mapped at these addresses.
     fn unmap_range(&mut self, range: Range<UserVirtual>) {
@@ -295,41 +279,6 @@ impl Manager {
                 FRAME_ALLOCATOR.lock().deallocate_frame(frame);
             }
         });
-    }
-
-    /// Return true if the two ranges overlap with each other. If the end of the
-    /// range is not page aligned, then it is aligned up.
-    fn range_overlaps(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
-        let a_end = usize::from(a.end.page_align_up());
-        let b_end = usize::from(b.end.page_align_up());
-        let a_start = usize::from(a.start);
-        let b_start = usize::from(b.start);
-
-        a_start < b_end && a_end > b_start
-    }
-
-    /// Return true if the first range contains the second range. If they share
-    /// a border, then this function returns false. If the end of the range is
-    /// not page aligned, then it is aligned up before the comparison.
-    fn range_contains(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
-        let a_end = usize::from(a.end.page_align_up());
-        let b_end = usize::from(b.end.page_align_up());
-        let a_start = usize::from(a.start);
-        let b_start = usize::from(b.start);
-
-        a_start < b_start && a_end > b_end
-    }
-
-    /// Return true if the first range is contained in the second range. If they share
-    /// a border, then this function still returns true. If the end of the range is
-    /// not page aligned, then it is aligned up before the comparison.
-    fn range_contained(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
-        let a_end = usize::from(a.end.page_align_up());
-        let b_end = usize::from(b.end.page_align_up());
-        let a_start = usize::from(a.start);
-        let b_start = usize::from(b.start);
-
-        a_start >= b_start && a_end <= b_end
     }
 
     /// Find a free range of virtual addresses that can contain the given size. If
@@ -420,4 +369,57 @@ impl From<MapError> for PageInError {
             MapError::AlreadyMapped => panic!("User page already mapped"),
         }
     }
+}
+
+/// Return true if the two ranges overlap with each other. If the end of the
+/// range is not page aligned, then it is aligned up.
+fn range_overlaps(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
+    let a_end = usize::from(a.end.page_align_up());
+    let b_end = usize::from(b.end.page_align_up());
+    let a_start = usize::from(a.start);
+    let b_start = usize::from(b.start);
+
+    a_start < b_end && a_end > b_start
+}
+
+/// Return true if the first range contains the second range. If they share
+/// a border, then this function returns false. If the end of the range is
+/// not page aligned, then it is aligned up before the comparison.
+fn range_contains(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
+    let a_end = usize::from(a.end.page_align_up());
+    let b_end = usize::from(b.end.page_align_up());
+    let a_start = usize::from(a.start);
+    let b_start = usize::from(b.start);
+
+    a_start < b_start && a_end > b_end
+}
+
+/// Return true if the first range is contained in the second range. If they share
+/// a border, then this function still returns true. If the end of the range is
+/// not page aligned, then it is aligned up before the comparison.
+fn range_contained(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
+    let a_end = usize::from(a.end.page_align_up());
+    let b_end = usize::from(b.end.page_align_up());
+    let a_start = usize::from(a.start);
+    let b_start = usize::from(b.start);
+
+    a_start >= b_start && a_end <= b_end
+}
+
+/// Verify if the given range is valid. This function reject any range that :
+/// - Include any address equal or beyond `UserVirtual::last_page_aligned()`
+/// - Has not a page aligned start
+/// - Has a length of zero
+///
+/// # Explanation
+/// - Rejecting any address equal or beyond `UserVirtual::last_page_aligned()` is
+///   a security measure to prevent the user to map the last page of the virtual
+///   address space, involved in some attacks and hardware bugs.
+///   Furthermore, this allow some optimizations: it is possible to safely page
+///   align-up any validated user virtual addresses without checking if they are
+///   still in user space and not in the canonical hole.
+fn valid_range(range: &Range<UserVirtual>) -> bool {
+    Virtual::from(range.start).is_page_aligned()
+        && range.end <= UserVirtual::last_page_aligned()
+        && !range.is_empty()
 }

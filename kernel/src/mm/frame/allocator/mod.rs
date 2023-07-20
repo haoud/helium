@@ -1,4 +1,4 @@
-use super::AllocationFlags;
+use super::{owned::OwnedMemory, AllocationFlags};
 use addr::frame::Frame;
 use core::ops::Range;
 
@@ -10,7 +10,7 @@ pub mod dummy;
 /// simple and easy to understand with a good documentation.
 #[allow(clippy::missing_safety_doc)]
 pub unsafe trait Allocator {
-    unsafe fn allocate_frame(&mut self, flags: AllocationFlags) -> Option<Frame>;
+    unsafe fn allocate_frame(&mut self, flags: AllocationFlags) -> Option<OwnedMemory>;
     unsafe fn deallocate_range(&mut self, range: Range<Frame>);
     unsafe fn deallocate_frame(&mut self, frame: Frame);
     unsafe fn reference_frame(&mut self, frame: Frame);
@@ -18,5 +18,5 @@ pub unsafe trait Allocator {
         &mut self,
         count: usize,
         flags: AllocationFlags,
-    ) -> Option<Range<Frame>>;
+    ) -> Option<OwnedMemory>;
 }

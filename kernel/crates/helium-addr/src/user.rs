@@ -3,7 +3,7 @@ use core::{fmt, iter::Step};
 
 /// A canonical 64-bit virtual memory address that is guaranteed to be in user space (
 /// 0x0000_0000_0000_0000 to 0x0000_7FFF_FFFF_FFFF).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct UserVirtual(pub(crate) usize);
 
@@ -11,7 +11,7 @@ pub struct UserVirtual(pub(crate) usize);
 ///
 /// This type is used to represent an invalid virtual address. It is returned by
 /// [`UserVirtual::try_new`] when the given address is not in user space.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct InvalidUserVirtual(pub(crate) usize);
 

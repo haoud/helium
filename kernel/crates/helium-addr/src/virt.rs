@@ -9,7 +9,7 @@ use core::{
 ///
 /// On `x86_64`, only the 48 lower bits of a virtual address can be used. This type guarantees that
 /// the address is always canonical, i.e. that the top 17 bits are either all 0 or all 1.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Virtual(pub(crate) usize);
 
@@ -17,7 +17,7 @@ pub struct Virtual(pub(crate) usize);
 ///
 /// This type is used to represent an invalid virtual address. It is returned by [`Virtual::try_new`]
 /// when the given address is not canonical (see [`Virtual`] for more information).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct InvalidVirtual(pub(crate) usize);
 

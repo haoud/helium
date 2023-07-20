@@ -1,4 +1,4 @@
-use crate::mm::frame::{state::State, AllocationFlags, FrameFlags};
+use crate::mm::frame::{owned::OwnedMemory, state::State, AllocationFlags, FrameFlags};
 use addr::{
     frame::{self, Frame},
     virt::Virtual,
@@ -35,19 +35,19 @@ impl Allocator {
 
 unsafe impl super::Allocator for Allocator {
     /// Allocates a frame from the frame state. Returns `None` if no frame is available, or the
-    /// frame address if a frame was successfully allocated. For more information, see the
+    /// owned frame if a frame was successfully allocated. For more information, see the
     /// documentation of the `allocate_range` method.
     ///
     /// # Safety
     /// This function is unsafe because it is the caller's responsibility to correctly use the
     /// allocated frame. The caller must ensure that the frame is freed only once, and when the
     /// frame is no longer used by any component.
-    unsafe fn allocate_frame(&mut self, flags: super::AllocationFlags) -> Option<Frame> {
-        self.allocate_range(1, flags).map(|r| r.start)
+    unsafe fn allocate_frame(&mut self, flags: super::AllocationFlags) -> Option<OwnedMemory> {
+        self.allocate_range(1, flags)
     }
 
     /// Allocates a range of free frames from the frame state. Returns `None` if no frame is
-    /// available, or a range of frames if a range of frames was successfully allocated.
+    /// available, or a range of owned frames if a range of frames was successfully allocated.
     ///
     /// # Warning
     /// Avoid using this method as much as posssibe. It is super, super inefficient, and should
@@ -63,7 +63,7 @@ unsafe impl super::Allocator for Allocator {
         &mut self,
         count: usize,
         flags: AllocationFlags,
-    ) -> Option<Range<Frame>> {
+    ) -> Option<OwnedMemory> {
         let len = self.state.frames.len();
         let mut i = 0;
 
@@ -91,10 +91,10 @@ unsafe impl super::Allocator for Allocator {
                 let flags = self.state.frames[i].flags;
                 self.state.statistics.frames_allocated(count, flags);
 
-                return Some(super::Range {
+                return Some(OwnedMemory::new(Range {
                     start: Frame::from(frame::Index::new(i)),
                     end: Frame::from(frame::Index::new(i + count)),
-                });
+                }));
             }
 
             // TODO: Skip all the frames that are not free
@@ -158,7 +158,7 @@ unsafe impl super::Allocator for Allocator {
         let mut count = 0;
 
         let flags = self.state.frames[start].flags;
-        for frame in self.state.frames[start..=end].iter_mut() {
+        for frame in self.state.frames[start..end].iter_mut() {
             if frame.release() {
                 frame.flags.remove(FrameFlags::ZEROED);
                 frame.flags.insert(FrameFlags::FREE);

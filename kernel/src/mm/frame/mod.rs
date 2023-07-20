@@ -3,6 +3,7 @@ use bitflags::bitflags;
 use lib::byte::ByteSize;
 
 pub mod allocator;
+pub mod owned;
 pub mod state;
 
 /// A struct used to keep track of some statistics about the physical memory.

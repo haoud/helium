@@ -1,6 +1,6 @@
 use super::{FrameFlags, Stats};
 use addr::{
-    frame::{Frame, self},
+    frame::{self, Frame},
     phys::Physical,
     virt::Virtual,
 };
@@ -138,8 +138,10 @@ impl<T: Default> State<T> {
 
         // Update the flags for each frame according to the memory map.
         for entry in mmap {
+            let start = frame::Index::from_address(entry.base as usize)
+                .0
+                .min(last.0);
             let end = Frame::upper(entry.base + entry.len).index().0.min(last.0);
-            let start = frame::Index::from_address(entry.base as usize).0.min(last.0);
 
             for frame in &mut array[start..end] {
                 match entry.typ {

@@ -1,7 +1,7 @@
 use super::{fpu, gdt::Selector, msr, paging::PAGE_SIZE, percpu, tss};
 use crate::{
     mm::{
-        frame::{allocator::Allocator, AllocationFlags},
+        frame::{allocator::Allocator, owned::OwnedMemory, AllocationFlags},
         vmm::{
             self,
             area::{self, Area},
@@ -10,12 +10,9 @@ use crate::{
     },
     user::task::Task,
 };
-use addr::{frame::Frame, user::UserVirtual, virt::Virtual};
+use addr::{user::UserVirtual, virt::Virtual};
 use alloc::sync::Arc;
-use core::{
-    num::NonZeroU64,
-    ops::{Range, Sub},
-};
+use core::{num::NonZeroU64, ops::Sub};
 use lib::align::Align;
 use sync::{Lazy, Spinlock};
 
@@ -85,7 +82,7 @@ impl Default for State {
 /// a pointer to the saved state of the thread if the thread is not running.
 #[derive(Debug, PartialEq, Eq)]
 struct KernelStack {
-    frames: Range<Frame>,
+    memory: OwnedMemory,
     state: *mut State,
 }
 
@@ -98,9 +95,9 @@ unsafe impl Send for KernelStack {}
 
 impl KernelStack {
     /// Create a new kernel stack with the given frames.
-    pub fn new(frames: Range<Frame>) -> Self {
+    pub fn new(memory: OwnedMemory) -> Self {
         Self {
-            frames,
+            memory,
             state: core::ptr::null_mut(),
         }
     }
@@ -110,7 +107,6 @@ impl KernelStack {
     /// # Panics
     /// Panics if the kernel stack could not be allocated.
     pub fn allocate(frames: usize) -> Self {
-        // FIXME: This memory is never freed
         KernelStack::new(unsafe {
             FRAME_ALLOCATOR
                 .lock()
@@ -174,7 +170,7 @@ impl KernelStack {
     pub fn base(&self) -> Virtual {
         // We substract 64 bytes to the end of the stack, because this space is reserved for
         // when switching to the thread for the first time.
-        Virtual::from(self.frames.end.addr()) - 64u64
+        Virtual::from(self.memory.end.addr()) - 64u64
     }
 
     /// Return a mutable pointer to the saved state of this thread.

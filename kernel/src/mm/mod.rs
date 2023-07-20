@@ -48,7 +48,8 @@ pub unsafe fn setup() {
     let frames = FRAME_ALLOCATOR
         .lock()
         .allocate_range(HEAP_PAGE_COUNT, AllocationFlags::KERNEL)
-        .expect("Failed to allocate memory for the heap");
+        .expect("Failed to allocate memory for the heap")
+        .into_inner();
 
     HEAP_ALLOCATOR.init(frames);
 }

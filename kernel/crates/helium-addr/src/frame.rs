@@ -1,7 +1,7 @@
 use crate::phys::Physical;
 use core::iter::Step;
 
-/// Represents the identifier of a physical memory frame. This is a simple wrapper 
+/// Represents the identifier of a physical memory frame. This is a simple wrapper
 /// around a usize that guarantees that the usize is a valid frame index (meaning
 /// that the usize is less than [`Index::MAX`], but it does not guarantee that the
 /// frame really exists).
@@ -78,11 +78,11 @@ impl core::fmt::Debug for FrameCount {
     }
 }
 
-/// Represents a physical memory frame. A Frame is a 4 KiB block of memory, and is 
-/// the smallest unit of physical memory that can be allocated. This struct is a 
+/// Represents a physical memory frame. A Frame is a 4 KiB block of memory, and is
+/// the smallest unit of physical memory that can be allocated. This struct is a
 /// wrapper around a physical address, and guarantees that the address is always
 /// page aligned (i.e 4 KiB aligned).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Frame(Physical);
 
