@@ -1,5 +1,4 @@
-use super::frame::Frame;
-use addr::virt::Virtual;
+use addr::{frame::Frame, virt::Virtual};
 use core::{
     alloc::{GlobalAlloc, Layout},
     ops::{Deref, Range},

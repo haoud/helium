@@ -1,13 +1,13 @@
 use super::{cpu, tlb};
 use crate::{
     mm::{
-        frame::{allocator::Allocator, AllocationFlags, Frame},
+        frame::{allocator::Allocator, AllocationFlags},
         vmm::area::Access,
         FRAME_ALLOCATOR,
     },
     user::scheduler,
 };
-use addr::{phys::Physical, user::UserVirtual, virt::Virtual};
+use addr::{frame::Frame, phys::Physical, user::UserVirtual, virt::Virtual};
 use core::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},

@@ -288,6 +288,7 @@ impl Cr0 {
 pub struct Cr2;
 
 impl Cr2 {
+    /// Read the current virtual address that caused the last page fault.
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
     pub fn address() -> Virtual {
@@ -298,10 +299,11 @@ impl Cr2 {
 pub struct Cr3;
 
 impl Cr3 {
+    /// Read the current physical address of the page table (PML4) forthe current CPU core.
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
     pub fn address() -> Physical {
-        Physical::new((read_cr3() & 0xFFF) as usize)
+        Physical::new((read_cr3() & !0xFFF) as usize)
     }
 }
 

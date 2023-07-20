@@ -1,7 +1,7 @@
 use super::{fpu, gdt::Selector, msr, paging::PAGE_SIZE, percpu, tss};
 use crate::{
     mm::{
-        frame::{allocator::Allocator, AllocationFlags, Frame},
+        frame::{allocator::Allocator, AllocationFlags},
         vmm::{
             self,
             area::{self, Area},
@@ -10,7 +10,7 @@ use crate::{
     },
     user::task::Task,
 };
-use addr::{user::UserVirtual, virt::Virtual};
+use addr::{frame::Frame, user::UserVirtual, virt::Virtual};
 use alloc::sync::Arc;
 use core::{
     num::NonZeroU64,

@@ -1,5 +1,8 @@
-use crate::mm::frame::{state::State, AllocationFlags, Frame, FrameFlags, FrameIndex};
-use addr::virt::Virtual;
+use crate::mm::frame::{state::State, AllocationFlags, FrameFlags};
+use addr::{
+    frame::{self, Frame},
+    virt::Virtual,
+};
 use core::ops::Range;
 use limine::{LimineMemmapEntry, NonNullPtr};
 
@@ -69,7 +72,7 @@ unsafe impl super::Allocator for Allocator {
                 .iter()
                 .all(|e| e.flags.contains(FrameFlags::FREE))
             {
-                let address = Frame::from(FrameIndex::new(i)).0;
+                let address = Frame::from(frame::Index::new(i)).addr();
 
                 // Mark the frames as allocated and zero them if requested
                 for frame in self.state.frames[i..i + count].iter_mut() {
@@ -89,8 +92,8 @@ unsafe impl super::Allocator for Allocator {
                 self.state.statistics.frames_allocated(count, flags);
 
                 return Some(super::Range {
-                    start: Frame::from(FrameIndex::new(i)),
-                    end: Frame::from(FrameIndex::new(i + count)),
+                    start: Frame::from(frame::Index::new(i)),
+                    end: Frame::from(frame::Index::new(i + count)),
                 });
             }
 
@@ -150,8 +153,8 @@ unsafe impl super::Allocator for Allocator {
     /// # Panics
     /// This method panics if one or more frames in the range are already free.
     unsafe fn deallocate_range(&mut self, range: Range<Frame>) {
-        let start = FrameIndex::from(range.start.0).0;
-        let end = FrameIndex::from(range.end.0).0;
+        let start = frame::Index::from(range.start.addr()).0;
+        let end = frame::Index::from(range.end.addr()).0;
         let mut count = 0;
 
         let flags = self.state.frames[start].flags;

@@ -1,4 +1,5 @@
-use super::{AllocationFlags, Frame};
+use super::AllocationFlags;
+use addr::frame::Frame;
 use core::ops::Range;
 
 pub mod dummy;

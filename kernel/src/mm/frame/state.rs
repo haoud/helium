@@ -1,9 +1,12 @@
-use addr::{phys::Physical, virt::Virtual};
+use super::{FrameFlags, Stats};
+use addr::{
+    frame::{Frame, self},
+    phys::Physical,
+    virt::Virtual,
+};
 use core::mem::size_of;
 use limine::{LimineMemmapEntry, LimineMemoryMapEntryType, NonNullPtr};
 use macros::init;
-
-use super::{Frame, FrameFlags, FrameIndex, Stats};
 
 /// Represents the state of a physical memory frame, and contains information about the frame such
 /// as its flags and its reference count.
@@ -136,7 +139,7 @@ impl<T: Default> State<T> {
         // Update the flags for each frame according to the memory map.
         for entry in mmap {
             let end = Frame::upper(entry.base + entry.len).index().0.min(last.0);
-            let start = FrameIndex::from_address(entry.base as usize).0.min(last.0);
+            let start = frame::Index::from_address(entry.base as usize).0.min(last.0);
 
             for frame in &mut array[start..end] {
                 match entry.typ {
@@ -181,7 +184,7 @@ impl<T: Default> State<T> {
         // Mark the frames used by the frame array as reserved: we don't want to
         // allocate them again.
         let count = array.len() * size_of::<Frame>() / Frame::SIZE;
-        let start = FrameIndex::from(array_location).0;
+        let start = frame::Index::from(array_location).0;
         let end = start + count;
 
         for frame in &mut array[start..=end] {
@@ -223,7 +226,7 @@ impl<T: Default> State<T> {
     #[init]
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
-    fn find_array_location(mmap: &[NonNullPtr<LimineMemmapEntry>], last: FrameIndex) -> Physical {
+    fn find_array_location(mmap: &[NonNullPtr<LimineMemmapEntry>], last: frame::Index) -> Physical {
         mmap.iter()
             .filter(|entry| entry.typ == LimineMemoryMapEntryType::Usable)
             .find(|entry| entry.len as usize >= last.0 * size_of::<FrameInfo<T>>())
@@ -238,7 +241,7 @@ impl<T: Default> State<T> {
     /// the range of the array are considered as reserved/poisoned.
     #[init]
     #[must_use]
-    fn find_last_usable_frame_index(mmap: &[NonNullPtr<LimineMemmapEntry>]) -> FrameIndex {
+    fn find_last_usable_frame_index(mmap: &[NonNullPtr<LimineMemmapEntry>]) -> frame::Index {
         mmap.iter()
             .filter(|entry| {
                 entry.typ == LimineMemoryMapEntryType::Usable
@@ -247,8 +250,8 @@ impl<T: Default> State<T> {
             })
             .map(|entry| entry.base + entry.len)
             .max()
-            .map_or(FrameIndex::default(), |address| {
-                FrameIndex::from(Frame::upper(address))
+            .map_or(frame::Index::default(), |address| {
+                frame::Index::from(Frame::upper(address))
             })
     }
 }
