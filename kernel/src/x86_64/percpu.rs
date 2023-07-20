@@ -162,7 +162,7 @@ pub unsafe fn fetch_per_cpu<T>(ptr: *const T) -> *mut T {
 /// call to this function is made with another stack. The caller must also ensure that the stack
 /// is correctly aligned, and big enough to handle the syscall handler.
 pub unsafe fn set_kernel_stack(base: Virtual) {
-    debug_assert!(base.is_aligned(16u64));
+    debug_assert!(base.is_aligned(16usize));
     debug_assert!(base.is_kernel());
 
     let per_cpu = msr::read(msr::Register::GS_BASE) as *mut u64;

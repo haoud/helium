@@ -18,7 +18,7 @@ use sync::Lazy;
 /// The kernel page table. This is used to create new page table very fast, simply by copying the
 /// kernel page table into the new page table.
 pub static KERNEL_PML4: Lazy<PageTableRoot> =
-    Lazy::new(|| unsafe { PageTableRoot::from_page(Physical::new(cpu::read_cr3())) });
+    Lazy::new(|| unsafe { PageTableRoot::from_page(cpu::Cr3::address()) });
 
 /// The size of a page. This is always 4096 bytes, Helium does not support 2 MiB or 1 GiB pages
 /// to keep the code simple.
@@ -294,7 +294,7 @@ impl PageEntry {
     pub fn table(&self) -> Option<*mut PageTable> {
         if self.flags().contains(PageEntryFlags::PRESENT) {
             let addr = self.0 & Self::ADDRESS_MASK;
-            Some(Virtual::from(Physical::new(addr)).as_mut_ptr::<PageTable>())
+            Some(Virtual::from(Physical::new(addr as usize)).as_mut_ptr::<PageTable>())
         } else {
             None
         }
@@ -305,7 +305,7 @@ impl PageEntry {
     #[must_use]
     pub const fn address(&self) -> Option<Physical> {
         if self.flags().contains(PageEntryFlags::PRESENT) {
-            Some(Physical::new(self.0 & Self::ADDRESS_MASK))
+            Some(Physical::new((self.0 & Self::ADDRESS_MASK) as usize))
         } else {
             None
         }
@@ -419,7 +419,7 @@ impl PageTable {
     /// Returns the virtual address of this page table.
     #[must_use]
     pub fn to_virtual(&self) -> Virtual {
-        Virtual::new(self as *const Self as u64)
+        Virtual::new(self as *const Self as usize)
     }
 
     /// Returns `true` if all entries in the page table are empty.

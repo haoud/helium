@@ -1,4 +1,5 @@
 use super::instruction;
+use addr::{phys::Physical, virt::Virtual};
 use bitflags::bitflags;
 
 /// The interrupt frame pushed by the CPU and by the interrupt stubs when an interrupt
@@ -281,6 +282,26 @@ impl Cr0 {
     /// even reboot the computer if a triple fault occurs.
     pub unsafe fn disable(flags: Self) {
         unsafe { write_cr0(read_cr0() & !flags.bits()) }
+    }
+}
+
+pub struct Cr2;
+
+impl Cr2 {
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn address() -> Virtual {
+        Virtual::new(read_cr2() as usize)
+    }
+}
+
+pub struct Cr3;
+
+impl Cr3 {
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn address() -> Physical {
+        Physical::new((read_cr3() & 0xFFF) as usize)
     }
 }
 

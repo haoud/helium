@@ -109,6 +109,7 @@ impl<T: Default> State<T> {
     /// parsing the memory map given by Limine.
     #[init]
     #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
     pub fn new(mmap: &[NonNullPtr<LimineMemmapEntry>]) -> Self {
         let last = Self::find_last_usable_frame_index(mmap);
         let array_location = Self::find_array_location(mmap, last);
@@ -135,7 +136,7 @@ impl<T: Default> State<T> {
         // Update the flags for each frame according to the memory map.
         for entry in mmap {
             let end = Frame::upper(entry.base + entry.len).index().0.min(last.0);
-            let start = FrameIndex::from_address(entry.base).0.min(last.0);
+            let start = FrameIndex::from_address(entry.base as usize).0.min(last.0);
 
             for frame in &mut array[start..end] {
                 match entry.typ {
@@ -201,7 +202,7 @@ impl<T: Default> State<T> {
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
     pub fn frame_info_mut(&mut self, address: Physical) -> Option<&mut FrameInfo<T>> {
-        self.frames.get_mut(address.frame_index() as usize)
+        self.frames.get_mut(address.frame_index())
     }
 
     /// Return an immutable reference to the frame info for the given physical address, or `None`
@@ -209,7 +210,7 @@ impl<T: Default> State<T> {
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
     pub fn frame_info(&self, address: Physical) -> Option<&FrameInfo<T>> {
-        self.frames.get(address.frame_index() as usize)
+        self.frames.get(address.frame_index())
     }
 
     /// Find in the memory map a free region that is big enough to hold the frame array. This is
@@ -228,7 +229,7 @@ impl<T: Default> State<T> {
             .find(|entry| entry.len as usize >= last.0 * size_of::<FrameInfo<T>>())
             .map_or_else(
                 || panic!("Could not find a free region to place the frame array!"),
-                |entry| Physical::new(entry.base),
+                |entry| Physical::new(entry.base as usize),
             )
     }
 

@@ -59,8 +59,8 @@ pub fn load(vmm: Arc<Spinlock<vmm::Manager>>, file: &[u8]) -> Result<Arc<Task>, 
         .iter()
         .filter(|phdr| phdr.p_type == elf::abi::PT_LOAD)
     {
-        let end = Virtual::try_new(phdr.p_vaddr + phdr.p_memsz)?;
-        let start = Virtual::try_new(phdr.p_vaddr)?;
+        let end = Virtual::try_new(phdr.p_vaddr as usize + phdr.p_memsz as usize)?;
+        let start = Virtual::try_new(phdr.p_vaddr as usize)?;
 
         // Check that the segment is not in the kernel space
         if start.is_kernel() || end.is_kernel() {

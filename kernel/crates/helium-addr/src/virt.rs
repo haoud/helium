@@ -11,7 +11,7 @@ use core::{
 /// the address is always canonical, i.e. that the top 17 bits are either all 0 or all 1.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct Virtual(pub(crate) u64);
+pub struct Virtual(pub(crate) usize);
 
 /// An invalid virtual address.
 ///
@@ -19,7 +19,7 @@ pub struct Virtual(pub(crate) u64);
 /// when the given address is not canonical (see [`Virtual`] for more information).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct InvalidVirtual(pub(crate) u64);
+pub struct InvalidVirtual(pub(crate) usize);
 
 impl Virtual {
     /// Creates a new canonical virtual address.
@@ -27,7 +27,7 @@ impl Virtual {
     /// # Panics
     /// This function panics if the given address is not canonical.
     #[must_use]
-    pub const fn new(address: u64) -> Self {
+    pub const fn new(address: usize) -> Self {
         match Self::try_new(address) {
             Ok(addr) => addr,
             Err(InvalidVirtual(_)) => panic!("Invalid virtual address: non canonical"),
@@ -39,7 +39,7 @@ impl Virtual {
     /// # Errors
     /// This function returns an [`InvalidVirtual`] error if the given address is not canonical, or
     /// a sign extension is performed if 48th bit is set and all bits from 49 to 63 are set to 0.
-    pub const fn try_new(address: u64) -> Result<Self, InvalidVirtual> {
+    pub const fn try_new(address: usize) -> Result<Self, InvalidVirtual> {
         match (address & 0xFFFF_8000_0000_0000) >> 47 {
             0 | 0x1FFFF => Ok(Self(address)),
             1 => Ok(Self::new_truncate(address)),
@@ -52,11 +52,11 @@ impl Virtual {
     /// and set those bits to 1 in order to make the address canonical.
     #[must_use]
     #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
-    pub const fn new_truncate(addr: u64) -> Self {
+    pub const fn new_truncate(addr: usize) -> Self {
         // Some magic with sign extension on signed 64-bit integer
         // It set the sign bit to the 48th bit, and then shift to the right by 16 bits: all bits
         // from 48 to 63 are set to the sign bit
-        Self(((addr << 16) as i64 >> 16) as u64)
+        Self(((addr << 16) as isize >> 16) as usize)
     }
 
     /// Creates a new canonical virtual address without checking if it is canonical.
@@ -65,13 +65,13 @@ impl Virtual {
     /// This function is unsafe because it does not check if the given address is canonical. If the
     /// address is not canonical, the behavior is undefined.
     #[must_use]
-    pub const unsafe fn new_unchecked(address: u64) -> Self {
+    pub const unsafe fn new_unchecked(address: usize) -> Self {
         Self(address)
     }
 
     /// Checks if the given address is canonical.
     #[must_use]
-    pub const fn is_canonical(address: u64) -> bool {
+    pub const fn is_canonical(address: usize) -> bool {
         matches!((address & 0xFFFF_8000_0000_0000) >> 47, 0 | 0x1FFFF)
     }
 
@@ -79,7 +79,7 @@ impl Virtual {
     /// simply casts the pointer address to a `u64`, and then calls [`Self::new`].
     #[must_use]
     pub fn from_ptr<T>(ptr: *const T) -> Self {
-        Self::new(ptr as u64)
+        Self::new(ptr as usize)
     }
 
     #[must_use]
@@ -95,13 +95,13 @@ impl Virtual {
     /// Convert this virtual address to an usize.
     #[must_use]
     pub const fn as_usize(&self) -> usize {
-        self.0 as usize
+        self.0
     }
 
     /// Convert this virtual address to an u64.
     #[must_use]
     pub const fn as_u64(&self) -> u64 {
-        self.0
+        self.0 as u64
     }
 
     #[must_use]
@@ -127,9 +127,9 @@ impl Virtual {
     #[must_use]
     pub fn align_up<T>(&self, alignment: T) -> Self
     where
-        T: Into<u64>,
+        T: Into<usize>,
     {
-        let align: u64 = alignment.into();
+        let align: usize = alignment.into();
         assert!(align.is_power_of_two());
         Self::new_truncate(
             (self.0.checked_add(align - 1)).expect("Overflow during aligning up a virtual address")
@@ -145,9 +145,9 @@ impl Virtual {
     #[must_use]
     pub fn align_down<T>(&self, alignment: T) -> Self
     where
-        T: Into<u64>,
+        T: Into<usize>,
     {
-        let align: u64 = alignment.into();
+        let align: usize = alignment.into();
         assert!(align.is_power_of_two());
         Self::new_truncate(self.0 & !(align - 1))
     }
@@ -159,9 +159,9 @@ impl Virtual {
     #[must_use]
     pub fn is_aligned<T>(&self, alignment: T) -> bool
     where
-        T: Into<u64>,
+        T: Into<usize>,
     {
-        let align: u64 = alignment.into();
+        let align: usize = alignment.into();
         assert!(align.is_power_of_two());
         self.0 & (align - 1) == 0
     }
@@ -190,7 +190,7 @@ impl Virtual {
     }
 
     #[must_use]
-    pub const fn page_offset(&self) -> u64 {
+    pub const fn page_offset(&self) -> usize {
         self.0 & 0xFFF
     }
 
@@ -248,7 +248,7 @@ impl Step for Virtual {
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
-        let new = start.0.checked_add(count as u64)?;
+        let new = start.0.checked_add(count)?;
         if !Virtual::is_canonical(new) {
             return None;
         }
@@ -256,7 +256,7 @@ impl Step for Virtual {
     }
 
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
-        let new = start.0.checked_sub(count as u64)?;
+        let new = start.0.checked_sub(count)?;
         if !Virtual::is_canonical(new) {
             return None;
         }
@@ -302,25 +302,25 @@ impl fmt::Display for Virtual {
 
 impl From<Virtual> for u64 {
     fn from(address: Virtual) -> Self {
-        address.0
+        address.0 as u64
     }
 }
 
 impl From<Virtual> for usize {
     fn from(address: Virtual) -> Self {
-        address.0 as usize
+        address.0
     }
 }
 
 impl From<u64> for Virtual {
     fn from(address: u64) -> Self {
-        Self::new(address)
+        Self::new(address as usize)
     }
 }
 
 impl From<usize> for Virtual {
     fn from(address: usize) -> Self {
-        Self::new(address as u64)
+        Self::new(address)
     }
 }
 
@@ -337,9 +337,7 @@ impl From<UserVirtual> for Virtual {
     fn from(address: UserVirtual) -> Self {
         // A user virtual address is guaranteed to be an valid address, so we
         // can safely convert it to a virtual address without checking.
-        Self {
-            0: address.0 as u64,
-        }
+        Self { 0: address.0 }
     }
 }
 
@@ -355,7 +353,7 @@ impl Add<u64> for Virtual {
     type Output = Virtual;
 
     fn add(self, rhs: u64) -> Self::Output {
-        Self::new(self.0 + rhs)
+        Self::new(self.0 + rhs as usize)
     }
 }
 
@@ -363,7 +361,7 @@ impl Add<usize> for Virtual {
     type Output = Virtual;
 
     fn add(self, rhs: usize) -> Self::Output {
-        Self::new(self.0 + rhs as u64)
+        Self::new(self.0 + rhs)
     }
 }
 
@@ -375,13 +373,13 @@ impl AddAssign<Virtual> for Virtual {
 
 impl AddAssign<u64> for Virtual {
     fn add_assign(&mut self, rhs: u64) {
-        self.0 += rhs;
+        self.0 += rhs as usize;
     }
 }
 
 impl AddAssign<usize> for Virtual {
     fn add_assign(&mut self, rhs: usize) {
-        self.0 += rhs as u64;
+        self.0 += rhs;
     }
 }
 
@@ -397,7 +395,7 @@ impl Sub<u64> for Virtual {
     type Output = Virtual;
 
     fn sub(self, rhs: u64) -> Self::Output {
-        Self::new(self.0 - rhs)
+        Self::new(self.0 - rhs as usize)
     }
 }
 
@@ -405,7 +403,7 @@ impl Sub<usize> for Virtual {
     type Output = Virtual;
 
     fn sub(self, rhs: usize) -> Self::Output {
-        Self::new(self.0 - rhs as u64)
+        Self::new(self.0 - rhs)
     }
 }
 
@@ -417,12 +415,12 @@ impl SubAssign<Virtual> for Virtual {
 
 impl SubAssign<u64> for Virtual {
     fn sub_assign(&mut self, rhs: u64) {
-        self.0 -= rhs;
+        self.0 -= rhs as usize;
     }
 }
 
 impl SubAssign<usize> for Virtual {
     fn sub_assign(&mut self, rhs: usize) {
-        self.0 -= rhs as u64;
+        self.0 -= rhs;
     }
 }

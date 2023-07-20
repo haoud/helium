@@ -39,23 +39,23 @@ impl FrameIndex {
     /// Panics if the address is not a valid physical address (see [`Physical::new`] for more
     /// information)
     #[must_use]
-    pub const fn from_address(addr: u64) -> Self {
+    pub const fn from_address(addr: usize) -> Self {
         #[allow(clippy::cast_possible_truncation)]
-        Self::new(Physical::new(addr).frame_index() as usize)
+        Self::new(Physical::new(addr).frame_index())
     }
 }
 
 impl From<Frame> for FrameIndex {
     #[allow(clippy::cast_possible_truncation)]
     fn from(frame: Frame) -> Self {
-        Self::new(frame.addr().frame_index() as usize)
+        Self::new(frame.addr().frame_index())
     }
 }
 
 impl From<Physical> for FrameIndex {
     #[allow(clippy::cast_possible_truncation)]
     fn from(physical: Physical) -> Self {
-        Self::new(physical.frame_index() as usize)
+        Self::new(physical.frame_index())
     }
 }
 
@@ -167,7 +167,7 @@ impl From<u64> for Frame {
     /// Panics if the address is not page aligned (4 KiB aligned), or if the address is not a
     /// valid physical address (i.e. it is greater than 2^52)
     fn from(address: u64) -> Self {
-        Self::new(Physical::new(address))
+        Self::new(Physical::from(address))
     }
 }
 
@@ -178,7 +178,7 @@ impl From<usize> for Frame {
     /// Panics if the address is not page aligned (4 KiB aligned), or if the address is not a
     /// valid physical address (i.e. it is greater than 2^52)
     fn from(address: usize) -> Self {
-        Self::new(Physical::new(address as u64))
+        Self::new(Physical::new(address))
     }
 }
 

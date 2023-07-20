@@ -1,11 +1,9 @@
-use addr::virt::Virtual;
-use macros::{exception, exception_err, init};
-
 use super::{
     cpu::{self, InterruptFrame, Privilege},
     idt::{self, IDT},
     paging,
 };
+use macros::{exception, exception_err, init};
 
 /// Setup the exception handlers.
 ///
@@ -147,7 +145,7 @@ fn general_protection_fault(state: &InterruptFrame) {
 #[exception_err]
 fn page_fault(state: &InterruptFrame) {
     paging::handle_page_fault(
-        Virtual::new(cpu::read_cr2()),
+        cpu::Cr2::address(),
         paging::PageFaultErrorCode::from_bits_truncate(state.code),
     );
 }

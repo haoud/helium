@@ -7,11 +7,11 @@ use core::{
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct Physical(pub(crate) u64);
+pub struct Physical(pub(crate) usize);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct InvalidPhysical(pub(crate) u64);
+pub struct InvalidPhysical(pub(crate) usize);
 
 impl Physical {
     /// The maximum physical address supported by the x86_64 architecture.
@@ -22,7 +22,7 @@ impl Physical {
     /// # Panics
     /// If the address is not valid (bits 52-63 must be 0), this function panics.
     #[must_use]
-    pub const fn new(address: u64) -> Self {
+    pub const fn new(address: usize) -> Self {
         match Self::try_new(address) {
             Err(InvalidPhysical(_)) => panic!("Physical address is not valid (must be 52 bits)"),
             Ok(addr) => addr,
@@ -34,7 +34,7 @@ impl Physical {
     /// # Errors
     /// If the address is not valid (bits 52-63 must be 0), this function returns an error,
     /// containing the invalid address.
-    pub const fn try_new(address: u64) -> Result<Self, InvalidPhysical> {
+    pub const fn try_new(address: usize) -> Result<Self, InvalidPhysical> {
         if address > 0x000F_FFFF_FFFF_FFFF {
             Err(InvalidPhysical(address))
         } else {
@@ -44,14 +44,14 @@ impl Physical {
 
     /// Creates a new physical address. Bits 52-63 are truncated to 0 if they are set.
     #[must_use]
-    pub const fn new_truncate(addr: u64) -> Self {
+    pub const fn new_truncate(addr: usize) -> Self {
         // Only keep the lower 52 bits
         Self(addr & 0x000F_FFFF_FFFF_FFFF)
     }
 
     /// Checks if an address would be valid if it was truncated to 52 bits.
     #[must_use]
-    pub const fn is_valid(address: u64) -> bool {
+    pub const fn is_valid(address: usize) -> bool {
         address <= 0x000F_FFFF_FFFF_FFFF
     }
 
@@ -61,15 +61,15 @@ impl Physical {
     /// The address must be valid (bits 52-63 must be 0). If the address is not valid, the behavior
     /// is undefined.
     #[must_use]
-    pub const unsafe fn new_unchecked(address: u64) -> Self {
+    pub const unsafe fn new_unchecked(address: usize) -> Self {
         Self(address)
     }
 
     /// Creates a new physical address from a pointer. This is a convenience function for
-    /// `Physical::new(ptr as u64)`.
+    /// `Physical::new(ptr as usize)`.
     #[must_use]
     pub fn from_ptr<T>(ptr: *const T) -> Self {
-        Self::new(ptr as u64)
+        Self::new(ptr as usize)
     }
 
     #[must_use]
@@ -88,10 +88,10 @@ impl Physical {
         self.0 as usize
     }
 
-    /// Convert this physical address to an u64.
+    /// Convert this physical address to an usize.
     #[must_use]
     pub const fn as_u64(&self) -> u64 {
-        self.0
+        self.0 as u64
     }
 
     #[must_use]
@@ -112,9 +112,9 @@ impl Physical {
     #[must_use]
     pub fn align_up<T>(&self, alignment: T) -> Self
     where
-        T: Into<u64>,
+        T: Into<usize>,
     {
-        let align: u64 = alignment.into();
+        let align: usize = alignment.into();
         assert!(align.is_power_of_two());
         Self::new_truncate(
             (self.0.checked_add(align - 1))
@@ -126,9 +126,9 @@ impl Physical {
     #[must_use]
     pub fn align_down<T>(&self, alignment: T) -> Self
     where
-        T: Into<u64>,
+        T: Into<usize>,
     {
-        let align: u64 = alignment.into();
+        let align: usize = alignment.into();
         assert!(align.is_power_of_two());
         Self::new_truncate(self.0 & !(align - 1))
     }
@@ -136,9 +136,9 @@ impl Physical {
     #[must_use]
     pub fn is_aligned<T>(&self, alignment: T) -> bool
     where
-        T: Into<u64>,
+        T: Into<usize>,
     {
-        let align: u64 = alignment.into();
+        let align: usize = alignment.into();
         assert!(align.is_power_of_two());
         self.0 & (align - 1) == 0
     }
@@ -167,7 +167,7 @@ impl Physical {
     }
 
     #[must_use]
-    pub const fn frame_index(&self) -> u64 {
+    pub const fn frame_index(&self) -> usize {
         self.0 >> 12
     }
 }
@@ -178,7 +178,7 @@ impl Step for Physical {
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
-        let new = start.0.checked_add(count as u64)?;
+        let new = start.0.checked_add(count)?;
         if Physical::is_valid(new) {
             Some(Self::new(new))
         } else {
@@ -187,7 +187,7 @@ impl Step for Physical {
     }
 
     fn backward_checked(start: Self, count: usize) -> Option<Self> {
-        let new = start.0.checked_sub(count as u64)?;
+        let new = start.0.checked_sub(count)?;
         if Physical::is_valid(new) {
             Some(Self::new(new))
         } else {
@@ -234,25 +234,25 @@ impl fmt::Display for Physical {
 
 impl From<Physical> for u64 {
     fn from(address: Physical) -> Self {
-        address.0
+        address.0 as u64
     }
 }
 
 impl From<Physical> for usize {
     fn from(address: Physical) -> Self {
-        address.0 as usize
+        address.0
     }
 }
 
 impl From<u64> for Physical {
     fn from(address: u64) -> Self {
-        Self::new(address)
+        Self::new(address as usize)
     }
 }
 
 impl From<usize> for Physical {
     fn from(address: usize) -> Self {
-        Self::new(address as u64)
+        Self::new(address)
     }
 }
 
@@ -261,7 +261,7 @@ impl From<Virtual> for Physical {
         if addr.0 < 0xFFFF_8000_0000_0000 || addr.0 > 0xFFFF_8FFF_FFFF_FFFF {
             panic!("Cannot convert the virtual address {addr} to physical address");
         }
-        Self::new(addr.0 - 0xFFFF_8000_0000_0000)
+        Self::new(addr.0 as usize - 0xFFFF_8000_0000_0000)
     }
 }
 
@@ -277,7 +277,7 @@ impl Add<u64> for Physical {
     type Output = Physical;
 
     fn add(self, rhs: u64) -> Self::Output {
-        Self::new(self.0 + rhs)
+        Self::new(self.0 + rhs as usize)
     }
 }
 
@@ -285,7 +285,7 @@ impl Add<usize> for Physical {
     type Output = Physical;
 
     fn add(self, rhs: usize) -> Self::Output {
-        Self::new(self.0 + rhs as u64)
+        Self::new(self.0 + rhs)
     }
 }
 
@@ -297,13 +297,13 @@ impl AddAssign<Physical> for Physical {
 
 impl AddAssign<u64> for Physical {
     fn add_assign(&mut self, rhs: u64) {
-        self.0 += rhs;
+        self.0 += rhs as usize;
     }
 }
 
 impl AddAssign<usize> for Physical {
     fn add_assign(&mut self, rhs: usize) {
-        self.0 += rhs as u64;
+        self.0 += rhs;
     }
 }
 
@@ -319,7 +319,7 @@ impl Sub<u64> for Physical {
     type Output = Physical;
 
     fn sub(self, rhs: u64) -> Self::Output {
-        Self::new(self.0 - rhs)
+        Self::new(self.0 - rhs as usize)
     }
 }
 
@@ -327,7 +327,7 @@ impl Sub<usize> for Physical {
     type Output = Physical;
 
     fn sub(self, rhs: usize) -> Self::Output {
-        Self::new(self.0 - rhs as u64)
+        Self::new(self.0 - rhs)
     }
 }
 
@@ -339,12 +339,12 @@ impl SubAssign<Physical> for Physical {
 
 impl SubAssign<u64> for Physical {
     fn sub_assign(&mut self, rhs: u64) {
-        self.0 -= rhs;
+        self.0 -= rhs as usize;
     }
 }
 
 impl SubAssign<usize> for Physical {
     fn sub_assign(&mut self, rhs: usize) {
-        self.0 -= rhs as u64;
+        self.0 -= rhs;
     }
 }
