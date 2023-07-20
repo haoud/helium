@@ -1,4 +1,4 @@
-use super::{gdt::Selector, msr, paging::PAGE_SIZE, percpu, tss, fpu};
+use super::{fpu, gdt::Selector, msr, paging::PAGE_SIZE, percpu, tss};
 use crate::{
     mm::{
         frame::{allocator::Allocator, AllocationFlags, Frame},
@@ -12,7 +12,10 @@ use crate::{
 };
 use addr::{user::UserVirtual, virt::Virtual};
 use alloc::sync::Arc;
-use core::{ops::{Range, Sub}, num::NonZeroU64};
+use core::{
+    num::NonZeroU64,
+    ops::{Range, Sub},
+};
 use lib::align::Align;
 use sync::{Lazy, Spinlock};
 
@@ -264,7 +267,7 @@ impl Thread {
     }
 
     /// Create a new kernel thread with the given entry point.
-    /// 
+    ///
     /// # Panics
     /// Panics if the kernel stack could not be allocated.
     pub fn kernel(entry: KernelThreadFn) -> Self {
@@ -352,7 +355,7 @@ impl Thread {
 pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
     prev.save_fsgsbase();
     prev.save_fpu_state();
-    
+
     next.restore_fpu_state();
     next.restore_fsgsbase();
     next.set_kernel_stack();

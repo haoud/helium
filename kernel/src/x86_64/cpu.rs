@@ -1,5 +1,5 @@
-use bitflags::bitflags;
 use super::instruction;
+use bitflags::bitflags;
 
 /// The interrupt frame pushed by the CPU and by the interrupt stubs when an interrupt
 /// is triggered.

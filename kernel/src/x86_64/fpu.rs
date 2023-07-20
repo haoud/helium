@@ -9,7 +9,6 @@ use macros::init;
 #[repr(align(64))]
 struct Buffer([u8; 4096]);
 
-
 /// The FPU state.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct State {
@@ -47,7 +46,7 @@ impl State {
 /// This function is unsafe because it directly touches to the control registers of
 /// the CPU, which can lead to undefined behavior if not used properly or if an
 /// flags or an instruction is not supported by the CPU.
-/// 
+///
 /// # Panics
 /// Panics if the CPU does not support SSE or XSAVE instructions.
 #[init]

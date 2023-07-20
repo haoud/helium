@@ -146,12 +146,10 @@ fn general_protection_fault(state: &InterruptFrame) {
 
 #[exception_err]
 fn page_fault(state: &InterruptFrame) {
-    unsafe {
-        paging::handle_page_fault(
-            Virtual::new(cpu::read_cr2()),
-            paging::PageFaultErrorCode::from_bits_truncate(state.code),
-        );
-    }
+    paging::handle_page_fault(
+        Virtual::new(cpu::read_cr2()),
+        paging::PageFaultErrorCode::from_bits_truncate(state.code),
+    );
 }
 
 #[exception]
