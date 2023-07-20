@@ -21,5 +21,6 @@ pub fn exit(code: i32) -> ! {
 
 #[panic_handler]
 pub fn panic(_: &core::panic::PanicInfo) -> ! {
+    serial::print("Application panicked");
     exit(-1);
 }

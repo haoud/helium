@@ -444,6 +444,7 @@ impl DerefMut for PageTable {
 
 /// Represents a page table root, which is the first page table in the page table hierarchy. This
 /// structure also contains a lock that prevents concurrent access to the page table.
+#[derive(Debug)]
 pub struct PageTableRoot {
     lock: AtomicBool,
     pml4: Virtual,

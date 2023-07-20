@@ -12,6 +12,7 @@
 #![feature(drain_filter)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
+#![feature(btree_drain_filter)]
 #![feature(panic_info_message)]
 
 use macros::init;

@@ -22,6 +22,7 @@ pub enum Syscall {
     TaskSleep = 4,
     TaskYield = 5,
     MmuMap = 6,
+    MmuUnmap = 7,
     Last,
 }
 
@@ -94,6 +95,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::TaskSleep) => task::sleep(a),
         Some(Syscall::TaskYield) => task::yields(),
         Some(Syscall::MmuMap) => mmu::map(a, b, c, d),
+        Some(Syscall::MmuUnmap) => mmu::unmap(a, b),
 
         Some(Syscall::Last) | None => Err(SyscallError::NoSuchSyscall),
     };

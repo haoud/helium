@@ -108,7 +108,13 @@ impl UserVirtual {
         Self(0)
     }
 
-    /// Returns the last user virtual address that is page aligned.
+    /// Returns the second last valid user virtual address that is page aligned.
+    #[must_use]
+    pub const fn second_last_page_aligned() -> Self {
+        Self(0x0000_7FFF_FFFF_E000)
+    }
+
+    /// Returns the last user valid virtual address that is page aligned.
     #[must_use]
     pub const fn last_page_aligned() -> Self {
         Self(0x0000_7FFF_FFFF_F000)
@@ -123,6 +129,80 @@ impl UserVirtual {
     #[must_use]
     pub const fn is_null(&self) -> bool {
         self.0 == 0
+    }
+
+    /// Align the address up to the given alignment. If the address is already aligned, this function
+    /// does nothing.
+    ///
+    /// # Panics
+    /// This function panics if the given alignment is not a power of two or if the resulting
+    /// address is not in user space.
+    #[must_use]
+    pub fn align_up<T>(&self, alignment: T) -> Self
+    where
+        T: Into<usize>,
+    {
+        let align: usize = alignment.into();
+        assert!(align.is_power_of_two());
+        Self::new(
+            (self.0.checked_add(align - 1)).expect("Overflow during aligning up a virtual address")
+                & !(align - 1),
+        )
+    }
+
+    /// Align the address down to the given alignment. If the address is already aligned, this
+    /// function does nothing.
+    ///
+    /// # Panics
+    /// This function panics if the given alignment is not a power of two
+    #[must_use]
+    pub fn align_down<T>(&self, alignment: T) -> Self
+    where
+        T: Into<usize>,
+    {
+        let align: usize = alignment.into();
+        assert!(align.is_power_of_two());
+        Self::new(self.0 & !(align - 1))
+    }
+
+    /// Checks if the address is aligned to the given alignment.
+    ///
+    /// # Panics
+    /// This function panics if the given alignment is not a power of two.
+    #[must_use]
+    pub fn is_aligned<T>(&self, alignment: T) -> bool
+    where
+        T: Into<usize>,
+    {
+        let align: usize = alignment.into();
+        assert!(align.is_power_of_two());
+        self.0 & (align - 1) == 0
+    }
+
+    /// Align the address up to a page boundary (4 KiB). If the address is already aligned, this
+    /// function does nothing.
+    ///
+    /// # Panics
+    /// This function panics if the resulting address is not in user space.
+    #[must_use]
+    pub const fn page_align_up(&self) -> Self {
+        Self::new(match self.0.checked_add(0xFFF) {
+            Some(addr) => addr & !0xFFF,
+            None => panic!("Overflow during aligning up a virtual address"),
+        })
+    }
+
+    /// Align the address down to a page boundary (4 KiB). If the address is already aligned, this
+    /// function does nothing.
+    #[must_use]
+    pub const fn page_align_down(&self) -> Self {
+        Self::new(self.0 & !0xFFF)
+    }
+
+    /// Checks if the address is aligned to a page boundary (4 KiB).
+    #[must_use]
+    pub const fn is_page_aligned(&self) -> bool {
+        self.0.trailing_zeros() >= 12
     }
 }
 

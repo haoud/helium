@@ -2,7 +2,7 @@ use super::{SyscallError, SyscallValue};
 use crate::{
     mm::vmm::{
         area::{self, Area, Type},
-        MmapError,
+        MmapError, UnmapError,
     },
     user::scheduler,
 };
@@ -53,12 +53,45 @@ pub fn map(
     Ok(usize::from(range.start))
 }
 
+/// Unmap a range of virtual addresses.
+///
+/// # Errors
+/// On success, the syscall returns 0. If the syscall fails, it can return the
+/// following errors:
+/// - `InvalidArgument`: the `addr` is not page-aligned, the length is zero or if
+///                      the range is outside of the user virtual address space
+///
+/// # Panics
+/// This function may panic if the current task does not have a VMM (probably
+/// a kernel task that tried to make a syscall).
+pub fn unmap(base: usize, len: usize) -> Result<SyscallValue, SyscallError> {
+    let end = UserVirtual::try_new(base + len)?;
+    let start = UserVirtual::try_new(base)?;
+
+    scheduler::current_task()
+        .thread()
+        .lock()
+        .vmm()
+        .lock()
+        .munmap(start..end)?;
+
+    Ok(SyscallValue::default())
+}
+
 impl From<MmapError> for SyscallError {
     fn from(error: MmapError) -> Self {
         match error {
             MmapError::WouldOverlap => Self::AlreadyExists,
             MmapError::OutOfVirtualMemory => Self::OutOfMemory,
             MmapError::InvalidRange | MmapError::InvalidFlags => Self::InvalidArgument,
+        }
+    }
+}
+
+impl From<UnmapError> for SyscallError {
+    fn from(error: UnmapError) -> Self {
+        match error {
+            UnmapError::InvalidRange => Self::InvalidArgument,
         }
     }
 }

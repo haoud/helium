@@ -38,3 +38,22 @@ pub fn map(base: usize, len: usize, access: Access, flags: Flags) -> Result<usiz
         }
     }
 }
+
+pub fn unmap(base: usize, len: usize) -> Result<(), ()> {
+    unsafe {
+        let ret: usize;
+        core::arch::asm!(
+            "syscall",
+            in("rax") 7,
+            in("rsi") base,
+            in("rdx") len,
+            lateout("rax") ret,
+        );
+
+        if ret > usize::MAX - 4096 {
+            Err(())
+        } else {
+            Ok(())
+        }
+    }
+}
