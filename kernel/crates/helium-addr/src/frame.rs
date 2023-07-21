@@ -138,6 +138,16 @@ impl Frame {
         self.0
     }
 
+    /// Return the physical address of the first byte of the frame that follows this frame.
+    ///
+    /// # Panics
+    /// Panics if the next frame does not exist (i.e. if the address of the next frame is
+    /// greater than 2^52).
+    #[must_use]
+    pub fn next(&self) -> Self {
+        Self::new(self.0 + Frame::SIZE)
+    }
+
     /// Return the physical address of the last byte of the frame. The returned address is not
     /// included in the frame.
     #[must_use]

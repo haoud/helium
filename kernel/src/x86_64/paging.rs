@@ -358,8 +358,7 @@ impl PageTable {
                         .lock()
                         .allocate_frame(flags)
                         .ok_or(FetchError::OutOfMemory)?
-                        .into_inner()
-                        .start;
+                        .into_inner();
 
                     // If the address is not user accessible, we must not set the user flag.
                     // However, even if the final page will not be writable, we must set the
@@ -469,8 +468,7 @@ impl PageTableRoot {
                 .lock()
                 .allocate_frame(AllocationFlags::KERNEL)
                 .expect("Failed to allocate frame for page table root")
-                .into_inner()
-                .start;
+                .into_inner();
 
             let dst = Virtual::from(frame.addr()).as_mut_ptr::<u8>();
             let src = KERNEL_PML4.pml4.as_ptr::<u8>();
@@ -656,8 +654,7 @@ pub unsafe fn setup() {
                 .lock()
                 .allocate_frame(AllocationFlags::KERNEL | AllocationFlags::ZEROED)
                 .expect("Out of memory while preallocating kernel page tables")
-                .into_inner()
-                .start;
+                .into_inner();
 
             entry.set_address(frame.addr());
             entry.set_flags(flags);

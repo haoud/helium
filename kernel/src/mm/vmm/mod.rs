@@ -258,8 +258,7 @@ impl Manager {
                     .lock()
                     .allocate_frame(AllocationFlags::ZEROED)
                     .ok_or(PageInError::OutOfMemory)?
-                    .into_inner()
-                    .start;
+                    .into_inner();
 
                 let flags = PageEntryFlags::from(area.access()) | PageEntryFlags::USER;
                 let virt = Virtual::from(address);

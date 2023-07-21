@@ -1,4 +1,8 @@
-use crate::mm::frame::{owned::OwnedMemory, state::State, AllocationFlags, FrameFlags};
+use crate::mm::frame::{
+    owned::{OwnedFrame, OwnedMemory},
+    state::State,
+    AllocationFlags, FrameFlags,
+};
 use addr::{
     frame::{self, Frame},
     virt::Virtual,
@@ -42,8 +46,12 @@ unsafe impl super::Allocator for Allocator {
     /// This function is unsafe because it is the caller's responsibility to correctly use the
     /// allocated frame. The caller must ensure that the frame is freed only once, and when the
     /// frame is no longer used by any component.
-    unsafe fn allocate_frame(&mut self, flags: super::AllocationFlags) -> Option<OwnedMemory> {
-        self.allocate_range(1, flags)
+    unsafe fn allocate_frame(&mut self, flags: super::AllocationFlags) -> Option<OwnedFrame> {
+        self.allocate_range(1, flags).map(|range| {
+            range
+                .into_owned_frame()
+                .expect("Allocated a single frame but got a range")
+        })
     }
 
     /// Allocates a range of free frames from the frame state. Returns `None` if no frame is

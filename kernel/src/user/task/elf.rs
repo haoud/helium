@@ -79,8 +79,7 @@ pub fn load(vmm: Arc<Spinlock<vmm::Manager>>, file: &[u8]) -> Result<Arc<Task>, 
                     .lock()
                     .allocate_frame(AllocationFlags::ZEROED)
                     .expect("failed to allocate frame for mapping an ELF segment")
-                    .into_inner()
-                    .start;
+                    .into_inner();
 
                 paging::map(vmm.lock().table(), page, frame, section_paging_flags(&phdr))
                     .unwrap_or_else(|_| panic!("Failed to map a segment of the ELF file"));
