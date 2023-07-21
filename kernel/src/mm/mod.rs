@@ -7,6 +7,7 @@ use limine::{LimineHhdmRequest, LimineMemmapRequest};
 use macros::init;
 use sync::{Lazy, Spinlock};
 
+pub mod cache;
 pub mod frame;
 pub mod heap;
 pub mod vmm;
