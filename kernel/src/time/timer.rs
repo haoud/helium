@@ -55,7 +55,7 @@ impl Timer {
     /// Executes the timer callback, but only if the timer is still active. If the timer
     /// callback returns true, the timer will be reactivated and pushed back to the active
     /// timers list.
-    /// 
+    ///
     /// # Panics
     /// This function will panic if an active timer does not have a callback. This should
     /// never happen and indicates a bug in the timer system.

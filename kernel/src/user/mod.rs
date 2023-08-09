@@ -12,7 +12,7 @@ pub mod task;
 
 /// Setup the userland subsystem. This function initialize the scheduler and
 /// load the init task.
-/// 
+///
 /// # Panics
 /// This function will panic if the init task cannot be loaded.
 #[init]

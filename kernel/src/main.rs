@@ -97,8 +97,8 @@ pub unsafe fn stop(code: Stop) -> ! {
     cfg_if::cfg_if! {
         if #[cfg(feature = "test")] {
             qemu::exit(code as u32);
+        } else {
+            x86_64::cpu::freeze();
         }
     }
-    x86_64::cpu::freeze();
-
 }
