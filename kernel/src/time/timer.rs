@@ -55,6 +55,10 @@ impl Timer {
     /// Executes the timer callback, but only if the timer is still active. If the timer
     /// callback returns true, the timer will be reactivated and pushed back to the active
     /// timers list.
+    /// 
+    /// # Panics
+    /// This function will panic if an active timer does not have a callback. This should
+    /// never happen and indicates a bug in the timer system.
     pub fn execute(mut self) {
         let mut callback = self.callback.take().expect("Active timer without callback");
         let old_expiration = self.expiration;
@@ -173,10 +177,13 @@ pub fn tick() {
     // Drain all expired and inactive timers and collect expired timers.
     let expired: Vec<Timer> = TIMERS
         .lock()
-        .drain_filter(|timer| timer.expired() || !timer.active())
+        .extract_if(|timer| timer.expired() || !timer.active())
         .filter(Timer::active)
         .collect();
 
-    // Execute all expired timers.
+    // Execute all expired timers. We need to do this outside of the lock on the active
+    // timers list to allow callbacks to modify the active timers list. Without this,
+    // a callback could deadlock the system by trying to acquire the active timers list
+    // lock
     expired.into_iter().for_each(Timer::execute);
 }

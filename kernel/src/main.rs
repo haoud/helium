@@ -9,10 +9,10 @@
 #![feature(asm_const)]
 #![feature(new_uninit)]
 #![feature(step_trait)]
-#![feature(drain_filter)]
+#![feature(extract_if)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
-#![feature(btree_drain_filter)]
+#![feature(btree_extract_if)]
 #![feature(panic_info_message)]
 
 use macros::init;
@@ -64,9 +64,16 @@ pub unsafe extern "C" fn _start() -> ! {
     // Run the APs
     x86_64::smp::go();
 
-    // Jump to userland
-    log::info!("Helium booted successfully !");
-    user::enter_userland();
+    // Jump to userland or run the tests depending on the features flags
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "test")] {
+            // TODO: Run the tests
+            stop(Stop::Success);
+        } else {
+            log::info!("Helium booted successfully !");
+            user::enter_userland();
+        }
+    }
 }
 
 /// A enum that represents the stopping reason of the kernel.

@@ -88,8 +88,8 @@ pub unsafe fn per_cpu_setup(lapic_id: u32) {
     core::ptr::copy_nonoverlapping(per_cpu_start as *const u8, per_cpu, per_cpu_size);
 
     // Load the per CPU structure in the kernel GS base.
-    msr::write(msr::Register::KERNEL_GS_BASE, per_cpu as *const _ as u64);
-    msr::write(msr::Register::GS_BASE, per_cpu as *const _ as u64);
+    msr::write(msr::Register::KERNEL_GS_BASE, per_cpu as u64);
+    msr::write(msr::Register::GS_BASE, per_cpu as u64);
 
     // Set the LAPIC ID of the current CPU
     CPU_ID

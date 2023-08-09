@@ -10,14 +10,13 @@ sync = { path = "crates/helium-sync", package = "helium-sync" }
 addr = { path = "crates/helium-addr", package = "helium-addr" }
 lib = { path = "crates/helium-lib", package = "helium-lib" }
 elf = { version = "0.7.2", default-features = false }
-
 scopeguard = { version = "1.2.0", default-features = false }
 
 linked_list_allocator = "0.10.5"
 typed-builder = "0.15.1"
 bitfield = "0.14.0"
 bitflags = "2.2.1"
-limine = "0.1.10"
+limine = "=0.1.10"
 cfg-if = "1.0.0"
 log = "0.4.17"
 lru = "0.11.0"

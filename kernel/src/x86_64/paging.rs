@@ -412,7 +412,7 @@ impl PageTable {
     /// Clears all entries in the page table. This does not free any memory, it just marks all
     /// entries as not present ans clears all flags and addresses.
     pub fn clear(&mut self) {
-        for entry in self.0.iter_mut() {
+        for entry in &mut self.0 {
             entry.clear();
         }
     }

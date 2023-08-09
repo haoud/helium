@@ -162,7 +162,7 @@ impl Manager {
             .areas
             .as_mut()
             .unwrap()
-            .drain_filter(|_, area| {
+            .extract_if(|_, area| {
                 range_overlaps(&range, area.range())
                     || range_contains(&range, area.range())
                     || range_contained(&range, area.range())

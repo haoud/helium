@@ -12,6 +12,7 @@ qemu-system-x86_64 -m 128                                   \
     -device isa-debug-exit                                  \
     -no-reboot                                              \
     -nographic                                              \
+    -cpu max                                                \
     -smp 2                                                  \
 
 code=$?

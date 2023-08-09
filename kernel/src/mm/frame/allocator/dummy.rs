@@ -83,7 +83,7 @@ unsafe impl super::Allocator for Allocator {
                 let address = Frame::from(frame::Index::new(i)).addr();
 
                 // Mark the frames as allocated and zero them if requested
-                for frame in self.state.frames[i..i + count].iter_mut() {
+                for frame in &mut self.state.frames[i..i + count] {
                     if flags.contains(AllocationFlags::KERNEL) {
                         frame.flags.insert(FrameFlags::KERNEL);
                     }
@@ -166,7 +166,7 @@ unsafe impl super::Allocator for Allocator {
         let mut count = 0;
 
         let flags = self.state.frames[start].flags;
-        for frame in self.state.frames[start..end].iter_mut() {
+        for frame in &mut self.state.frames[start..end] {
             if frame.release() {
                 frame.flags.remove(FrameFlags::ZEROED);
                 frame.flags.insert(FrameFlags::FREE);
