@@ -26,6 +26,7 @@ pub mod config;
 pub mod logger;
 pub mod mm;
 pub mod panic;
+pub mod qemu;
 pub mod syscall;
 pub mod time;
 pub mod user;
@@ -99,4 +100,5 @@ pub unsafe fn stop(code: Stop) -> ! {
         }
     }
     x86_64::cpu::freeze();
+
 }

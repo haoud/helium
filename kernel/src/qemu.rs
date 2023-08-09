@@ -1,3 +1,5 @@
+use crate::x86_64;
+
 /// Exit QEMU with the given exit code. The returned exit code to the caller will be
 /// `(code << 1) | 1.`
 ///
