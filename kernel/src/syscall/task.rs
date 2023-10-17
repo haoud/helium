@@ -1,6 +1,6 @@
 use super::{SyscallError, SyscallValue};
 use crate::{
-    time::{timer::Timer, uptime_fast, Nanosecond},
+    time::{timer::Timer, units::Nanosecond, uptime_fast},
     user::{scheduler, task},
 };
 

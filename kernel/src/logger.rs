@@ -1,5 +1,4 @@
 use crate::x86_64::serial::{Port, Serial};
-use cfg_if::cfg_if;
 use core::fmt::Write;
 use macros::init;
 use sync::{Lazy, Spinlock};
@@ -41,12 +40,8 @@ impl log::Log for Logger {
 /// Panics if the logger is already set.
 #[init]
 pub fn setup() {
-    cfg_if!(
-        if #[cfg(feature = "log")] {
-            log::set_logger(&Logger).expect("A logger is already set");
-            log::set_max_level(log::LevelFilter::Trace);
-        }
-    );
+    log::set_logger(&Logger).expect("A logger is already set");
+    log::set_max_level(log::LevelFilter::Trace);
 }
 
 /// Called when the kernel panics. This function force the unlock of the serial port, because the

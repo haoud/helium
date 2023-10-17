@@ -6,7 +6,12 @@ use crate::{
     },
     Stop,
 };
-use cfg_if::cfg_if;
+use core::sync::atomic::{AtomicBool, Ordering};
+
+/// A flag indicating if the panic handler has already been called. This flag is used to prevent
+/// the kernel from panicking while the panic handler is running (the panic handler as panicked)
+/// which would result in a triple fault.
+static ON_PANIC: AtomicBool = AtomicBool::new(false);
 
 /// The panic handler. This function is called when the kernel encounters a fatal error that it
 /// cannot recover from. This function will stop all other CPUs, print the panic message and stop
@@ -14,30 +19,30 @@ use cfg_if::cfg_if;
 #[cold]
 #[panic_handler]
 unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
-    // Send a non-maskable interrupt to all other CPUs to stop them, but only if
-    // they have finished their initialization (otherwise, they will triple fault)
-    if x86_64::smp::ap_booted() {
-        x86_64::lapic::send_ipi(IpiDestination::Other, IpiPriority::Nmi, 0);
-    }
-
-    cfg_if!(
-        if #[cfg(feature = "panic-info")] {
-            logger::on_panic();
-            log::error!("The kernel has encountered a fatal error that it cannot recover from");
-            log::error!("The kernel must stop to prevent further damage");
-
-            if let Some(message) = info.message() {
-                if let Some(location) = info.location() {
-                    log::error!("[CPU {}] {} at {}", x86_64::smp::core_id(), message, location);
-                } else {
-                    log::error!("{}", message);
-                }
-            }
-        } else {
-            // Silence the unused variable warning
-            _ = info;
+    if !ON_PANIC.swap(true, Ordering::SeqCst) {
+        // Send a non-maskable interrupt to all other CPUs to stop them, but only if
+        // they have finished their initialization (otherwise, they will triple fault)
+        if x86_64::smp::ap_booted() {
+            x86_64::lapic::send_ipi(IpiDestination::Other, IpiPriority::Nmi, 0);
         }
-    );
+
+        logger::on_panic();
+        log::error!("The kernel has encountered a fatal error that it cannot recover from");
+        log::error!("The kernel must stop to prevent further damage");
+
+        if let Some(message) = info.message() {
+            if let Some(location) = info.location() {
+                log::error!(
+                    "[CPU {}] {} at {}",
+                    x86_64::smp::core_id(),
+                    message,
+                    location
+                );
+            } else {
+                log::error!("{}", message);
+            }
+        }
+    }
 
     stop(Stop::Failure);
 }

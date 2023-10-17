@@ -23,11 +23,9 @@ lru = "0.11.0"
 tap = "1.0.1"
 
 [features]
-default = ["panic-info", "log"]
-panic-info = ["log"]
+default = []
 test = ["qemu"]
 qemu = []
-log = []
 
 [profile.release]
 debug-assertions = false
