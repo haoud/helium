@@ -32,9 +32,18 @@ unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
 
         if let Some(message) = info.message() {
             if let Some(location) = info.location() {
+                // If the kernel panicked early (before the per-cpu variables are initialized),
+                // we must not try to get the core ID because it will panic since the per-cpu
+                // variables are not initialized. In this case, we are sure that the kernel is
+                // running on the first core, so we can simply set the core ID to 0.
+                let core = match x86_64::smp::ap_booted() {
+                    true => x86_64::smp::core_id(),
+                    false => 0,
+                };
+
                 log::error!(
                     "[CPU {}] {} at {}",
-                    x86_64::smp::core_id(),
+                    core,
                     message,
                     location
                 );

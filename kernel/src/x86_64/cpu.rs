@@ -15,7 +15,7 @@ pub struct InterruptFrame {
     pub r14: u64,
     pub r15: u64,
 
-    // Scratch registers
+    // Scratched registers
     pub rax: u64,
     pub rcx: u64,
     pub rdx: u64,

@@ -141,7 +141,7 @@ impl UserVirtual {
         self.0 == 0
     }
 
-    /// Align the address up to the given alignment. If the address is already aligned, this 
+    /// Align the address up to the given alignment. If the address is already aligned, this
     // function does nothing.
     ///
     /// # Panics
