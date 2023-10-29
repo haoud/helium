@@ -41,12 +41,7 @@ unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
                     false => 0,
                 };
 
-                log::error!(
-                    "[CPU {}] {} at {}",
-                    core,
-                    message,
-                    location
-                );
+                log::error!("[CPU {}] {} at {}", core, message, location);
             } else {
                 log::error!("{}", message);
             }

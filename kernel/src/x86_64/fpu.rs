@@ -72,16 +72,16 @@ pub unsafe fn setup() {
 
 /// Save the current FPU state into the given state buffer. Previous state stored
 /// in the buffer will be overwritten.
-/// 
+///
 /// # Safety
 /// This function is unsafe because it assume that the buffer is large enough to
 /// store the FPU state. If it is not the case, it will lead to undefined behavior
 pub unsafe fn save(state: &mut State) {
-     core::arch::x86_64::_xsave64(state.as_mut_ptr(), u64::MAX);
+    core::arch::x86_64::_xsave64(state.as_mut_ptr(), u64::MAX);
 }
 
 /// Restore the given FPU state from the given state buffer.
-/// 
+///
 /// # Safety
 /// This function is unsafe because it directly touches to the state of the FPU. It
 /// assumes that the given state is valid. If it is not the case, then it may lead
