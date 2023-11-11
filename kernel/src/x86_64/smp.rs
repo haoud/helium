@@ -29,7 +29,7 @@ static CPU_ID: OnceCell<u32> = OnceCell::new();
 
 // Symbols defined in the linker script that represent the start and the end of the per
 // CPU section. This section contains the initial per CPU data that is copied for each CPU.
-// TODO: Free this memory after the initialization of the kernel because it is not needed 
+// TODO: Free this memory after the initialization of the kernel because it is not needed
 // since each CPU has its own copy of the per CPU data.
 extern "C" {
     static __percpu_start: u64;

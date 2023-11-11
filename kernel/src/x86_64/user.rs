@@ -1,6 +1,8 @@
 use alloc::ffi::CString;
-use core::cell::Cell;
+use core::{cell::Cell, arch::x86_64};
 use macros::per_cpu;
+
+use crate::user;
 
 /// The `USER_OPERATION` variable is used to signal if the current CPU is performing a user
 /// operation or not. This is useful to not panic when a unrecoverable page fault occurs in
@@ -10,18 +12,6 @@ use macros::per_cpu;
 /// progress, then we can't do anything and we must panic.
 #[per_cpu]
 static USER_OPERATION: Cell<bool> = Cell::new(false);
-
-/// Executes the given function while signaling that the current CPU is performing a user
-/// operation.
-fn perform_user_operation<F, R>(f: F) -> R
-where
-    F: FnOnce() -> R,
-{
-    USER_OPERATION.local().set(true);
-    let ret = f();
-    USER_OPERATION.local().set(false);
-    ret
-}
 
 /// Checks if the current CPU is currently performing a user operation. This function is used
 /// when a page fault occurs to know if the fault was caused by a kernel performing a user
@@ -56,7 +46,7 @@ pub unsafe fn copy_from<T>(src: *const T, dst: *mut T, len: usize) {
 /// This function is unsafe because it dereferences a user raw pointer that could possibly be
 /// invalid: it is the caller's responsibility to ensure that the pointer is valid and does not
 /// overlap with kernel space. However, the caller does not need to ensure that the memory is
-/// readable, as this function will handle page faults and kill the
+/// readable, as this function will handle page faults and kill the process if necessary.
 pub unsafe fn read<T>(src: *const T, dst: *mut T) {
     copy_from(src, dst, 1);
 }
@@ -103,6 +93,7 @@ pub unsafe fn write<T>(src: *const T, dst: *mut T) {
 pub unsafe fn read_cstr(src: *const u8) -> Option<CString> {
     // Compute the maximal length of the string
     let len = cstr_length(src);
+
     perform_user_operation(|| {
         let slice = core::slice::from_raw_parts(src, len);
         Some(CString::new(slice).unwrap())
@@ -124,4 +115,41 @@ pub unsafe fn read_cstr(src: *const u8) -> Option<CString> {
 #[allow(clippy::maybe_infinite_iter)]
 pub unsafe fn cstr_length(src: *const u8) -> usize {
     perform_user_operation(|| (0..).position(|i| src.add(i).read() == 0).unwrap())
+}
+
+/// Executes the given function while signaling that the current CPU is performing a user
+/// operation. During the execution of the closure, preemption and interrupts are disabled to
+/// avoid race conditions.
+/// 
+/// # Panics
+/// This function will panic if this function is used recursively (calling this function when
+/// the current CPU is already performing an user operation).
+fn perform_user_operation<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    user::task::preempt::without(|| {
+        start_user_operation();
+        let ret = f();
+        end_user_operation();
+        ret
+    })
+}
+
+/// Signal that the current CPU has started an user operation.
+/// 
+/// # Panics
+/// This function will panic if an user operation was already in progress.
+fn start_user_operation() {
+    assert!(!USER_OPERATION.local().get());
+    USER_OPERATION.local().set(true);
+}
+
+/// Signal that the current CPU has finished an user operation.
+/// 
+/// # Panics
+/// This function will panic if no user operation was in progress.
+fn end_user_operation() {
+    assert!(USER_OPERATION.local().get());
+    USER_OPERATION.local().set(false);
 }
