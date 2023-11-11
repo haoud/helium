@@ -143,9 +143,6 @@ where
 /// The IRQ manager. This function is called by the IRQ handlers after they have saved the CPU
 /// state, and passed the state to this function. The IRQ triggered is passed as an argument in
 /// the `code` field of the `state` argument.
-///
-/// Currently, this function does nothing, but in the future, it will be used to handle IRQs and
-/// to wake up threads that are waiting for IRQs.
 #[irq_handler]
 #[allow(clippy::cast_possible_truncation)]
 unsafe fn irq_handler(state: &mut InterruptFrame) {

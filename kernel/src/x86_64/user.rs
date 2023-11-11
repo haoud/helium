@@ -1,8 +1,8 @@
 use alloc::ffi::CString;
-use core::{cell::Cell, arch::x86_64};
+use core::cell::Cell;
 use macros::per_cpu;
 
-use crate::user;
+use crate::{user, x86_64};
 
 /// The `USER_OPERATION` variable is used to signal if the current CPU is performing a user
 /// operation or not. This is useful to not panic when a unrecoverable page fault occurs in
@@ -129,10 +129,12 @@ where
     F: FnOnce() -> R,
 {
     user::task::preempt::without(|| {
-        start_user_operation();
-        let ret = f();
-        end_user_operation();
-        ret
+        x86_64::irq::without(|| {
+            start_user_operation();
+            let ret = f();
+            end_user_operation();
+            ret
+        })
     })
 }
 

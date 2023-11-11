@@ -41,10 +41,14 @@ pub fn disable() {
     });
 }
 
-/// Disable preemption (and interruptions) during the execution of the given closure. This function
-/// is useful to avoid race conditions when multiple threads are accessing the same data. This
-/// function is implemented by disabling interrupts and preemption before executing the closure,
-/// and then restoring the previous state after the closure has finished.
+/// Disable preemption during the execution of the given closure. This function is useful to avoid
+/// race conditions when multiple threads are accessing the same data. This function is implemented
+/// by disabling interrupts and preemption before executing the closure, and then restoring the
+/// previous state after the closure has finished.
+/// 
+/// # Important
+/// Even if preemption is disabled, interrupts are still enabled. This means that the closure can
+/// still be interrupted by an IRQ handler. If you want to disable interrupts too, then you should
 pub fn without<F, R>(f: F) -> R
 where
     F: FnOnce() -> R,
