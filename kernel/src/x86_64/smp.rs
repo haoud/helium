@@ -1,5 +1,8 @@
 use super::{ap_setup, msr, MAX_CPUS};
-use crate::{limine::LIMINE_SMP, user};
+use crate::{
+    limine::LIMINE_SMP,
+    user::scheduler::{Scheduler, SCHEDULER},
+};
 use alloc::vec::Vec;
 use core::{
     cell::OnceCell,
@@ -135,7 +138,6 @@ extern "C" fn ap_start(info: *const LimineSmpInfo) -> ! {
     unsafe {
         ap_setup(&*info);
         ap_wait();
+        SCHEDULER.engage_cpu();
     }
-
-    user::scheduler::engage_cpu();
 }

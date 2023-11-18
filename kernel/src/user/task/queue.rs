@@ -1,5 +1,5 @@
 use super::{sleep, State, Task};
-use crate::user::scheduler;
+use crate::user::scheduler::{self, Scheduler, SCHEDULER};
 use alloc::{collections::VecDeque, sync::Arc};
 
 pub struct WaitQueue {
@@ -19,7 +19,7 @@ impl WaitQueue {
     /// and allowing other tasks to run. The task will not be resumed until another
     /// task sets its state to `State::Ready`.
     pub fn sleep(&mut self) {
-        let current = scheduler::current_task();
+        let current = SCHEDULER.current_task();
         let id = current.id();
 
         self.tasks.push_back(current);

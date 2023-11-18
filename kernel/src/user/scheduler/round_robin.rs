@@ -1,5 +1,5 @@
 use super::task::{self, State, Task};
-use super::{current_task, yield_cpu};
+use super::{yield_cpu, SCHEDULER};
 use alloc::{sync::Arc, vec::Vec};
 use core::cell::RefCell;
 use macros::per_cpu;
@@ -161,7 +161,7 @@ impl super::Scheduler for RoundRobin {
     fn timer_tick(&self) {
         let reschedule = {
             let mut run_queue = self.run_queue.lock();
-            let current = current_task();
+            let current = SCHEDULER.current_task();
             let running = run_queue
                 .iter_mut()
                 .find(|t| t.task.id() == current.id())
@@ -172,7 +172,8 @@ impl super::Scheduler for RoundRobin {
         };
 
         if reschedule {
-            yield_cpu();
+            // SAFETY: TODO
+            unsafe { yield_cpu() };
         }
     }
 }

@@ -110,7 +110,7 @@ impl<T> PerCpu<T> {
             PerCpuGuardMut::new(self.local_mut_unchecked())
         }
     }
-    
+
     /// Set the per-cpu variable for the current CPU.
     pub fn set_local(&mut self, value: T) {
         *self.local_mut() = value;

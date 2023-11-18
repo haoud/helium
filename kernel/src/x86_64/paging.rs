@@ -5,7 +5,7 @@ use crate::{
         vmm::area::Access,
         FRAME_ALLOCATOR,
     },
-    user::scheduler,
+    user::scheduler::{Scheduler, SCHEDULER},
 };
 use addr::{frame::Frame, phys::Physical, user::UserVirtual, virt::Virtual};
 use core::{
@@ -781,7 +781,8 @@ pub fn handle_page_fault(addr: Virtual, code: PageFaultErrorCode) {
         // was successfully paged in, we can return immediately, otherwise the
         // page fault is unrecoverable.
         if !present
-            && scheduler::current_task()
+            && SCHEDULER
+                .current_task()
                 .thread()
                 .lock()
                 .vmm()

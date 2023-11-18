@@ -5,7 +5,7 @@ use super::{
     pic::{self, IRQ_BASE},
 };
 use crate::time::timer;
-use crate::user::scheduler;
+use crate::user::scheduler::{Scheduler, SCHEDULER};
 use macros::{init, interrupt, irq_handler};
 
 /// The IPI vector used to inform the CPU that a new timer tick is available.
@@ -170,5 +170,5 @@ unsafe fn irq_handler(state: &mut InterruptFrame) {
 #[interrupt]
 pub fn clock_handler(_state: &mut InterruptFrame) {
     lapic::send_eoi();
-    scheduler::timer_tick();
+    SCHEDULER.timer_tick();
 }

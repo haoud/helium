@@ -45,7 +45,7 @@ pub fn disable() {
 /// race conditions when multiple threads are accessing the same data. This function is implemented
 /// by disabling interrupts and preemption before executing the closure, and then restoring the
 /// previous state after the closure has finished.
-/// 
+///
 /// # Important
 /// Even if preemption is disabled, interrupts are still enabled. This means that the closure can
 /// still be interrupted by an IRQ handler. If you want to disable interrupts too, then you should

@@ -1,4 +1,7 @@
-use super::{idle, scheduler};
+use super::{
+    idle,
+    scheduler::{Scheduler, SCHEDULER},
+};
 use crate::{
     mm::vmm,
     x86_64::thread::{KernelThreadFn, Thread},
@@ -174,7 +177,7 @@ impl Task {
     #[must_use]
     pub fn idle() -> Arc<Task> {
         let task = Task::kernel(idle, Priority::Idle);
-        scheduler::add_task(Arc::clone(&task));
+        SCHEDULER.add_task(Arc::clone(&task));
         task
     }
 
@@ -239,6 +242,8 @@ pub fn get(tid: Identifier) -> Option<Arc<Task>> {
 /// by the scheduler until its state is changed back to `Ready` by another kernel
 /// subsystem.
 pub fn sleep() {
-    scheduler::current_task().change_state(State::Blocked);
-    scheduler::reschedule();
+    SCHEDULER.current_task().change_state(State::Blocked);
+    unsafe {
+        SCHEDULER.schedule();
+    }
 }

@@ -120,7 +120,7 @@ pub unsafe fn cstr_length(src: *const u8) -> usize {
 /// Executes the given function while signaling that the current CPU is performing a user
 /// operation. During the execution of the closure, preemption and interrupts are disabled to
 /// avoid race conditions.
-/// 
+///
 /// # Panics
 /// This function will panic if this function is used recursively (calling this function when
 /// the current CPU is already performing an user operation).
@@ -139,7 +139,7 @@ where
 }
 
 /// Signal that the current CPU has started an user operation.
-/// 
+///
 /// # Panics
 /// This function will panic if an user operation was already in progress.
 fn start_user_operation() {
@@ -148,7 +148,7 @@ fn start_user_operation() {
 }
 
 /// Signal that the current CPU has finished an user operation.
-/// 
+///
 /// # Panics
 /// This function will panic if no user operation was in progress.
 fn end_user_operation() {
