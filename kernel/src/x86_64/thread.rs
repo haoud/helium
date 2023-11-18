@@ -30,6 +30,8 @@ extern "C" {
 /// The virtual memory manager of the kernel. All kernel threads share the same
 /// virtual memory manager to save some memory since they share the same address
 /// space.
+/// FIXME: Remove this because the vmm manager should only be for user threads.
+/// Kernel threads should directly use an shared page mapping level 4 table.
 static KERNEL_VMM: Lazy<Arc<Spinlock<vmm::Manager>>> =
     Lazy::new(|| Arc::new(Spinlock::new(vmm::Manager::kernel())));
 
@@ -195,6 +197,7 @@ impl KernelStack {
 /// base addresses.
 pub struct Thread {
     /// The virtual memory manager of this thread
+    /// FIXME: Use an option here, and remove the static KERNEL_VMM
     vmm: Arc<Spinlock<vmm::Manager>>,
 
     /// The kernel stack for this thread

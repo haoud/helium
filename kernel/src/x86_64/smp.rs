@@ -135,6 +135,7 @@ extern "C" fn ap_start(info: *const LimineSmpInfo) -> ! {
     unsafe {
         ap_setup(&*info);
         ap_wait();
-        user::scheduler::engage_cpu();
     }
+
+    user::scheduler::engage_cpu();
 }
