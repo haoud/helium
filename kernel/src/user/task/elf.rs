@@ -1,9 +1,12 @@
-use crate::mm::{
-    frame::{allocator::Allocator, AllocationFlags},
-    FRAME_ALLOCATOR,
-};
 use crate::user::vmm;
-use crate::x86_64::paging::{self, PageEntryFlags, PAGE_SIZE};
+use crate::x86_64::paging::{self, PAGE_SIZE};
+use crate::{
+    mm::{
+        frame::{allocator::Allocator, AllocationFlags},
+        FRAME_ALLOCATOR,
+    },
+    x86_64::paging::table::PageEntryFlags,
+};
 use addr::virt::{InvalidVirtual, Virtual};
 use alloc::sync::Arc;
 use core::{cmp::min, num::TryFromIntError};

@@ -1,7 +1,7 @@
 use super::{
     cpu::{self, InterruptFrame, Privilege},
     idt::{self, IDT},
-    paging,
+    paging::{self, table::PageFaultErrorCode},
 };
 use macros::{exception, exception_err, init};
 
@@ -146,7 +146,7 @@ fn general_protection_fault(state: &InterruptFrame) {
 fn page_fault(state: &InterruptFrame) {
     paging::handle_page_fault(
         cpu::Cr2::address(),
-        paging::PageFaultErrorCode::from_bits_truncate(state.code),
+        PageFaultErrorCode::from_bits_truncate(state.code),
     );
 }
 

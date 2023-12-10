@@ -1,8 +1,9 @@
-use crate::x86_64::paging;
 use addr::user::UserVirtual;
 use bitflags::bitflags;
 use core::ops::Range;
 use typed_builder::TypedBuilder;
+
+use crate::x86_64::paging::table::{PageEntryFlags, PageFaultErrorCode};
 
 /// A virtual memory area. This structure is used to represent a range of a
 /// virtual memory range that is mapped in a task address space.
@@ -118,36 +119,36 @@ bitflags! {
     }
 }
 
-impl From<paging::PageEntryFlags> for Access {
+impl From<PageEntryFlags> for Access {
     /// Convert a page entry flags into an access rights. Flags that are not
     /// related to access rights are ignored.
-    fn from(flags: paging::PageEntryFlags) -> Self {
+    fn from(flags: PageEntryFlags) -> Self {
         let mut access = Access::empty();
-        if flags.contains(paging::PageEntryFlags::PRESENT) {
+        if flags.contains(PageEntryFlags::PRESENT) {
             access |= Access::READ;
         }
-        if flags.contains(paging::PageEntryFlags::WRITABLE) {
+        if flags.contains(PageEntryFlags::WRITABLE) {
             access |= Access::WRITE;
         }
-        if !flags.contains(paging::PageEntryFlags::NO_EXECUTE) {
+        if !flags.contains(PageEntryFlags::NO_EXECUTE) {
             access |= Access::EXECUTE;
         }
         access
     }
 }
 
-impl From<paging::PageFaultErrorCode> for Access {
+impl From<PageFaultErrorCode> for Access {
     /// Convert a page fault error code into an access rights. It determine the
     /// type of access that caused the page fault. Due to the nature of the
     /// page fault error code, it should not possible to have multiple access
     /// rights at the same time, so we does not handle this case.
     ///
     /// Other flags in the page fault error code are ignored.
-    fn from(error: paging::PageFaultErrorCode) -> Self {
+    fn from(error: PageFaultErrorCode) -> Self {
         let mut access = Access::empty();
-        if error.contains(paging::PageFaultErrorCode::WRITE_ACCESS) {
+        if error.contains(PageFaultErrorCode::WRITE_ACCESS) {
             access |= Access::WRITE;
-        } else if error.contains(paging::PageFaultErrorCode::INSTRUCTION_FETCH) {
+        } else if error.contains(PageFaultErrorCode::INSTRUCTION_FETCH) {
             access |= Access::EXECUTE;
         } else {
             access |= Access::READ;
@@ -156,18 +157,18 @@ impl From<paging::PageFaultErrorCode> for Access {
     }
 }
 
-impl From<Access> for paging::PageEntryFlags {
+impl From<Access> for PageEntryFlags {
     /// Convert an access rights into a page entry flags.
     fn from(access: Access) -> Self {
-        let mut flags = paging::PageEntryFlags::empty();
+        let mut flags = PageEntryFlags::empty();
         if access.contains(Access::READ) {
-            flags |= paging::PageEntryFlags::PRESENT;
+            flags |= PageEntryFlags::PRESENT;
         }
         if access.contains(Access::WRITE) {
-            flags |= paging::PageEntryFlags::WRITABLE;
+            flags |= PageEntryFlags::WRITABLE;
         }
         if !access.contains(Access::EXECUTE) {
-            flags |= paging::PageEntryFlags::NO_EXECUTE;
+            flags |= PageEntryFlags::NO_EXECUTE;
         }
         flags
     }

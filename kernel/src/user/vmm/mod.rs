@@ -1,9 +1,15 @@
 use self::area::{Access, Area, Flags, Type};
-use crate::mm::{
-    frame::{allocator::Allocator, AllocationFlags},
-    FRAME_ALLOCATOR,
+use crate::{
+    mm::{
+        frame::{allocator::Allocator, AllocationFlags},
+        FRAME_ALLOCATOR,
+    },
+    x86_64::paging::{
+        self,
+        table::{PageEntryFlags, PageTableRoot},
+        MapError, PAGE_SIZE,
+    },
 };
-use crate::x86_64::paging::{self, MapError, PageEntryFlags, PageTableRoot, PAGE_SIZE};
 use addr::{user::UserVirtual, virt::Virtual};
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::ops::Range;

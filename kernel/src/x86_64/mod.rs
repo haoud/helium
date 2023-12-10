@@ -1,3 +1,4 @@
+use self::paging::tlb;
 use crate::user::scheduler;
 use macros::init;
 
@@ -20,7 +21,6 @@ pub mod serial;
 pub mod smp;
 pub mod syscall;
 pub mod thread;
-pub mod tlb;
 pub mod tss;
 pub mod user;
 
