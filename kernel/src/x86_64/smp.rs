@@ -8,7 +8,6 @@ use core::{
     cell::OnceCell,
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
-use limine::LimineSmpInfo;
 use macros::{init, per_cpu};
 
 /// Represent the number of CPUs that have started. After the initialization of the kernel, this
@@ -134,7 +133,7 @@ fn ap_wait() {
 /// This function is called when an AP is started. This initialize the AP, increment the CPU count
 /// and wait for the BSP to finish its initialization.
 #[no_mangle]
-extern "C" fn ap_start(info: *const LimineSmpInfo) -> ! {
+extern "C" fn ap_start(info: *const limine::SmpInfo) -> ! {
     unsafe {
         ap_setup(&*info);
         ap_wait();

@@ -4,7 +4,6 @@ use crate::x86_64;
 use alloc::sync::Arc;
 use macros::{init, per_cpu};
 use sync::Lazy;
-use tap::Tap;
 
 pub mod round_robin;
 
@@ -97,12 +96,11 @@ pub trait Scheduler {
         assert!(!x86_64::irq::enabled());
         assert!(task::preempt::enabled());
 
-        let current = self.current_task().tap(|current| {
-            assert!(current.state() != task::State::Running);
-        });
-        let task = self.pick_next();
+        let current = self.current_task();
+        assert!(current.state() != task::State::Running);
 
         // If the next thread is the same as the current one, we do not need to switch threads
+        let task = self.pick_next();
         if current.id() == task.id() {
             current.change_state(task::State::Running);
             return;

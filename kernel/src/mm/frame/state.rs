@@ -5,7 +5,7 @@ use addr::{
     virt::Virtual,
 };
 use core::mem::size_of;
-use limine::{LimineMemmapEntry, LimineMemoryMapEntryType, NonNullPtr};
+use limine::NonNullPtr;
 use macros::init;
 
 /// Represents the state of a physical memory frame, and contains information about the frame such
@@ -113,7 +113,7 @@ impl<T: Default> State<T> {
     #[init]
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
-    pub fn new(mmap: &[NonNullPtr<LimineMemmapEntry>]) -> Self {
+    pub fn new(mmap: &[NonNullPtr<limine::MemmapEntry>]) -> Self {
         let last = Self::find_last_usable_frame_index(mmap);
         let array_location = Self::find_array_location(mmap, last);
 
@@ -145,13 +145,13 @@ impl<T: Default> State<T> {
 
             for frame in &mut array[start..end] {
                 match entry.typ {
-                    LimineMemoryMapEntryType::Usable => {
+                    limine::MemoryMapEntryType::Usable => {
                         frame.flags.remove(FrameFlags::POISONED);
                         frame.flags.insert(FrameFlags::FREE);
                         statistics.poisoned.0 -= 1;
                         statistics.usable.0 += 1;
                     }
-                    LimineMemoryMapEntryType::BootloaderReclaimable => {
+                    limine::MemoryMapEntryType::BootloaderReclaimable => {
                         frame.flags.remove(FrameFlags::POISONED);
                         frame.flags.insert(FrameFlags::BOOT);
                         statistics.poisoned.0 -= 1;
@@ -160,7 +160,7 @@ impl<T: Default> State<T> {
                         statistics.usable.0 += 1;
                         frame.count = 1;
                     }
-                    LimineMemoryMapEntryType::KernelAndModules => {
+                    limine::MemoryMapEntryType::KernelAndModules => {
                         frame.flags.remove(FrameFlags::POISONED);
                         frame.flags.insert(FrameFlags::KERNEL);
                         statistics.poisoned.0 -= 1;
@@ -169,16 +169,16 @@ impl<T: Default> State<T> {
                         statistics.usable.0 += 1;
                         frame.count = 1;
                     }
-                    LimineMemoryMapEntryType::AcpiReclaimable
-                    | LimineMemoryMapEntryType::Framebuffer
-                    | LimineMemoryMapEntryType::Reserved
-                    | LimineMemoryMapEntryType::AcpiNvs => {
+                    limine::MemoryMapEntryType::AcpiReclaimable
+                    | limine::MemoryMapEntryType::Framebuffer
+                    | limine::MemoryMapEntryType::Reserved
+                    | limine::MemoryMapEntryType::AcpiNvs => {
                         frame.flags.remove(FrameFlags::POISONED);
                         frame.flags.insert(FrameFlags::RESERVED);
                         statistics.poisoned.0 -= 1;
                         statistics.reserved.0 += 1;
                     }
-                    LimineMemoryMapEntryType::BadMemory => (),
+                    limine::MemoryMapEntryType::BadMemory => (),
                 }
             }
         }
@@ -228,9 +228,12 @@ impl<T: Default> State<T> {
     #[init]
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
-    fn find_array_location(mmap: &[NonNullPtr<LimineMemmapEntry>], last: frame::Index) -> Physical {
+    fn find_array_location(
+        mmap: &[NonNullPtr<limine::MemmapEntry>],
+        last: frame::Index,
+    ) -> Physical {
         mmap.iter()
-            .filter(|entry| entry.typ == LimineMemoryMapEntryType::Usable)
+            .filter(|entry| entry.typ == limine::MemoryMapEntryType::Usable)
             .find(|entry| entry.len as usize >= last.0 * size_of::<FrameInfo<T>>())
             .map_or_else(
                 || panic!("Could not find a free region to place the frame array!"),
@@ -243,12 +246,12 @@ impl<T: Default> State<T> {
     /// the range of the array are considered as reserved/poisoned.
     #[init]
     #[must_use]
-    fn find_last_usable_frame_index(mmap: &[NonNullPtr<LimineMemmapEntry>]) -> frame::Index {
+    fn find_last_usable_frame_index(mmap: &[NonNullPtr<limine::MemmapEntry>]) -> frame::Index {
         mmap.iter()
             .filter(|entry| {
-                entry.typ == LimineMemoryMapEntryType::Usable
-                    || entry.typ == LimineMemoryMapEntryType::KernelAndModules
-                    || entry.typ == LimineMemoryMapEntryType::BootloaderReclaimable
+                entry.typ == limine::MemoryMapEntryType::Usable
+                    || entry.typ == limine::MemoryMapEntryType::KernelAndModules
+                    || entry.typ == limine::MemoryMapEntryType::BootloaderReclaimable
             })
             .map(|entry| entry.base + entry.len)
             .max()
