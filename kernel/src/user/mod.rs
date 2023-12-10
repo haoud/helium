@@ -1,4 +1,4 @@
-use crate::{mm::vmm, x86_64};
+use crate::x86_64;
 use alloc::sync::Arc;
 use macros::init;
 use sync::Spinlock;
@@ -10,6 +10,7 @@ pub mod pointer;
 pub mod scheduler;
 pub mod string;
 pub mod task;
+pub mod vmm;
 
 /// Setup the userland subsystem. This function initialize the scheduler and
 /// load the init task.

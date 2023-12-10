@@ -1,10 +1,8 @@
 use super::{SyscallError, SyscallValue};
-use crate::{
-    mm::vmm::{
-        area::{self, Area, Type},
-        MmapError, UnmapError,
-    },
-    user::scheduler::{Scheduler, SCHEDULER},
+use crate::user::scheduler::{Scheduler, SCHEDULER};
+use crate::user::vmm::{
+    area::{self, Area, Type},
+    MmapError, UnmapError,
 };
 use addr::user::UserVirtual;
 

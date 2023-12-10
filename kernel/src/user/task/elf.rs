@@ -1,7 +1,8 @@
 use crate::mm::{
     frame::{allocator::Allocator, AllocationFlags},
-    vmm, FRAME_ALLOCATOR,
+    FRAME_ALLOCATOR,
 };
+use crate::user::vmm;
 use crate::x86_64::paging::{self, PageEntryFlags, PAGE_SIZE};
 use addr::virt::{InvalidVirtual, Virtual};
 use alloc::sync::Arc;

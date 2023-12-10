@@ -1,5 +1,5 @@
 use self::area::{Access, Area, Flags, Type};
-use super::{
+use crate::mm::{
     frame::{allocator::Allocator, AllocationFlags},
     FRAME_ALLOCATOR,
 };

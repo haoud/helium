@@ -9,7 +9,6 @@ use sync::{Lazy, Spinlock};
 
 pub mod frame;
 pub mod heap;
-pub mod vmm;
 
 /// The heap allocator used by the kernel
 #[global_allocator]

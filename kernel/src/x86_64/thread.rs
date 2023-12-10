@@ -8,13 +8,13 @@ use super::{
 use crate::{
     mm::{
         frame::{allocator::Allocator, owned::OwnedMemory, AllocationFlags},
-        vmm::{
-            self,
-            area::{self, Area},
-        },
         FRAME_ALLOCATOR,
     },
     user::task::Task,
+    user::vmm::{
+        self,
+        area::{self, Area},
+    },
 };
 use addr::{user::UserVirtual, virt::Virtual};
 use alloc::sync::Arc;

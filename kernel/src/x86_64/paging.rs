@@ -2,10 +2,10 @@ use super::{cpu, tlb};
 use crate::{
     mm::{
         frame::{allocator::Allocator, AllocationFlags},
-        vmm::area::Access,
         FRAME_ALLOCATOR,
     },
     user::scheduler::{Scheduler, SCHEDULER},
+    user::vmm::area::Access,
 };
 use addr::{frame::Frame, phys::Physical, user::UserVirtual, virt::Virtual};
 use core::{
