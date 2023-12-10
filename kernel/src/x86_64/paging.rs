@@ -780,17 +780,12 @@ pub fn handle_page_fault(addr: Virtual, code: PageFaultErrorCode) {
         // Try to page in the page if it is not present in memory. If the page
         // was successfully paged in, we can return immediately, otherwise the
         // page fault is unrecoverable.
-        if !present
-            && SCHEDULER
-                .current_task()
-                .thread()
-                .lock()
-                .vmm()
-                .lock()
-                .page_in(uaddr, Access::from(code))
-                .is_ok()
-        {
-            return;
+        if let Some(table) = SCHEDULER.current_task().thread().lock().vmm() {
+            if !present && table.lock().page_in(uaddr, Access::from(code)).is_ok() {
+                return;
+            }
+        } else {
+            panic!("Page fault in kernel thread");
         }
     }
 

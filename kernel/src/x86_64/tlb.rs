@@ -1,6 +1,6 @@
 use super::{
-    cpu::{self, InterruptFrame, Privilege},
-    idt::{self, IDT},
+    cpu::{self, InterruptFrame},
+    idt::{self},
     instruction::{self, invlpg},
     lapic::{self, IpiDestination, IpiPriority},
 };
@@ -13,17 +13,7 @@ pub const SHOOTDOWN_VECTOR: u8 = 0x7F;
 /// Install the TLB shootdown interrupt handler. This handler is called when a TLB shootdown
 /// is requested by another CPU core.
 pub fn install() {
-    let mut idt = IDT.lock();
-    let flags = idt::DescriptorFlags::new()
-        .set_privilege_level(Privilege::KERNEL)
-        .present(true);
-
-    let descriptor = idt::Descriptor::new()
-        .set_handler(shootdown_handler)
-        .set_options(flags)
-        .build();
-
-    idt.set_descriptor(SHOOTDOWN_VECTOR, descriptor);
+    idt::register_interruption(SHOOTDOWN_VECTOR, shootdown_handler);
 }
 
 /// Invalidate the TLB entry on the current core for the given virtual address.

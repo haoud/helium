@@ -48,6 +48,7 @@ pub fn map(
         .thread()
         .lock()
         .vmm()
+        .unwrap()
         .lock()
         .mmap(area)?;
 
@@ -74,6 +75,7 @@ pub fn unmap(base: usize, len: usize) -> Result<SyscallValue, SyscallError> {
         .thread()
         .lock()
         .vmm()
+        .unwrap()
         .lock()
         .munmap(start..end)?;
 

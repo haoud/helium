@@ -1,4 +1,10 @@
-use super::{fpu, gdt::Selector, msr, paging::PAGE_SIZE, percpu, tss};
+use super::{
+    fpu,
+    gdt::Selector,
+    msr,
+    paging::{KERNEL_PML4, PAGE_SIZE},
+    percpu, tss,
+};
 use crate::{
     mm::{
         frame::{allocator::Allocator, owned::OwnedMemory, AllocationFlags},
@@ -14,7 +20,7 @@ use addr::{user::UserVirtual, virt::Virtual};
 use alloc::sync::Arc;
 use core::{num::NonZeroU64, ops::Sub};
 use lib::align::Align;
-use sync::{Lazy, Spinlock};
+use sync::Spinlock;
 
 core::arch::global_asm!(include_str!("asm/thread.asm"));
 
@@ -26,14 +32,6 @@ extern "C" {
     #[allow(improper_ctypes)]
     fn exit_thread(current: *const Task, next: &mut Thread, stack: usize) -> !;
 }
-
-/// The virtual memory manager of the kernel. All kernel threads share the same
-/// virtual memory manager to save some memory since they share the same address
-/// space.
-/// FIXME: Remove this because the vmm manager should only be for user threads.
-/// Kernel threads should directly use an shared page mapping level 4 table.
-static KERNEL_VMM: Lazy<Arc<Spinlock<vmm::Manager>>> =
-    Lazy::new(|| Arc::new(Spinlock::new(vmm::Manager::kernel())));
 
 /// When a kernel thread is created, the function that will be executed by the thread
 /// should have the same signature as this type.
@@ -197,11 +195,7 @@ impl KernelStack {
 /// base addresses.
 pub struct Thread {
     /// The virtual memory manager of this thread
-    /// FIXME: Use an option here, and remove the static KERNEL_VMM
-    vmm: Arc<Spinlock<vmm::Manager>>,
-
-    /// The kernel stack for this thread
-    kstack: KernelStack,
+    vmm: Option<Arc<Spinlock<vmm::Manager>>>,
 
     /// The user base address for the GS segment. If the thread is a kernel thread,
     /// this field must be `None` because the kernel GS is not thread-local but
@@ -215,6 +209,9 @@ pub struct Thread {
     /// The FPU state of this thread. If the thread is a kernel thread, this field
     /// must be `None` because the kernel cannot use the FPU.
     fpu: Option<fpu::State>,
+
+    /// The kernel stack for this thread
+    kstack: KernelStack,
 }
 
 impl Thread {
@@ -257,11 +254,11 @@ impl Thread {
         vmm.lock().mmap(area).expect("Failed to map the user stack");
 
         Self {
+            vmm: Some(vmm),
             gsbase: None,
             fsbase: None,
             kstack,
             fpu,
-            vmm,
         }
     }
 
@@ -280,18 +277,20 @@ impl Thread {
         // privilege level (user to kernel or kernel to user). The actual gsbase will be
         // the same as the one used by the kernel on the current CPU.
         Self {
-            vmm: Arc::clone(&KERNEL_VMM),
             gsbase: None,
             fsbase: None,
             fpu: None,
+            vmm: None,
             kstack,
         }
     }
 
-    /// Clone and return a `Arc` to the virtual memory manager of this thread.
+    /// Return the virtual memory manager of this thread, if any. All user threads should
+    /// have a virtual memory manager, but kernel threads don't have one because they only
+    /// use the kernel space and therefore can share the same address space between them.
     #[must_use]
-    pub fn vmm(&self) -> Arc<Spinlock<vmm::Manager>> {
-        Arc::clone(&self.vmm)
+    pub fn vmm(&self) -> Option<&Arc<Spinlock<vmm::Manager>>> {
+        self.vmm.as_ref()
     }
 
     // Save the current GS and FS segment base addresses into the thread structure.
@@ -334,9 +333,20 @@ impl Thread {
     /// TSS, so the CPU can switch to the new kernel stack when an interrupt occurs,
     /// and also set the kernel stack in the percpu structure, to switch stack when
     /// entering in the syscall handler.
-    unsafe fn set_kernel_stack(&self) {
+    unsafe fn change_kernel_stack(&self) {
         percpu::set_kernel_stack(self.kstack.base());
         tss::set_kernel_stack(self.kstack.base());
+    }
+
+    /// Set the pagination table associated with the thread as the current pagination table.
+    /// If there is no table associated with the thread, it means that it is a kernel thread
+    /// that only use the kernel space and therefore can share the same pagination table
+    /// between them
+    unsafe fn change_paging_table(&self) {
+        match &self.vmm {
+            Some(vmm) => vmm.lock().table().set_current(),
+            None => KERNEL_PML4.set_current(),
+        }
     }
 }
 
@@ -357,8 +367,9 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 
     next.restore_fpu_state();
     next.restore_fsgsbase();
-    next.set_kernel_stack();
-    next.vmm().lock().table().set_current();
+    next.change_kernel_stack();
+    next.change_paging_table();
+
     switch_context(prev.kstack.state_ptr_mut(), next.kstack.state_ptr_mut());
 }
 
@@ -375,8 +386,8 @@ pub unsafe fn switch(prev: &mut Thread, next: &mut Thread) {
 pub unsafe fn jump_to(thread: &mut Thread) -> ! {
     thread.restore_fpu_state();
     thread.restore_fsgsbase();
-    thread.set_kernel_stack();
-    thread.vmm.lock().table().set_current();
+    thread.change_kernel_stack();
+    thread.change_paging_table();
     restore_context(thread.kstack.state_ptr_mut());
 }
 
@@ -410,7 +421,7 @@ pub unsafe fn exit(current: Arc<Task>, thread: &mut Thread) -> ! {
 /// to a kernel panic or a security issue.
 #[no_mangle]
 unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread) {
-    thread.vmm().lock().table().set_current();
+    thread.change_paging_table();
 
     // Drop the Arc to the current thread before leaving this thread forever. This
     // must be done here because this function will never return to the caller and
