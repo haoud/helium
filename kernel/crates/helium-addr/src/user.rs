@@ -141,6 +141,12 @@ impl UserVirtual {
         self.0 == 0
     }
 
+    /// Returns an offset inside the page that contains this address.
+    #[must_use]
+    pub const fn page_offset(&self) -> usize {
+        self.0 & 0xFFF
+    }
+
     /// Align the address up to the given alignment. If the address is already aligned, this
     // function does nothing.
     ///
@@ -213,6 +219,34 @@ impl UserVirtual {
     #[must_use]
     pub const fn is_page_aligned(&self) -> bool {
         self.0.trailing_zeros() >= 12
+    }
+
+    /// Returns the next user virtual address that is page aligned.
+    #[must_use]
+    pub const fn next_aligned_page(&self) -> Self {
+        Self::new(self.page_align_down().0 + 0x1000)
+    }
+
+    /// Checked addition with an user virtual address and an offset. Returns `None` if the
+    /// resulting address is not in user space or overflows.
+    #[must_use]
+    pub fn checked_add(&self, offset: usize) -> Option<Self> {
+        let new = self.0.checked_add(offset)?;
+        if !UserVirtual::is_user(new) {
+            return None;
+        }
+        Some(Self::new(new))
+    }
+
+    /// Checked subtraction with an user virtual address and an offset. Returns `None` if the
+    /// resulting address is not in user space or underflows.
+    #[must_use]
+    pub fn checked_sub(&self, offset: usize) -> Option<Self> {
+        let new = self.0.checked_sub(offset)?;
+        if !UserVirtual::is_user(new) {
+            return None;
+        }
+        Some(Self::new(new))
     }
 }
 

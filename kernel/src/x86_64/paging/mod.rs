@@ -103,7 +103,8 @@ pub unsafe fn setup() {
 }
 
 /// Map a frame at the specified virtual address. If the address is already mapped, an error is
-/// returned.
+/// returned. For convenience, the `PRESENT` flag will automatically be set by this function if
+/// not set by the caller.
 ///
 /// # Errors
 /// If the frame cannot be mapped at the specified address, an `MapError` is returned, containing
@@ -138,7 +139,7 @@ pub unsafe fn map(
 /// Unmap the page mapped at the specified address. If an entry is the hierarchy is not present,
 /// we return an error, otherwise we clear the entry, flush the TLB on all CPUs, and return the
 /// previously mapped physical frame. It is the responsibility of the caller to free the returned
-/// frame.
+/// frame if needed.
 ///
 /// # Errors
 /// If the address is not mapped, an `UnmapError` is returned, describing the error. Otherwise,
@@ -165,13 +166,14 @@ pub unsafe fn unmap(root: &PageTableRoot, address: Virtual) -> Result<Frame, Unm
 }
 
 /// Resolve a virtual address to a physical address. If the address is not mapped, return `None`.
-/// This function allow the address passed as argument to not be page aligned, but will always
-/// return a page aligned physical address.
+/// The address can not be page aligned and in this case, the function will return the physical
+/// address of the page containing the address added to the page offset of the virtual address.
 pub fn resolve(root: &PageTableRoot, address: Virtual) -> Option<Physical> {
     unsafe {
         root.lock()
             .fetch_last_entry(address, FetchBehavior::Reach)
             .map_or(None, |pte| pte.address())
+            .map(|addr| addr + address.page_offset())
     }
 }
 
@@ -233,7 +235,7 @@ pub fn handle_page_fault(addr: Virtual, code: PageFaultErrorCode) {
     panic!("Page fault exception at {:#x}", addr);
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MapError {
     /// The kernel ran out of memory while trying to allocate a new page table
     OutOfMemory,
@@ -242,7 +244,7 @@ pub enum MapError {
     AlreadyMapped,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum UnmapError {
     /// The virtual address was not mapped to a physical address
     NotMapped,
