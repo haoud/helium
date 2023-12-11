@@ -1,5 +1,5 @@
 use super::{sleep, State, Task};
-use crate::user::scheduler::{self, Scheduler, SCHEDULER};
+use crate::user::scheduler::{Scheduler, SCHEDULER};
 use alloc::{collections::VecDeque, sync::Arc};
 
 pub struct WaitQueue {
