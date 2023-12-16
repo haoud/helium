@@ -24,15 +24,6 @@ use sync::Spinlock;
 
 core::arch::global_asm!(include_str!("asm/thread.asm"));
 
-extern "C" {
-    fn switch_context(prev: *mut *mut State, next: *mut *mut State);
-    fn restore_context(next: *mut *mut State) -> !;
-    fn enter_thread() -> !;
-
-    #[allow(improper_ctypes)]
-    fn exit_thread(current: *const Task, next: &mut Thread, stack: usize) -> !;
-}
-
 /// When a kernel thread is created, the function that will be executed by the thread
 /// should have the same signature as this type.
 pub type KernelThreadFn = fn() -> !;
@@ -428,4 +419,12 @@ unsafe extern "C" fn terminate_thread(current: *const Task, thread: &mut Thread)
     // therefore the Arc will never be dropped if we don't do it here.
     core::mem::drop(Arc::from_raw(current));
     jump_to(thread);
+}
+
+extern "C" {
+    #[allow(improper_ctypes)]
+    fn exit_thread(current: *const Task, next: &mut Thread, stack: usize) -> !;
+    fn switch_context(prev: *mut *mut State, next: *mut *mut State);
+    fn restore_context(next: *mut *mut State) -> !;
+    fn enter_thread() -> !;
 }

@@ -1,12 +1,12 @@
-use crate::{
-    time::timer,
-    user::scheduler::{Scheduler, SCHEDULER},
-};
 use super::{
     cpu::InterruptFrame,
     idt, instruction, lapic,
     pic::{self, IRQ_BASE},
     pit,
+};
+use crate::{
+    time::timer,
+    user::scheduler::{Scheduler, SCHEDULER},
 };
 use macros::{init, interrupt, irq_handler};
 

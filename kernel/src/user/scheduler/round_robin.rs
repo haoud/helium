@@ -174,7 +174,9 @@ impl super::Scheduler for RoundRobin {
         };
 
         if reschedule {
-            // SAFETY: TODO
+            // SAFETY: This is safe because we are in a controlled environment and we know that
+            // we can safely call `schedule` without any risk of deadlock because this function
+            // should only be called from the core-local clock interrupt handler.
             unsafe { yield_cpu() };
         }
     }
