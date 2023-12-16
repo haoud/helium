@@ -93,11 +93,12 @@ impl super::Scheduler for RoundRobin {
             .borrow()
             .as_ref()
             .map(Arc::clone)
-            .unwrap()
+            .expect("No task running on the CPU")
     }
 
     /// Sets the task passed as argument as the current task running on the CPU and changes its
-    /// state to `Running`.
+    /// state to `Running`. The Arc counter of the previous task is decremented in this function
+    /// and can be dropped if the counter reaches 0 (take care of this !)
     fn set_current_task(&self, task: Arc<Task>) {
         CURRENT_TASK
             .local()
@@ -114,6 +115,7 @@ impl super::Scheduler for RoundRobin {
     /// return the current task, even if it is the only task ready to run. This is because the
     /// scheduler cannot handle this case and panic for obscure reasons. This should be fixed
     /// in the future.
+    /// TODO: Is the above still true ? Not sure about that...
     fn pick_next(&self) -> Arc<Task> {
         self.pick_task()
             .or_else(|| {
@@ -129,7 +131,7 @@ impl super::Scheduler for RoundRobin {
     /// This function panics if a task with the same identifier is already in the run list. This
     /// should never happen and indicates a bug in the kernel.
     fn add_task(&self, task: Arc<Task>) {
-        assert!(self.task(task.id()).is_none());
+        assert!(self.find_task(task.id()).is_none());
         self.run_queue.lock().push(RunnableTask {
             quantum: Self::DEFAULT_QUANTUM,
             task,
@@ -144,7 +146,7 @@ impl super::Scheduler for RoundRobin {
 
     /// Returns a task from the run list by its identifier. This function returns `None` if no
     /// task with the given identifier is found.
-    fn task(&self, tid: task::Identifier) -> Option<Arc<Task>> {
+    fn find_task(&self, tid: task::Identifier) -> Option<Arc<Task>> {
         self.run_queue
             .lock()
             .iter()

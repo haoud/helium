@@ -52,6 +52,8 @@ restore_context:
 
 # Called when a thread is executed for the first time. This function will clear all registers
 # to avoid leaking sensitive data and then go to the thread entry point, stored on the stack.
+# This function also call the `unlock_threads` function to unlock the threads involved in the
+# previous thread switch to avoid deadlocks.
 # For more information about the stack layout, see the documentation for the thread struct and
 # its `new` method.
 # This function should not be called directly as it assume a specific stack layout that should

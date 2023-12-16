@@ -27,9 +27,8 @@ pub trait Scheduler {
     fn set_current_task(&self, task: Arc<Task>);
 
     /// Pick the next thread to run if no thread is available, this function should wait until a
-    /// thread is available.
-    /// Note that this function can return the current thread, and this case should be correctly
-    /// handled by the caller.
+    /// thread is available. Note that this function can return the current thread, and this case
+    /// should be correctly handled by the caller.
     fn pick_next(&self) -> Arc<Task>;
 
     /// Add a task to the scheduler. The task will be added to the run queue, and will be
@@ -39,11 +38,11 @@ pub trait Scheduler {
     /// Remove a thread from the scheduler. The thread will be removed from the run queue, and
     /// cannot be run until it is added again. If the task is currently running, this function
     /// removes it from the run queue, but does not stop it, only preventing it from being
-    /// rexecuted when it yields.
+    /// re-executed when it yields.
     fn remove_task(&self, tid: task::Identifier);
 
     /// Return a task from its identifier if it exists, or `None` otherwise.
-    fn task(&self, tid: task::Identifier) -> Option<Arc<Task>>;
+    fn find_task(&self, tid: task::Identifier) -> Option<Arc<Task>>;
 
     /// This function is called every time a timer tick occurs. It is used to update thread
     /// scheduling information, and eventually to reschedule the current thread.
@@ -56,6 +55,10 @@ pub trait Scheduler {
     /// run it.
     ///
     /// # Safety
+    /// This function is unsafe because it make assumption about the state of the CPU and the
+    /// kernel. This function should only be called by the AP boot code, and only when the CPU
+    /// is in a valid state to run a thread. Any other call to this function will result in
+    /// undefined behavior.
     unsafe fn engage_cpu(&self) -> ! {
         let next = self.pick_next();
         self.set_current_task(Arc::clone(&next));
@@ -96,18 +99,22 @@ pub trait Scheduler {
         assert!(!x86_64::irq::enabled());
         assert!(task::preempt::enabled());
 
-        let current = self.current_task();
-        assert!(current.state() != task::State::Running);
+        let current_task = self.current_task();
+        assert!(current_task.state() != task::State::Running);
+        let next_task = self.pick_next();
 
         // If the next thread is the same as the current one, we do not need to switch threads
-        let task = self.pick_next();
-        if current.id() == task.id() {
-            current.change_state(task::State::Running);
+        if current_task.id() == next_task.id() {
+            current_task.change_state(task::State::Running);
             return;
         }
 
-        log::debug!("Switching from {:?} to {:?}", current.id().0, task.id().0);
-        self.set_current_task(Arc::clone(&task));
+        log::debug!(
+            "Switching from {:?} to {:?}",
+            current_task.id().0,
+            next_task.id().0
+        );
+        self.set_current_task(Arc::clone(&next_task));
 
         // Here, we manually decrement the strong count of the next task. This is needed
         // because when we switch to the next task, this is not guaranteed that it will
@@ -118,18 +125,18 @@ pub trait Scheduler {
         // SAFETY: The Arc is stored at least in the current task variable (set above), in
         // the task list and in the run queue. So, decrementing the strong count here is safe
         // and the task will not be freed while we are using it.
-        debug_assert!(Arc::strong_count(&task) > 1);
-        Arc::decrement_strong_count(Arc::as_ptr(&task));
+        debug_assert!(Arc::strong_count(&next_task) > 1);
+        Arc::decrement_strong_count(Arc::as_ptr(&next_task));
 
-        let mut next = task.thread().lock();
-        match current.state() {
+        let mut next_thread = next_task.thread().lock();
+        match current_task.state() {
             // If the current task is exiting, we call a special function to exit the task
             // that will do the necessary cleanup in free the memory used by the task before
             // switching to the next task.
-            task::State::Terminated => x86_64::thread::exit(current, &mut next),
+            task::State::Terminated => x86_64::thread::exit(current_task, &mut next_thread),
 
             // If the current task is rescheduled, we change its state to ready
-            task::State::Rescheduled => current.change_state(task::State::Ready),
+            task::State::Rescheduled => current_task.change_state(task::State::Ready),
 
             // If the current task is blocked, we do not need to do anything
             task::State::Blocked => (),
@@ -137,7 +144,7 @@ pub trait Scheduler {
             // Other states are not supposed to be scheduled and it is a bug if we are
             // here. We panic in this case, because this is a bug in the kernel that
             // we cannot recover from and should be fixed.
-            _ => unreachable!("scheduler: invalid task state {:#?}", current.state()),
+            _ => unreachable!("scheduler: invalid task state {:#?}", current_task.state()),
         }
 
         // The strong count of the current task is decremented here and not above with
@@ -149,30 +156,30 @@ pub trait Scheduler {
         // SAFETY: The Arc is stored at least in the task list and in the run queue. So,
         // decrementing the strong count here is safe and the task will not be freed while
         // we are using it.
-        debug_assert!(Arc::strong_count(&current) > 1);
-        Arc::decrement_strong_count(Arc::as_ptr(&current));
+        debug_assert!(Arc::strong_count(&current_task) > 1);
+        Arc::decrement_strong_count(Arc::as_ptr(&current_task));
 
         // Store the task that will be saved in a global variable to allow unlock it
         // after the contexte switch to avoid deadlocks, since some of the code called
         // is written in assembly and cannot drop a lock guard.
-        *SAVED_TASK.local_mut() = Some(Arc::clone(&current));
+        *SAVED_TASK.local_mut() = Some(Arc::clone(&current_task));
 
-        let mut prev = current.thread().lock();
-        x86_64::thread::switch(&mut prev, &mut next);
+        let mut prev_thread = current_task.thread().lock();
+        x86_64::thread::switch(&mut prev_thread, &mut next_thread);
 
         // Unlock the previously saved thread.
         unlock_threads();
 
         // We must forget the lock guard, because there was already manually unlocked
-        // and we must not unlock it again to avoid undefined behavior.
-        core::mem::forget(next);
-        core::mem::forget(prev);
+        // and we must not unlock it again
+        core::mem::forget(next_thread);
+        core::mem::forget(prev_thread);
 
         // Here, since we already decremented the strong count of `current` and `task`, we
         // must not decrement it again to avoid undefined behavior and a potential
         // double free.
-        core::mem::forget(current);
-        core::mem::forget(task);
+        core::mem::forget(current_task);
+        core::mem::forget(next_task);
     }
 }
 
@@ -198,12 +205,11 @@ pub unsafe fn yield_cpu() {
 
 /// Terminate the current task. It change the state of the current task to `Terminated`
 /// and remove it from the scheduler and from the task list
-#[allow(clippy::must_use_candidate)]
 pub fn terminate(_code: u64) {
-    let current = SCHEDULER.current_task();
-    current.change_state(State::Terminated);
+    let current_task = SCHEDULER.current_task();
+    current_task.change_state(State::Terminated);
 
-    let tid = current.id();
+    let tid = current_task.id();
     SCHEDULER.remove_task(tid);
     task::remove(tid);
 }
@@ -220,8 +226,8 @@ pub fn terminate(_code: u64) {
 /// it will cause undefined behavior.
 #[no_mangle]
 unsafe extern "C" fn unlock_threads() {
-    // SAFETY: This is safe because this function must be called just before the
-    // context switch, and therefor the current thread and the previous thread
+    // SAFETY: This is safe because this function must be called just after the
+    // context switch, and therefore the current thread and the previous thread
     // are still locked, but not used anymore. So, we can safely unlock them.
     SCHEDULER.current_task().thread().force_unlock();
     if let Some(saved) = SAVED_TASK.local_mut().take() {
