@@ -1,5 +1,5 @@
-use bitflags::bitflags;
 use super::Errno;
+use bitflags::bitflags;
 
 bitflags! {
     /// Access flags for memory regions.
@@ -53,7 +53,7 @@ bitflags! {
 ///     - The given length is 0
 ///     - The resulting range is not in user space
 ///     - An invalid access or flag is given
-///     - An invalid combination of flags is given 
+///     - An invalid combination of flags is given
 ///  - `Errno::OutOfMemory`: The kernel ran out of memory while trying to map the region.
 ///  - `Errno::AlreadyExists`: The range already contains a mapping and the `FIXED` flag
 ///    was set.

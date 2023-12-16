@@ -19,6 +19,8 @@ static ON_PANIC: AtomicBool = AtomicBool::new(false);
 #[cold]
 #[panic_handler]
 unsafe fn panic(info: &core::panic::PanicInfo) -> ! {
+    x86_64::irq::disable();
+
     if !ON_PANIC.swap(true, Ordering::SeqCst) {
         // Send a non-maskable interrupt to all other CPUs to stop them, but only if
         // they have finished their initialization (otherwise, they will triple fault)
