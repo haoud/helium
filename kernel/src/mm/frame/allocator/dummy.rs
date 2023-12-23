@@ -20,7 +20,7 @@ pub struct FrameInfo;
 /// by saving the last allocated frame index to avoid searching the frame state from the beginning.
 ///
 /// For now, the allocator is used as the global allocator, but it will be replaced by a more
-/// efficient allocator in the future, when performance becomes a concern.
+/// efficient allocator in the future, when performance will be more important.
 pub struct Allocator {
     pub state: State<FrameInfo>,
 }
