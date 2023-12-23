@@ -1,5 +1,5 @@
+use self::paging::tlb;
 use crate::user::scheduler;
-use limine::LimineSmpInfo;
 use macros::init;
 
 pub mod apic;
@@ -21,7 +21,6 @@ pub mod serial;
 pub mod smp;
 pub mod syscall;
 pub mod thread;
-pub mod tlb;
 pub mod tss;
 pub mod user;
 
@@ -72,7 +71,7 @@ pub unsafe fn setup() {
 /// function because the BSP already initialized a lot of things that only need to be done once.
 #[init]
 #[inline(never)]
-unsafe fn ap_setup(info: &LimineSmpInfo) {
+unsafe fn ap_setup(info: &limine::SmpInfo) {
     smp::per_cpu_setup(info.lapic_id);
 
     gdt::load();

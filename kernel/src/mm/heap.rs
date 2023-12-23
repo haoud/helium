@@ -12,12 +12,12 @@ pub struct Heap {
 }
 
 impl Heap {
-    /// Create a new heap with the given inner heap. This function does not initialise the heap,
+    /// Create a new heap. This function does not initialise the heap,
     /// it is the responsibility of the caller to do so with the `init` function.
     #[must_use]
-    pub const fn new(inner: linked_list_allocator::Heap) -> Self {
+    pub const fn new() -> Self {
         Heap {
-            inner: Spinlock::new(inner),
+            inner: Spinlock::new(linked_list_allocator::Heap::empty()),
         }
     }
 

@@ -3,7 +3,7 @@ use addr::user::UserVirtual;
 
 /// The default user buffer type that should be used in most cases unless you had a
 /// specific reason to use a different buffer size.
-pub type UserBuffered = UserBuffer<{ crate::config::BUFFERED_LEN }>;
+pub type UserStandardBuffer = UserBuffer<{ crate::config::BUFFERED_LEN }>;
 
 /// A user buffer of bytes. This buffer is used to read or write data from the user address
 /// space. This buffer is backed by an internal buffer of size `N` bytes, used to read chunks

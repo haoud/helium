@@ -103,8 +103,9 @@ pub unsafe fn enable() {
 /// given interrupt vector.
 ///
 /// # Safety
-/// This function is unsafe because the caller must ensure that the given interrupt vector is valid
-/// and can be triggered by an IPI. Otherwise, the kernel may panic or crash.
+/// This function is unsafe because the caller must ensure that the given interrupt vector is
+/// valid and can be triggered by an IPI. The caller must also ensure that the LAPIC is mapped
+/// at the `LAPIC_BASE` address and ready to be used. Otherwise, the kernel may panic or crash.
 pub unsafe fn send_ipi(destination: IpiDestination, priority: IpiPriority, vector: u8) {
     let cmd = match destination {
         IpiDestination::Core(core) => (
@@ -138,7 +139,8 @@ pub fn send_eoi() {
 ///
 /// # Safety
 /// This function is unsafe because writing to a register can have side effects and may break the
-/// memory safety of the program, or may crash the kernel if used improperly.
+/// memory safety of the program, or may crash the kernel if used improperly. The caller must also
+/// ensure that the LAPIC is mapped at the `LAPIC_BASE` address and ready to be used.
 pub unsafe fn write(register: Register, value: u32) {
     let addr = LAPIC_BASE + register as u64;
     let ptr = addr as *mut u32;
@@ -149,7 +151,8 @@ pub unsafe fn write(register: Register, value: u32) {
 ///
 /// # Safety
 /// This function is unsafe because reading to a register can have side effects and may break the
-/// memory safety of the program, or may crash the kernel if used improperly.
+/// memory safety of the program, or may crash the kernel if used improperly. The caller must also
+/// ensure that the LAPIC is mapped at the `LAPIC_BASE` address and ready to be used.
 #[must_use]
 pub unsafe fn read(register: Register) -> u32 {
     let addr = LAPIC_BASE + register as u64;

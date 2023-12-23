@@ -3,9 +3,10 @@ use core::sync::atomic::{AtomicUsize, Ordering};
 use macros::per_cpu;
 
 /// The number of times preemption has been enabled on the current core. By default, preemption is
-/// not enabled inside the kernel, so this variable is initialized to 0. When preemption is enabled,
-/// this variable is incremented. When preemption is disabled, this variable is decremented and
-/// preemption is only enabled when this variable is greater than 0.
+/// enabled inside the kernel, so this variable is initialized to 0. When preemption is disabled,
+/// this variable is incremented. When preemption is restaured, this variable is decremented. Using
+/// a counter instead of a boolean allows to call `enable` and `disable` multiple times without
+/// losing the state of preemption.
 #[per_cpu]
 pub static PREEMTABLE: AtomicUsize = AtomicUsize::new(0);
 
@@ -38,4 +39,24 @@ pub fn disable() {
     x86_64::irq::without(|| unsafe {
         PREEMTABLE.local_unchecked().fetch_add(1, Ordering::SeqCst);
     });
+}
+
+/// Disable preemption during the execution of the given closure. This function is useful to avoid
+/// race conditions when multiple threads are accessing the same data. This function is implemented
+/// by disabling interrupts and preemption before executing the closure, and then restoring the
+/// previous state after the closure has finished.
+///
+/// # Important
+/// Even if preemption is disabled, interrupts are still enabled. This means that the closure can
+/// still be interrupted by an IRQ handler. If you want to disable interrupts too, then you should
+pub fn without<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    x86_64::irq::without(|| {
+        disable();
+        let ret = f();
+        enable();
+        ret
+    })
 }

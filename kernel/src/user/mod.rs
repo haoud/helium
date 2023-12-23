@@ -1,14 +1,16 @@
-use crate::{mm::vmm, x86_64};
+use crate::x86_64;
 use alloc::sync::Arc;
 use macros::init;
 use sync::Spinlock;
 
+use self::scheduler::{Scheduler, SCHEDULER};
 pub mod buffer;
 pub mod object;
 pub mod pointer;
 pub mod scheduler;
 pub mod string;
 pub mod task;
+pub mod vmm;
 
 /// Setup the userland subsystem. This function initialize the scheduler and
 /// load the init task.
@@ -21,7 +23,7 @@ pub fn setup() {
 
     // Load 10 init tasks for testing
     for _ in 0..10 {
-        scheduler::add_task(
+        SCHEDULER.add_task(
             task::elf::load(
                 Arc::new(Spinlock::new(vmm::Manager::new())),
                 include_bytes!("../../../iso/boot/init.elf"),
@@ -38,7 +40,7 @@ pub fn setup() {
 /// This function is unsafe because why not ? More seriously, this function is unsafe simply
 /// because it use pointer and assembly to jump to the init task.
 pub unsafe fn enter_userland() -> ! {
-    scheduler::engage_cpu();
+    SCHEDULER.engage_cpu();
 }
 
 /// The idle function. This function will be used by the idle kernel task when there is no other

@@ -1,9 +1,15 @@
 use self::area::{Access, Area, Flags, Type};
-use super::{
-    frame::{allocator::Allocator, AllocationFlags},
-    FRAME_ALLOCATOR,
+use crate::{
+    mm::{
+        frame::{allocator::Allocator, AllocationFlags},
+        FRAME_ALLOCATOR,
+    },
+    x86_64::paging::{
+        self,
+        table::{PageEntryFlags, PageTableRoot},
+        MapError, PAGE_SIZE,
+    },
 };
-use crate::x86_64::paging::{self, MapError, PageEntryFlags, PageTableRoot, PAGE_SIZE};
 use addr::{user::UserVirtual, virt::Virtual};
 use alloc::{collections::BTreeMap, vec::Vec};
 use core::ops::Range;
@@ -54,8 +60,8 @@ impl Manager {
             .build();
 
         // The "end of the world" guard
-        let start = UserVirtual::second_last_page_aligned();
-        let end = UserVirtual::last_page_aligned();
+        let start = UserVirtual::second_last_aligned_page();
+        let end = UserVirtual::last_aligned_page();
         let end_guard = Area::builder()
             .flags(Flags::PERMANENT)
             .access(Access::empty())
@@ -419,6 +425,6 @@ fn range_contained(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
 ///   still in user space and not in the canonical hole.
 fn valid_range(range: &Range<UserVirtual>) -> bool {
     Virtual::from(range.start).is_page_aligned()
-        && range.end <= UserVirtual::last_page_aligned()
+        && range.end <= UserVirtual::last_aligned_page()
         && !range.is_empty()
 }

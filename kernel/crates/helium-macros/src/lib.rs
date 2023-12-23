@@ -14,7 +14,7 @@ use syn::{parse_macro_input, ItemFn, ItemStatic};
 ///
 /// # Safety
 /// If an function with this attribute is called after the kernel has been initialized, the
-/// behavior is undefined.
+/// behavior is undefined and will probably cause a kernel panic.
 #[proc_macro_attribute]
 pub fn init(_: TokenStream, item: TokenStream) -> TokenStream {
     let mut input_fn = parse_macro_input!(item as ItemFn);
@@ -61,9 +61,10 @@ pub fn interrupt(_: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
-/// This macro work the same as the [`interrupt`] macro, but it does not take any arguments, because
-/// it assume that the exception pushed an error code to the stack. This is useful for exceptions
-/// that push an error code to the stack, like the page fault exception.
+/// This macro work almost the same as the [`interrupt`] macro, but does not push 0 to the stack
+/// before calling the interrupt handler because it assumes that an error code has been pushed
+/// to the stack before calling the handler. This is useful for exceptions that push an error
+/// code to the stack, like the page fault exception.
 #[proc_macro_attribute]
 pub fn exception_err(_: TokenStream, item: TokenStream) -> TokenStream {
     let mut func = parse_macro_input!(item as ItemFn);
@@ -94,9 +95,7 @@ pub fn exception_err(_: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
-/// This macro work the same as the [`interrupt`] macro, but it does not take any arguments because
-/// it automatically pushes 0 to the stack before calling the handler. This is useful for exceptions
-/// that does not push any error code to the stack, and in which a custom code would not make sense.
+/// This macro work the same as the [`interrupt`] macro
 #[proc_macro_attribute]
 pub fn exception(_: TokenStream, item: TokenStream) -> TokenStream {
     let mut func = parse_macro_input!(item as ItemFn);

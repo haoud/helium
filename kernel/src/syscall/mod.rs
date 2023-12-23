@@ -23,7 +23,6 @@ pub enum Syscall {
     TaskYield = 5,
     MmuMap = 6,
     MmuUnmap = 7,
-    Last,
 }
 
 impl Syscall {
@@ -31,10 +30,16 @@ impl Syscall {
     /// returns None.
     #[must_use]
     pub fn from(id: usize) -> Option<Syscall> {
-        if id < Self::Last as usize {
-            Some(unsafe { core::mem::transmute(id) })
-        } else {
-            None
+        match id {
+            0 => Some(Self::TaskExit),
+            1 => Some(Self::TaskId),
+            2 => Some(Self::SerialRead),
+            3 => Some(Self::SerialWrite),
+            4 => Some(Self::TaskSleep),
+            5 => Some(Self::TaskYield),
+            6 => Some(Self::MmuMap),
+            7 => Some(Self::MmuUnmap),
+            _ => None,
         }
     }
 }
@@ -96,8 +101,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::TaskYield) => task::yields(),
         Some(Syscall::MmuMap) => mmu::map(a, b, c, d),
         Some(Syscall::MmuUnmap) => mmu::unmap(a, b),
-
-        Some(Syscall::Last) | None => Err(SyscallError::NoSuchSyscall),
+        None => Err(SyscallError::NoSuchSyscall),
     };
 
     match result {

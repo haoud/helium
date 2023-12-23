@@ -1,5 +1,5 @@
 use crate::virt::Virtual;
-use core::{fmt, iter::Step};
+use core::{fmt, iter::Step, num::NonZeroUsize};
 
 /// A canonical 64-bit virtual memory address that is guaranteed to be in user space (
 /// 0x0000_0000_0000_0000 to 0x0000_7FFF_FFFF_FFFF).
@@ -61,12 +61,22 @@ impl UserVirtual {
     /// contains the object pointed by the pointer are in user space.
     #[must_use]
     pub fn is_user_ptr<T>(ptr: *const T) -> bool {
-        let length = core::mem::size_of::<T>();
+        Self::is_user_array(ptr, NonZeroUsize::new(1).unwrap())
+    }
+
+    /// Checks if the given array of objects is in user space. If check if all the addresses
+    /// that contains the objects are in user space. If an overflow occurs during the check,
+    /// this function returns false.
+    #[must_use]
+    pub fn is_user_array<T>(ptr: *const T, count: NonZeroUsize) -> bool {
+        let length = core::mem::size_of::<T>() * count.get();
         let start = ptr as usize;
 
-        // There is no need to check overflow because `T` should never be big
-        // enough to overflow an u64
-        Self::is_user(start) && Self::is_user(start + length)
+        if let Some(end) = start.checked_add(length) {
+            Self::is_user(start) && Self::is_user(end)
+        } else {
+            false
+        }
     }
 
     /// Convert this user virtual address to an usize.
@@ -110,13 +120,13 @@ impl UserVirtual {
 
     /// Returns the second last valid user virtual address that is page aligned.
     #[must_use]
-    pub const fn second_last_page_aligned() -> Self {
+    pub const fn second_last_aligned_page() -> Self {
         Self(0x0000_7FFF_FFFF_E000)
     }
 
     /// Returns the last user valid virtual address that is page aligned.
     #[must_use]
-    pub const fn last_page_aligned() -> Self {
+    pub const fn last_aligned_page() -> Self {
         Self(0x0000_7FFF_FFFF_F000)
     }
 
@@ -131,8 +141,14 @@ impl UserVirtual {
         self.0 == 0
     }
 
-    /// Align the address up to the given alignment. If the address is already aligned, this function
-    /// does nothing.
+    /// Returns an offset inside the page that contains this address.
+    #[must_use]
+    pub const fn page_offset(&self) -> usize {
+        self.0 & 0xFFF
+    }
+
+    /// Align the address up to the given alignment. If the address is already aligned, this
+    // function does nothing.
     ///
     /// # Panics
     /// This function panics if the given alignment is not a power of two or if the resulting
@@ -179,8 +195,8 @@ impl UserVirtual {
         self.0 & (align - 1) == 0
     }
 
-    /// Align the address up to a page boundary (4 KiB). If the address is already aligned, this
-    /// function does nothing.
+    /// Align the address up to a page boundary (4 KiB). If the address is already aligned,
+    /// this function does nothing.
     ///
     /// # Panics
     /// This function panics if the resulting address is not in user space.
@@ -203,6 +219,34 @@ impl UserVirtual {
     #[must_use]
     pub const fn is_page_aligned(&self) -> bool {
         self.0.trailing_zeros() >= 12
+    }
+
+    /// Returns the next user virtual address that is page aligned.
+    #[must_use]
+    pub const fn next_aligned_page(&self) -> Self {
+        Self::new(self.page_align_down().0 + 0x1000)
+    }
+
+    /// Checked addition with an user virtual address and an offset. Returns `None` if the
+    /// resulting address is not in user space or overflows.
+    #[must_use]
+    pub fn checked_add(&self, offset: usize) -> Option<Self> {
+        let new = self.0.checked_add(offset)?;
+        if !UserVirtual::is_user(new) {
+            return None;
+        }
+        Some(Self::new(new))
+    }
+
+    /// Checked subtraction with an user virtual address and an offset. Returns `None` if the
+    /// resulting address is not in user space or underflows.
+    #[must_use]
+    pub fn checked_sub(&self, offset: usize) -> Option<Self> {
+        let new = self.0.checked_sub(offset)?;
+        if !UserVirtual::is_user(new) {
+            return None;
+        }
+        Some(Self::new(new))
     }
 }
 

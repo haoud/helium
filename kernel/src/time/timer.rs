@@ -1,4 +1,4 @@
-use super::{uptime_fast, Nanosecond};
+use super::{units::Nanosecond, uptime_fast};
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicBool, Ordering};
 use sync::{Lazy, Spinlock};
@@ -144,21 +144,21 @@ impl Guard {
         self.active.load(Ordering::Relaxed)
     }
 
+    /// Ignore the guard when dropped: the timer will not be cancelled when
+    /// this guard will be dropped.
+    pub fn ignore(&mut self) {
+        self.ignore = true;
+    }
+
     /// Cancels the timer.
     pub fn cancel(&self) {
         self.active.store(false, Ordering::Relaxed);
     }
-
-    /// Ignore the guard when dropped: the timer will not be cancelled when this guard
-    /// will be dropped.
-    pub fn ignore(&mut self) {
-        self.ignore = true;
-    }
 }
 
 impl Drop for Guard {
-    /// When a guard is dropped, it will cancel the timer it is guarding if the ignore flag
-    /// is not set in the current guard.
+    /// When a guard is dropped, it will cancel the timer it is guarding if
+    /// the ignore flag is not set in the current guard.
     fn drop(&mut self) {
         if !self.ignore {
             self.cancel();

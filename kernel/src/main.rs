@@ -10,6 +10,7 @@
 #![feature(new_uninit)]
 #![feature(step_trait)]
 #![feature(extract_if)]
+#![feature(const_option)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
 #![feature(btree_extract_if)]
@@ -23,6 +24,7 @@ extern crate alloc;
 compile_error!("Helium only supports x86_64 computers");
 
 pub mod config;
+pub mod limine;
 pub mod logger;
 pub mod mm;
 pub mod panic;
@@ -35,10 +37,10 @@ pub mod x86_64;
 /// # The entry point of the kernel. Initialises the kernel and jumps to userland.
 ///
 /// # Safety
-/// This function is highly unsafe because we are in a minimal environment and we have to
-/// initialize a lot of things before we can do anything. Since we are in a bare metal environment,
-/// a lot of initialization code is written in assembly or need the use of `unsafe` code to work
-/// properly, this is an necessary evil.
+/// This function is highly unsafe because we are in a minimal environment and we have to initialize
+/// a lot of things before we can do anything. Since we are in a bare metal environment, a lot of
+/// initialization code is written in assembly or need the use of `unsafe` code to work properly,
+/// this is an necessary evil.
 #[init]
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {

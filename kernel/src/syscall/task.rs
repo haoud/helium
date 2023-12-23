@@ -1,7 +1,10 @@
 use super::{SyscallError, SyscallValue};
 use crate::{
-    time::{timer::Timer, uptime_fast, Nanosecond},
-    user::{scheduler, task},
+    time::{timer::Timer, units::Nanosecond, uptime_fast},
+    user::{
+        scheduler::{self, Scheduler, SCHEDULER},
+        task,
+    },
 };
 
 /// Exit the current task with the given exit code. The task will be terminated and
@@ -13,11 +16,11 @@ use crate::{
 pub fn exit(code: usize) -> ! {
     log::debug!(
         "Task {} exited with code {}",
-        scheduler::current_task().id(),
+        SCHEDULER.current_task().id(),
         code
     );
     scheduler::terminate(code as u64);
-    scheduler::reschedule();
+    unsafe { SCHEDULER.schedule() };
     unreachable!("Task should never be scheduled again after exiting");
 }
 
@@ -32,7 +35,7 @@ pub fn exit(code: usize) -> ! {
 /// never happen and is a bug).
 #[allow(clippy::cast_possible_truncation)]
 pub fn id() -> Result<SyscallValue, SyscallError> {
-    Ok(scheduler::current_task().id().0 as usize)
+    Ok(SCHEDULER.current_task().id().0 as usize)
 }
 
 /// Put the current task to sleep for at least the given number of nanoseconds. The task
@@ -47,7 +50,7 @@ pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
     let expiration = uptime_fast() + Nanosecond::new(nano as u64);
 
     // Create a timer that will wake up the task when it expires.
-    let current = scheduler::current_task();
+    let current = SCHEDULER.current_task();
     let timer = Timer::new(expiration, move |_| {
         if current.state() == task::State::Blocked {
             current.change_state(task::State::Ready);
@@ -68,6 +71,6 @@ pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
 /// This function will never return an error, but it is declared as returning a `Result`
 /// to be consistent with the other syscalls. It always returns `0`.
 pub fn yields() -> Result<SyscallValue, SyscallError> {
-    scheduler::yield_cpu();
+    unsafe { scheduler::yield_cpu() };
     Ok(0)
 }

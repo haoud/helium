@@ -20,7 +20,7 @@ pub struct PerCpuGuard<'a, T> {
 }
 
 impl<'a, T> PerCpuGuard<'a, T> {
-    pub fn new(inner: &'a T) -> Self {
+    fn new(inner: &'a T) -> Self {
         Self { inner }
     }
 }
@@ -34,6 +34,7 @@ impl<'a, T> Deref for PerCpuGuard<'a, T> {
 
 impl<'a, T> Drop for PerCpuGuard<'a, T> {
     fn drop(&mut self) {
+        // Re-enable preemption when the guard is dropped.
         user::task::preempt::enable();
     }
 }
@@ -45,7 +46,7 @@ pub struct PerCpuGuardMut<'a, T> {
 }
 
 impl<'a, T> PerCpuGuardMut<'a, T> {
-    pub fn new(inner: &'a mut T) -> Self {
+    fn new(inner: &'a mut T) -> Self {
         Self { inner }
     }
 }
@@ -65,6 +66,7 @@ impl<'a, T> DerefMut for PerCpuGuardMut<'a, T> {
 
 impl<'a, T> Drop for PerCpuGuardMut<'a, T> {
     fn drop(&mut self) {
+        // Re-enable preemption when the guard is dropped.
         user::task::preempt::enable();
     }
 }
@@ -109,6 +111,11 @@ impl<T> PerCpu<T> {
         }
     }
 
+    /// Set the per-cpu variable for the current CPU.
+    pub fn set_local(&mut self, value: T) {
+        *self.local_mut() = value;
+    }
+
     /// Return a reference to the per-cpu variable for the current CPU.
     ///
     /// # Safety
@@ -138,7 +145,8 @@ impl<T> PerCpu<T> {
 unsafe impl<T> Sync for PerCpu<T> {}
 
 /// Return the per-cpu variable for the current CPU. This function is not intended to be used
-/// directly, instead, you should use the `#[per_cpu]` attribute on a static variable.
+/// directly (even if it is public, because it is used by the `#[per_cpu]` attribute). Instead,
+/// you should use the `#[per_cpu]` attribute on a static variable.
 ///
 /// # Safety
 /// This function is unsafe because it deals with pointer, offsets and MSRs to access the per-cpu

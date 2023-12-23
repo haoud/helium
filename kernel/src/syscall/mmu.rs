@@ -1,10 +1,8 @@
 use super::{SyscallError, SyscallValue};
-use crate::{
-    mm::vmm::{
-        area::{self, Area, Type},
-        MmapError, UnmapError,
-    },
-    user::scheduler,
+use crate::user::scheduler::{Scheduler, SCHEDULER};
+use crate::user::vmm::{
+    area::{self, Area, Type},
+    MmapError, UnmapError,
 };
 use addr::user::UserVirtual;
 
@@ -43,10 +41,12 @@ pub fn map(
         .flags(flags)
         .build();
 
-    let range = scheduler::current_task()
+    let range = SCHEDULER
+        .current_task()
         .thread()
         .lock()
         .vmm()
+        .unwrap()
         .lock()
         .mmap(area)?;
 
@@ -68,10 +68,12 @@ pub fn unmap(base: usize, len: usize) -> Result<SyscallValue, SyscallError> {
     let end = UserVirtual::try_new(base + len)?;
     let start = UserVirtual::try_new(base)?;
 
-    scheduler::current_task()
+    SCHEDULER
+        .current_task()
         .thread()
         .lock()
         .vmm()
+        .unwrap()
         .lock()
         .munmap(start..end)?;
 

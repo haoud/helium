@@ -5,12 +5,12 @@ use macros::init;
 /// The buffer used to store the FPU state. It must be in a 64 bytes aligned
 /// memory region, and that's why it must have its own struct instead of
 /// simply using a array in the `State` struct.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 #[repr(align(64))]
 struct Buffer([u8; 4096]);
 
 /// The FPU state.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 pub struct State {
     inner: Box<Buffer>,
 }
@@ -26,13 +26,13 @@ impl State {
 
     /// Return a mutable pointer to the inner buffer.
     #[must_use]
-    pub fn inner_as_mut_ptr(&mut self) -> *mut u8 {
+    pub fn as_mut_ptr(&mut self) -> *mut u8 {
         self.inner.as_mut().0.as_mut_ptr()
     }
 
     /// Return a constant pointer to the inner buffer.
     #[must_use]
-    pub fn inner_as_ptr(&self) -> *const u8 {
+    pub fn as_ptr(&self) -> *const u8 {
         self.inner.as_ref().0.as_ptr()
     }
 }
@@ -72,15 +72,20 @@ pub unsafe fn setup() {
 
 /// Save the current FPU state into the given state buffer. Previous state stored
 /// in the buffer will be overwritten.
-pub fn save(state: &mut State) {
-    unsafe {
-        core::arch::x86_64::_xsave64(state.inner_as_mut_ptr(), u64::MAX);
-    }
+///
+/// # Safety
+/// This function is unsafe because it assume that the buffer is large enough to
+/// store the FPU state. If it is not the case, it will lead to undefined behavior
+pub unsafe fn save(state: &mut State) {
+    core::arch::x86_64::_xsave64(state.as_mut_ptr(), u64::MAX);
 }
 
 /// Restore the given FPU state from the given state buffer.
-pub fn restore(state: &State) {
-    unsafe {
-        core::arch::x86_64::_xrstor64(state.inner_as_ptr(), u64::MAX);
-    }
+///
+/// # Safety
+/// This function is unsafe because it directly touches to the state of the FPU. It
+/// assumes that the given state is valid. If it is not the case, then it may lead
+/// to undefined behavior (likely an exception or a crash)
+pub unsafe fn restore(state: &State) {
+    core::arch::x86_64::_xrstor64(state.as_ptr(), u64::MAX);
 }

@@ -1,15 +1,14 @@
 use super::{ap_setup, msr, MAX_CPUS};
-use crate::user;
+use crate::{
+    limine::LIMINE_SMP,
+    user::scheduler::{Scheduler, SCHEDULER},
+};
 use alloc::vec::Vec;
 use core::{
     cell::OnceCell,
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
-use limine::{LimineSmpInfo, LimineSmpRequest};
 use macros::{init, per_cpu};
-
-/// The Limine SMP request. This tells Limine to start the APs, so we have much less work to do.
-pub static LIMINE_SMP: LimineSmpRequest = LimineSmpRequest::new(0);
 
 /// Represent the number of CPUs that have started. After the initialization of the kernel, this
 /// variable could be used to determine the number of CPUs in the system.
@@ -30,6 +29,10 @@ static GO: AtomicBool = AtomicBool::new(false);
 #[per_cpu]
 static CPU_ID: OnceCell<u32> = OnceCell::new();
 
+// Symbols defined in the linker script that represent the start and the end of the per
+// CPU section. This section contains the initial per CPU data that is copied for each CPU.
+// TODO: Free this memory after the initialization of the kernel because it is not needed
+// since each CPU has its own copy of the per CPU data.
 extern "C" {
     static __percpu_start: u64;
     static __percpu_end: u64;
@@ -130,10 +133,10 @@ fn ap_wait() {
 /// This function is called when an AP is started. This initialize the AP, increment the CPU count
 /// and wait for the BSP to finish its initialization.
 #[no_mangle]
-extern "C" fn ap_start(info: *const LimineSmpInfo) -> ! {
+extern "C" fn ap_start(info: *const limine::SmpInfo) -> ! {
     unsafe {
         ap_setup(&*info);
         ap_wait();
-        user::scheduler::engage_cpu();
+        SCHEDULER.engage_cpu();
     }
 }
