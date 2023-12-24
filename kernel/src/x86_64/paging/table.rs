@@ -1,10 +1,12 @@
-use super::{cpu, Level, KERNEL_PML4, PAGE_SIZE};
 use crate::{
     mm::{
         frame::{allocator::Allocator, AllocationFlags},
         FRAME_ALLOCATOR,
     },
-    x86_64::paging::deallocate_recursive,
+    x86_64::{
+        cpu,
+        paging::{deallocate_recursive, Level, KERNEL_PML4, PAGE_SIZE},
+    },
 };
 use addr::{frame::Frame, phys::Physical, virt::Virtual};
 use core::{
@@ -15,7 +17,7 @@ use core::{
 bitflags::bitflags! {
     /// Represents the flags of a page table entry. See Intel Vol. 3A, Section 4.5 for more
     /// information about page tables.
-    #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[repr(transparent)]
     pub struct PageEntryFlags: u64 {
         /// If set, the page is present in memory. Otherwise, the page is not present, and the
@@ -78,7 +80,7 @@ bitflags::bitflags! {
 
     /// Represents a set of flags pushed onto the stack by the CPU when a page fault occurs,
     /// indicating the cause of the fault.
-    #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     #[repr(transparent)]
     pub struct PageFaultErrorCode: u64 {
         /// If set, the fault was caused by a page not being present. Otherwise, the fault was
@@ -543,7 +545,7 @@ impl<'a> DerefMut for PageTableRootGuard<'a> {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FetchBehavior {
     /// If an entry is missing, allocate a new page table entry and continue traversing the page
     /// table hierarchy.
@@ -554,7 +556,7 @@ pub enum FetchBehavior {
     Reach,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FetchError {
     /// The entry was not present in the page table
     NoSuchEntry,

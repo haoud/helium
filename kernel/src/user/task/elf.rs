@@ -1,14 +1,15 @@
-use crate::user::vmm;
-use crate::x86_64::paging::{self, PAGE_SIZE};
 use crate::{
     mm::{
         frame::{allocator::Allocator, AllocationFlags},
         FRAME_ALLOCATOR,
     },
-    x86_64::paging::table::PageEntryFlags,
+    user::{self, vmm},
+    x86_64::paging::{self, table::PageEntryFlags, PAGE_SIZE},
 };
-use addr::user::{InvalidUserVirtual, UserVirtual};
-use addr::virt::Virtual;
+use addr::{
+    user::{InvalidUserVirtual, UserVirtual},
+    virt::Virtual,
+};
 use alloc::sync::Arc;
 use core::{cmp::min, num::TryFromIntError};
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
@@ -24,7 +25,8 @@ use super::Task;
 /// with the entry point of the ELF file as the entry point of the task.
 ///
 /// # Panics
-/// Panics if the kernel ran out of memory when loading the ELF file.
+/// Panics if the kernel ran out of memory when loading the ELF file or if the ELF file contains
+/// overlapping segments
 #[allow(clippy::cast_possible_truncation)]
 pub fn load(vmm: Arc<Spinlock<vmm::Manager>>, file: &[u8]) -> Result<Arc<Task>, LoadError> {
     let elf = check_elf(ElfBytes::<NativeEndian>::minimal_parse(file)?)?;
@@ -42,27 +44,37 @@ pub fn load(vmm: Arc<Spinlock<vmm::Manager>>, file: &[u8]) -> Result<Arc<Task>, 
 
         let start_address = UserVirtual::try_new(start)?;
         let end_address = UserVirtual::try_new(end)?;
+        let mapping_flags = section_paging_flags(&phdr);
 
         // Check that there is no overflow when computing the end address
         if start_address > end_address {
             return Err(LoadError::InvalidOffset);
         }
 
+        // Reserve the area in the VMM to avoid conflicts with other mappings
+        // during execution of the program. What ? How did I know that ? Well...
+        let area = user::vmm::area::Area::builder()
+            .range(start_address.page_align_down()..end_address.page_align_up())
+            .access(user::vmm::area::Access::from(mapping_flags))
+            .flags(user::vmm::area::Flags::FIXED)
+            .kind(user::vmm::area::Type::Anonymous)
+            .build();
+
+        vmm.lock()
+            .mmap(area)
+            .expect("Failed to reserve an memory area for an ELF segment");
+
         let mut segment_offset = 0usize;
         let mut page = start_address;
-
         while page < end_address {
             unsafe {
+                let mapping_vaddr = Virtual::from(page);
                 let mapped_frame = FRAME_ALLOCATOR
                     .lock()
                     .allocate_frame(AllocationFlags::ZEROED)
                     .expect("failed to allocate frame for mapping an ELF segment")
                     .into_inner();
 
-                let mapping_flags = section_paging_flags(&phdr);
-                let mapping_vaddr = Virtual::from(page);
-
-                // TODO: Map the segment with the VMM
                 paging::map(
                     vmm.lock().table(),
                     mapping_vaddr,
@@ -145,6 +157,9 @@ pub enum LoadError {
     /// The ELF file contains an invalid offset (e.g. an overflow when computing
     /// the end address or overlapping with kernel space)
     InvalidOffset,
+
+    /// The ELF file contains overlapping segments
+    OverlappingSegments,
 
     /// The ELF file is for an unsupported architecture
     UnsupportedArchitecture,

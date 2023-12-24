@@ -219,16 +219,26 @@ unsafe fn deallocate_recursive(table: &mut [PageEntry], level: Level) {
 pub fn handle_page_fault(addr: Virtual, code: PageFaultErrorCode) {
     let present = code.contains(PageFaultErrorCode::PRESENT);
 
+    // Get the current task, the current thread and the current VMM. If the task does not have
+    // a VMM, it means that the page fault occurred in a kernel thread. Page faults in kernel
+    // threads are unrecoverable and should never happen, so we panic. However, page faults that
+    // occur in kernel when the current task is a user task ARE recoverable !
+    let current_task = SCHEDULER.current_task();
+    let current_thread = current_task.thread().lock();
+    let Some(table) = current_thread.vmm() else {
+        panic!("Page fault exception at {} in kernel thread", addr);
+    };
+
+    // Try to page in the page if it is not present in memory. If the page
+    // was successfully paged in, we can return immediately, otherwise the
+    // page fault is unrecoverable.
     if let Ok(uaddr) = UserVirtual::try_new(addr.as_usize()) {
-        // Try to page in the page if it is not present in memory. If the page
-        // was successfully paged in, we can return immediately, otherwise the
-        // page fault is unrecoverable.
-        if let Some(table) = SCHEDULER.current_task().thread().lock().vmm() {
-            if !present && table.lock().page_in(uaddr, Access::from(code)).is_ok() {
+        if !present {
+            if let Err(e) = table.lock().page_in(uaddr, Access::from(code)) {
+                log::error!("Failed to page in page at {:#x}: {:?}", addr, e);
+            } else {
                 return;
             }
-        } else {
-            panic!("Page fault in kernel thread");
         }
     }
 

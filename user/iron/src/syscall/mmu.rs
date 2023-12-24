@@ -16,11 +16,25 @@ bitflags! {
         /// Execute access. Allow executing code in the region. This flags also
         /// implies read access, even if the `READ` flag is not set.
         const EXECUTE = 1 << 2;
+
+        /// Read and write access combined together.
+        const READ_WRITE = Self::READ.bits() | Self::WRITE.bits();
+
+        /// Read and execute access combined together.
+        const READ_EXECUTE = Self::READ.bits() | Self::EXECUTE.bits();
+
+        /// Read, write and execute access combined together.
+        const ALL = Self::READ.bits() | Self::WRITE.bits() | Self::EXECUTE.bits();
     }
 
     /// Flags for memory regions.
     #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct Flags : u64 {
+        /// The region is private to the process. Any modification to the region will not
+        /// be visible to other processes that have mapped the region. This is the default
+        /// behavior if the `SHARED` flag is not set.
+        const PRIVATE = 0;
+
         /// The region must be mapped at the given address. If the region cannot be mapped
         /// at the given address, the mapping will fail.
         const FIXED = 1 << 0;

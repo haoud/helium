@@ -20,17 +20,13 @@ pub mod vmm;
 #[init]
 pub fn setup() {
     scheduler::setup();
-
-    // Load 10 init tasks for testing
-    for _ in 0..10 {
-        SCHEDULER.add_task(
-            task::elf::load(
-                Arc::new(Spinlock::new(vmm::Manager::new())),
-                include_bytes!("../../../iso/boot/init.elf"),
-            )
-            .expect("Failed to load init task"),
-        );
-    }
+    SCHEDULER.add_task(
+        task::elf::load(
+            Arc::new(Spinlock::new(vmm::Manager::new())),
+            include_bytes!("../../../iso/boot/init.elf"),
+        )
+        .expect("Failed to load init task"),
+    );
 }
 
 /// Enter userland. This function after the kernel has been initialized and jumps to the init
