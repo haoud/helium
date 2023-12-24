@@ -3,5 +3,15 @@
 extern crate alloc;
 
 fn main() {
-    iron::syscall::serial::print("Hello, world!\n");
+    // Get the framebuffer info from the kernel
+    let framebuffer_info =
+        iron::syscall::video::framebuffer_info().expect("Failed to get framebuffer info");
+
+    // Print the framebuffer info to the serial port
+    iron::syscall::serial::print(&alloc::format!(
+        "Framebuffer info: {}x{}x{}\n",
+        framebuffer_info.width,
+        framebuffer_info.height,
+        framebuffer_info.bpp
+    ));
 }

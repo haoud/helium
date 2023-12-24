@@ -1,5 +1,5 @@
 /// This type represents the status code the current process can return to its
-/// parent under normal termination. 
+/// parent under normal termination.
 pub struct ExitCode(i32);
 
 impl ExitCode {

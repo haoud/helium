@@ -5,6 +5,7 @@ use macros::syscall_handler;
 pub mod mmu;
 pub mod serial;
 pub mod task;
+pub mod video;
 
 /// The type of the return value of a syscall. All syscalls must return a value that fits
 /// in an usize. However, some values are reserved for indicating an error: values between
@@ -23,6 +24,7 @@ pub enum Syscall {
     TaskYield = 5,
     MmuMap = 6,
     MmuUnmap = 7,
+    VideoFramebufferInfo = 8,
 }
 
 impl Syscall {
@@ -39,6 +41,7 @@ impl Syscall {
             5 => Some(Self::TaskYield),
             6 => Some(Self::MmuMap),
             7 => Some(Self::MmuUnmap),
+            8 => Some(Self::VideoFramebufferInfo),
             _ => None,
         }
     }
@@ -101,6 +104,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::TaskYield) => task::yields(),
         Some(Syscall::MmuMap) => mmu::map(a, b, c, d),
         Some(Syscall::MmuUnmap) => mmu::unmap(a, b),
+        Some(Syscall::VideoFramebufferInfo) => video::framebuffer_info(a),
         None => Err(SyscallError::NoSuchSyscall),
     };
 

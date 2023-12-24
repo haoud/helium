@@ -3,9 +3,9 @@
 #![feature(lang_items)]
 #![feature(never_type)]
 
-pub mod alloc;     
-pub mod syscall;
+pub mod alloc;
 pub mod process;
+pub mod syscall;
 
 #[global_allocator]
 static mut ALLOCATOR: alloc::Allocator = alloc::Allocator::empty();
@@ -13,15 +13,13 @@ static mut ALLOCATOR: alloc::Allocator = alloc::Allocator::empty();
 /// Initialize the runtime. For now, this function does nothing but in the future it should
 /// initialize the thread-local storage, the command line arguments, the environment variables
 /// and other runtime components.
-/// 
+///
 /// This function is NOT guaranteed to be called, for example if application code is externally
 /// called.
-unsafe fn init() {
-
-}
+unsafe fn init() {}
 
 /// The lang start function.
-/// 
+///
 /// This is a special function that will be used by the compiler to generate a C `main` function
 /// that can be called by the entry point of the application. This function simply will call the
 /// `init` function to setup the runtime and then call the Rust `main` function. The return value
@@ -54,7 +52,7 @@ unsafe extern "C" fn _start() -> ! {
 }
 
 /// The panic handler.
-/// 
+///
 /// This function is called when the application panics. The library does not support unwinding,
 /// so this function simply print a message and exit the application. In the future, this function
 /// should be able to print more information about the panic message and the backtrace.

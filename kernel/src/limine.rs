@@ -8,3 +8,6 @@ pub static LIMINE_HHDM: limine::HhdmRequest = limine::HhdmRequest::new(0);
 /// The Limine SMP request. This tells Limine to start the APs, so we have much less work
 /// to do and we can focus on more important things.
 pub static LIMINE_SMP: limine::SmpRequest = limine::SmpRequest::new(0);
+
+/// The Limine framebuffer request. This tells Limine to set up a framebuffer for us.
+pub static LIMINE_FRAMEBUFFER: limine::FramebufferRequest = limine::FramebufferRequest::new(0);

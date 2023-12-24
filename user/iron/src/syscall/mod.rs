@@ -25,6 +25,7 @@
 pub mod mmu;
 pub mod serial;
 pub mod task;
+pub mod video;
 
 #[repr(u64)]
 #[non_exhaustive]
