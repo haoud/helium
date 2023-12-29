@@ -24,6 +24,7 @@ extern crate alloc;
 compile_error!("Helium only supports x86_64 computers");
 
 pub mod config;
+pub mod fs;
 pub mod limine;
 pub mod logger;
 pub mod mm;
@@ -64,6 +65,9 @@ pub unsafe extern "C" fn _start() -> ! {
 
     // Setup the userland environment
     user::setup();
+
+    // Initialize the virtual filesystem and the filesystems
+    vfs::setup();
 
     // Run the APs
     x86_64::smp::go();

@@ -14,7 +14,6 @@ impl Path {
     /// count can be less than this.
     pub const MAX_LEN: usize = 4096;
 
-    
     /// Creates a root path.
     #[must_use]
     pub const fn root() -> Self {
@@ -25,7 +24,7 @@ impl Path {
     }
 
     /// Create a new path from a string.
-    /// 
+    ///
     /// # Errors
     /// This function will return an error if the path is empty, contains a forbidden
     /// character (currently, the null byte), or is too long. See [`InvalidPath`] for more
@@ -51,7 +50,7 @@ impl Path {
     }
 
     /// Validates a path to ensure it is valid.
-    /// 
+    ///
     /// # Errors
     /// This function will return an error if the path is empty, contains a forbidden
     /// character (currently, the null byte), or is too long. See [`InvalidPath`] for more

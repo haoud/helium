@@ -8,7 +8,7 @@ impl Name {
     const MAX_LEN: usize = 255;
 
     /// Creates a new name from a string.
-    /// 
+    ///
     /// # Errors
     /// This function will return an error if the name is empty, contains a forbidden
     /// character (currently, the null byte and the forward slash), or is too long
@@ -19,7 +19,7 @@ impl Name {
     }
 
     /// Validates a name.
-    /// 
+    ///
     /// # Errors
     /// This function will return an error if the name is empty, contains a forbidden
     /// character (currently, the null byte and the forward slash), or is too long
