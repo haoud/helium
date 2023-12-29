@@ -1,17 +1,58 @@
-use alloc::{boxed::Box, vec::Vec};
+use super::mount::{MountedSuper, Super};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use macros::init;
 use sync::Spinlock;
 
 /// The list of all registered filesystems.
-static FILESYTEMS: Spinlock<Vec<Box<dyn Filesystem>>> = Spinlock::new(Vec::new());
+static FILESYTEMS: Spinlock<Vec<RegisteredFilesystem>> = Spinlock::new(Vec::new());
+
+/// A filesystem that has been registered inside the kernel. This struct is used
+/// to keep track of all mounted superblocks for a given filesystem.
+pub struct RegisteredFilesystem {
+    supers: Vec<Arc<Spinlock<MountedSuper>>>,
+    fs: Box<dyn Filesystem>,
+}
+
+impl RegisteredFilesystem {
+    /// Add the given superblock to the list of mounted superblocks.
+    ///
+    /// # Panics
+    /// This function will panic if the superblock is already in the list of
+    /// mounted superblocks.
+    pub fn add_super(&mut self, superblock: Arc<Spinlock<MountedSuper>>) {
+        assert!(
+            !self.supers.iter().any(|s| Arc::ptr_eq(s, &superblock)),
+            "Superblock is already mounted"
+        );
+        self.supers.push(superblock);
+    }
+
+    /// Remove the given superblock from the list of mounted superblocks. If the
+    /// superblock is not found in the list, this function does nothing.
+    pub fn remove_super(&mut self, superblock: &Arc<Spinlock<MountedSuper>>) {
+        self.supers.retain(|s| !Arc::ptr_eq(s, superblock));
+    }
+
+    /// Returns the list of all mounted superblocks for this filesystem.
+    #[must_use]
+    pub fn supers(&self) -> &[Arc<Spinlock<MountedSuper>>] {
+        &self.supers
+    }
+
+    /// Return the inner filesystem.
+    #[must_use]
+    pub fn inner(&self) -> &dyn Filesystem {
+        &*self.fs
+    }
+}
 
 /// The trait that all filesystems must implement.
-pub trait Filesystem: Send + Sync {
+pub trait Filesystem: Send {
     /// Mount the filesystem.
-    /// 
+    ///
     /// # Errors
     /// See [`MountError`] for a list of possible errors.
-    fn mount(&self) -> Result<(), MountError>;
+    fn mount(&self) -> Result<Box<dyn Super>, MountError>;
 
     /// Returns the name of the filesystem. It must be unique among all
     /// registered filesystems and is used to identify the filesystem.
@@ -28,7 +69,10 @@ pub fn register(fs: Box<dyn Filesystem>) {
         "Filesystem {} already exists",
         fs.name()
     );
-    FILESYTEMS.lock().push(fs);
+    FILESYTEMS.lock().push(RegisteredFilesystem {
+        supers: Vec::new(),
+        fs,
+    });
 }
 
 /// Unregister a filesystem.
@@ -41,7 +85,7 @@ pub fn unregister(_: Box<dyn Filesystem>) {
 
 /// Check if a filesystem exists.
 pub fn exists(name: &str) -> bool {
-    FILESYTEMS.lock().iter().any(|fs| fs.name() == name)
+    FILESYTEMS.lock().iter().any(|fs| fs.inner().name() == name)
 }
 
 /// Register the root filesystem.
@@ -50,7 +94,7 @@ pub fn exists(name: &str) -> bool {
 /// virtual filesystem.
 #[init]
 pub fn register_root(_fs: &str) {
-    // TODO: Mount the root filesystem.
+    // TODO: Get the filesystem and mount it.
 }
 
 /// Possible errors that can occur while mounting a filesystem.

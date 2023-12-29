@@ -1,6 +1,8 @@
 use crate::fs::ramfs;
 
 pub mod fs;
+pub mod inode;
+pub mod mount;
 pub mod name;
 pub mod path;
 
