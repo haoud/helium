@@ -24,6 +24,7 @@ extern crate alloc;
 compile_error!("Helium only supports x86_64 computers");
 
 pub mod config;
+pub mod device;
 pub mod fs;
 pub mod limine;
 pub mod logger;
