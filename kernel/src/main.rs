@@ -33,7 +33,6 @@ pub mod qemu;
 pub mod syscall;
 pub mod time;
 pub mod user;
-pub mod vfs;
 pub mod x86_64;
 
 /// # The entry point of the kernel. Initialises the kernel and jumps to userland.
@@ -65,9 +64,6 @@ pub unsafe extern "C" fn _start() -> ! {
 
     // Setup the userland environment
     user::setup();
-
-    // Initialize the virtual filesystem and the filesystems
-    vfs::setup();
 
     // Run the APs
     x86_64::smp::go();
