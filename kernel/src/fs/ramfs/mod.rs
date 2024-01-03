@@ -3,10 +3,6 @@ use alloc::{string::String, vec, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
 use hashbrown::HashMap;
 
-use crate::vfs;
-
-pub mod fs;
-
 /// A global counter that is used to generate unique inode identifiers.
 static INODE_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -269,14 +265,4 @@ pub struct DirectoryEntry {
     inode: InodeIdentifier,
     kind: InodeKind,
     name: String,
-}
-
-pub fn register() {
-    vfs::fs::register(vfs::fs::Filesystem {
-        name: "ramfs",
-        supers: Vec::new(),
-        operations: vfs::fs::Operations {
-            read_super: fs::read_super,
-        },
-    });
 }
