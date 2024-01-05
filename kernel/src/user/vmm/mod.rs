@@ -11,7 +11,7 @@ use crate::{
     },
 };
 use addr::{user::UserVirtual, virt::Virtual};
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::collections::BTreeMap;
 use core::ops::Range;
 
 pub mod area;

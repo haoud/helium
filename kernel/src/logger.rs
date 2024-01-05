@@ -1,7 +1,5 @@
 use crate::x86_64::serial::{Port, Serial};
 use core::fmt::Write;
-use macros::init;
-use sync::{Lazy, Spinlock};
 
 pub static SERIAL: Lazy<Spinlock<Serial>> =
     Lazy::new(|| Spinlock::new(unsafe { Serial::new(Port::COM1) }));

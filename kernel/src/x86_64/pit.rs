@@ -1,6 +1,5 @@
 use super::io::Port;
 use core::sync::atomic::{AtomicU64, Ordering};
-use macros::init;
 
 /// The number of tick elapsed since the boot of the kernel. This variable is incremented every
 /// time the PIT generates an IRQ.

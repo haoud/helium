@@ -1,6 +1,6 @@
 use super::{sleep, State, Task};
 use crate::user::scheduler::{Scheduler, SCHEDULER};
-use alloc::{collections::VecDeque, sync::Arc};
+use alloc::collections::VecDeque;
 
 pub struct WaitQueue {
     tasks: VecDeque<Arc<Task>>,

@@ -3,8 +3,6 @@ use super::{
     gdt, instruction,
 };
 use bitfield::{BitMut, BitRangeMut};
-use macros::{init, interrupt};
-use sync::Spinlock;
 
 core::arch::global_asm!(include_str!("asm/interrupt.asm"));
 

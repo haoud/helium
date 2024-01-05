@@ -4,8 +4,6 @@ use frame::{
     allocator::{dummy, Allocator},
     AllocationFlags,
 };
-use macros::init;
-use sync::{Lazy, Spinlock};
 
 pub mod frame;
 pub mod heap;

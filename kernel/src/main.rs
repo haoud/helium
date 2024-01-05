@@ -3,6 +3,7 @@
 #![warn(clippy::all)]
 #![warn(clippy::pedantic)]
 #![allow(dead_code)]
+#![allow(internal_features)]
 #![allow(clippy::match_bool)]
 #![allow(clippy::unreadable_literal)]
 #![allow(clippy::module_name_repetitions)]
@@ -11,12 +12,11 @@
 #![feature(step_trait)]
 #![feature(extract_if)]
 #![feature(const_option)]
+#![feature(prelude_import)]
 #![feature(const_mut_refs)]
 #![feature(naked_functions)]
 #![feature(btree_extract_if)]
 #![feature(panic_info_message)]
-
-use macros::init;
 
 extern crate alloc;
 
@@ -36,6 +36,23 @@ pub mod time;
 pub mod user;
 pub mod vfs;
 pub mod x86_64;
+
+/// The prelude of the kernel. It re-exports the prelude of the core standard library and some
+/// imports that are often used in the kernel, allowing to use them without having to import
+/// them in each file and improving the readability of the code.
+#[rustfmt::skip]
+pub mod prelude {
+    pub use core::prelude::rust_2021::*;
+    pub use alloc::string::{String, ToString};
+    pub use alloc::boxed::Box;
+    pub use alloc::sync::Arc;
+    pub use alloc::vec::Vec;
+    pub use macros::*;
+    pub use sync::*;
+}
+
+#[prelude_import]
+pub use prelude::*;
 
 /// # The entry point of the kernel. Initialises the kernel and jumps to userland.
 ///

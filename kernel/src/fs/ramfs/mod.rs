@@ -1,5 +1,5 @@
+use alloc::vec;
 /// FIXME: Inode link count
-use alloc::{string::String, vec, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
 use hashbrown::HashMap;
 

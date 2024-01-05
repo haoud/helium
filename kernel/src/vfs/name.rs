@@ -1,5 +1,3 @@
-use alloc::string::String;
-
 /// A name. The structure ensure that the name is valid.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Name(String);

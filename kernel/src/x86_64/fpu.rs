@@ -1,6 +1,4 @@
 use super::cpu::{Cr0, Cr4, XCr0};
-use alloc::boxed::Box;
-use macros::init;
 
 /// The buffer used to store the FPU state. It must be in a 64 bytes aligned
 /// memory region, and that's why it must have its own struct instead of

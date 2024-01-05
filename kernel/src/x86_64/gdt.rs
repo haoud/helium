@@ -1,7 +1,5 @@
 use bitfield::BitRangeMut;
 use bitflags::bitflags;
-use macros::init;
-use sync::Spinlock;
 
 use super::{cpu::Privilege, instruction, tss::TaskStateSegment, MAX_CPUS};
 

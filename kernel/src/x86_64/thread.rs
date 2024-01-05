@@ -17,10 +17,8 @@ use crate::{
     },
 };
 use addr::{user::UserVirtual, virt::Virtual};
-use alloc::sync::Arc;
 use core::{num::NonZeroU64, ops::Sub};
 use lib::align::Align;
-use sync::Spinlock;
 
 core::arch::global_asm!(include_str!("asm/thread.asm"));
 

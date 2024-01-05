@@ -1,5 +1,4 @@
 use super::io::Port;
-use macros::init;
 
 static MASTER_PIC_CMD: Port<u8> = Port::new(0x20);
 static MASTER_PIC_DATA: Port<u8> = Port::new(0x21);

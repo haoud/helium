@@ -3,7 +3,6 @@ use super::{
     idt::{self, IDT},
     paging::{self, table::PageFaultErrorCode},
 };
-use macros::{exception, exception_err, init};
 
 /// Setup the exception handlers.
 ///

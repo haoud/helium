@@ -4,7 +4,6 @@ use crate::x86_64::{
     lapic::{self, IpiDestination, IpiPriority},
 };
 use addr::virt::Virtual;
-use macros::interrupt;
 
 /// The vector number of the TLB invalidation interrupt.
 pub const SHOOTDOWN_VECTOR: u8 = 0x7F;

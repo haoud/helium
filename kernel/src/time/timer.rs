@@ -1,7 +1,5 @@
 use super::{units::Nanosecond, uptime_fast};
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicBool, Ordering};
-use sync::{Lazy, Spinlock};
 
 /// The list of active timers.
 static TIMERS: Lazy<Spinlock<Vec<Timer>>> = Lazy::new(|| Spinlock::new(Vec::new()));

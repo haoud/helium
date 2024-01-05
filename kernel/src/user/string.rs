@@ -1,10 +1,7 @@
 use super::{object::Object, pointer::Pointer};
 use crate::{config::MAX_STR, x86_64};
 use addr::user::UserVirtual;
-use alloc::{
-    string::{FromUtf8Error, String},
-    vec::Vec,
-};
+use alloc::string::FromUtf8Error;
 
 /// A string that is stored in the userland address space. It is a structure that are created by
 /// the rust syscall library and passed to the kernel, so the kernel can then fetch the string from

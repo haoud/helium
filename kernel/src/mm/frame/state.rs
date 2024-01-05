@@ -6,7 +6,6 @@ use addr::{
 };
 use core::mem::size_of;
 use limine::NonNullPtr;
-use macros::init;
 
 /// Represents the state of a physical memory frame, and contains information about the frame such
 /// as its flags and its reference count.

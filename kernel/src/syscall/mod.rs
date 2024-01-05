@@ -1,6 +1,5 @@
 use crate::user::buffer::BufferError;
 use addr::user::InvalidUserVirtual;
-use macros::syscall_handler;
 
 pub mod mmu;
 pub mod serial;

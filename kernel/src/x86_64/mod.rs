@@ -1,6 +1,5 @@
 use self::paging::tlb;
 use crate::user::scheduler;
-use macros::init;
 
 pub mod apic;
 pub mod cpu;

@@ -8,7 +8,6 @@ use crate::{
     time::timer,
     user::scheduler::{Scheduler, SCHEDULER},
 };
-use macros::{init, interrupt, irq_handler};
 
 /// The IPI vector used to inform the CPU that a new timer tick is available.
 const CLOCK_VECTOR: u8 = 0x7E;

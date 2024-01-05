@@ -1,6 +1,5 @@
 use alloc::ffi::CString;
 use core::cell::Cell;
-use macros::per_cpu;
 
 use crate::{user, x86_64};
 

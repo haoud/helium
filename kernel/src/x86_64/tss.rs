@@ -4,7 +4,6 @@ use super::{
     instruction, smp,
 };
 use addr::virt::Virtual;
-use macros::{init, per_cpu};
 
 /// The Task State Segment (TSS) for the current CPU. This is a per-cpu variable, and therefore
 /// each CPU has its own TSS.

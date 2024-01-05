@@ -1,9 +1,6 @@
 use super::task::{self, State, Task};
 use super::{yield_cpu, SCHEDULER};
-use alloc::{sync::Arc, vec::Vec};
 use core::cell::RefCell;
-use macros::per_cpu;
-use sync::{Lazy, Spinlock};
 
 /// The current task running on the CPU. This is a per-CPU variable, so each CPU has its own
 /// current task. If the CPU is idle, this variable is set to `None`.

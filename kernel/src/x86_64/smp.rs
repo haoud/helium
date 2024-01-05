@@ -3,12 +3,10 @@ use crate::{
     limine::LIMINE_SMP,
     user::scheduler::{Scheduler, SCHEDULER},
 };
-use alloc::vec::Vec;
 use core::{
     cell::OnceCell,
     sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
-use macros::{init, per_cpu};
 
 /// Represent the number of CPUs that have started. After the initialization of the kernel, this
 /// variable could be used to determine the number of CPUs in the system.

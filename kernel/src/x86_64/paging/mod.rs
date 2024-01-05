@@ -10,8 +10,6 @@ use crate::{
     x86_64::paging::table::PageFaultErrorCode,
 };
 use addr::{frame::Frame, phys::Physical, user::UserVirtual, virt::Virtual};
-use macros::init;
-use sync::Lazy;
 
 pub mod table;
 pub mod tlb;

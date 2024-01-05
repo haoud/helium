@@ -1,5 +1,3 @@
-use macros::init;
-
 #[init]
 #[allow(clippy::missing_safety_doc)]
 pub unsafe fn remap() {

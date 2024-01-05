@@ -3,7 +3,6 @@ use core::{
     alloc::{GlobalAlloc, Layout},
     ops::{Deref, Range},
 };
-use sync::Spinlock;
 
 /// A heap that can be used for memory allocation. The inner heap is protected by a spinlock,
 /// allowing for concurrent access to the heap.

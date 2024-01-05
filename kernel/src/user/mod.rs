@@ -1,7 +1,4 @@
 use crate::x86_64;
-use alloc::sync::Arc;
-use macros::init;
-use sync::Spinlock;
 
 use self::scheduler::{Scheduler, SCHEDULER};
 pub mod buffer;

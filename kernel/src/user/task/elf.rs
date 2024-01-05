@@ -10,10 +10,8 @@ use addr::{
     user::{InvalidUserVirtual, UserVirtual},
     virt::Virtual,
 };
-use alloc::sync::Arc;
 use core::{cmp::min, num::TryFromIntError};
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
-use sync::Spinlock;
 
 use super::Task;
 

@@ -1,9 +1,6 @@
 use self::round_robin::RoundRobin;
 use super::task::{self, State, Task};
 use crate::x86_64;
-use alloc::sync::Arc;
-use macros::{init, per_cpu};
-use sync::Lazy;
 
 pub mod round_robin;
 

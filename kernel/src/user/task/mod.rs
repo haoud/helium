@@ -4,9 +4,7 @@ use super::{
 };
 use crate::user::vmm;
 use crate::x86_64::thread::{KernelThreadFn, Thread};
-use alloc::{sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicU64, Ordering};
-use sync::Spinlock;
 
 pub mod elf;
 pub mod preempt;

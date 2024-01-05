@@ -1,6 +1,5 @@
 use crate::x86_64;
 use core::sync::atomic::{AtomicUsize, Ordering};
-use macros::per_cpu;
 
 /// The number of times preemption has been enabled on the current core. By default, preemption is
 /// enabled inside the kernel, so this variable is initialized to 0. When preemption is disabled,

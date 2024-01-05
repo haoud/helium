@@ -1,5 +1,4 @@
 use super::name::{InvalidName, Name};
-use alloc::{string::String, vec::Vec};
 use core::fmt::Display;
 
 /// A path. The structure ensure that the path and its components are valid

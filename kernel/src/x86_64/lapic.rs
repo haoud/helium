@@ -1,5 +1,3 @@
-use macros::init;
-
 /// The virtual address of the local APIC base address.
 pub const LAPIC_BASE: u64 = 0xFFFF_8000_FEE0_0000;
 
