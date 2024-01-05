@@ -1,10 +1,14 @@
-use core::any::Any;
-
-use super::{file, inode, mount::Super};
+use super::{dirent, file, inode, mount::Super};
 use crate::{
     device::{self, Device},
     time::unix::UnixTime,
 };
+use alloc::sync::Weak;
+use core::any::Any;
+
+/// The root inode of the filesystem. It is initialized when the filesystem
+/// is mounted, and is used by the VFS to access the filesystem.
+pub static ROOT: Once<Arc<Inode>> = Once::new();
 
 /// The identifier of an inode. It must be unique among all inodes of the
 /// filesystem and is used by the superblock to cache inodes and retrieve
@@ -32,13 +36,13 @@ pub struct Inode {
     /// The operation table for this inode. It may differs depending on the
     /// type of the inode. For example, a directory and a file have different
     /// operations because they must be handled differently.
-    pub inode_ops: &'static inode::Operation,
+    pub inode_ops: inode::Operation,
 
     /// The operation table for this inode if opened as a file. It is necessary
     /// because block or character devices, when opened on a filesystem, have
     /// a different file operation table because they does not interact with
     /// the filesystem.
-    pub file_ops: &'static file::Operation,
+    pub file_ops: file::Operation,
 
     /// The state of this inode. It contains informations about the inode that
     /// can change over time, like the last time it has been modified. It is
@@ -52,12 +56,12 @@ pub struct Inode {
     pub data: Box<dyn Any + Send + Sync>,
 
     /// The superblock of this inode.
-    superblock: Arc<Super>,
+    pub superblock: Weak<Super>,
 }
 
 impl Inode {
     #[must_use]
-    pub fn new(superblock: Arc<Super>, info: InodeCreationInfo) -> Self {
+    pub fn new(superblock: Weak<Super>, info: InodeCreateInfo) -> Self {
         Self {
             state: Spinlock::new(info.state),
             inode_ops: info.inode_ops,
@@ -65,9 +69,17 @@ impl Inode {
             device: info.device,
             data: info.data,
             kind: info.kind,
-            superblock,
             id: info.id,
+            superblock,
         }
+    }
+
+    /// Returns the kind of this inode, but using the dirent Kind structure
+    /// instead of the inode Kind structure that contains more informations
+    /// and can be annoying to use.
+    #[must_use]
+    pub fn dirent_kind(&self) -> dirent::Kind {
+        dirent::Kind::from(self.kind)
     }
 }
 
@@ -119,6 +131,7 @@ pub struct InodeState {
 }
 
 /// The type of an inode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
     BlockDevice(device::Identifier),
     CharDevice(device::Identifier),
@@ -128,19 +141,19 @@ pub enum Kind {
 
 /// The creation information for an inode. For more informations about the
 /// fields, see the documentation of the [`Inode`] structure.
-pub struct InodeCreationInfo {
+pub struct InodeCreateInfo {
     pub id: Identifier,
     pub device: Device,
     pub kind: Kind,
-    pub inode_ops: &'static inode::Operation,
-    pub file_ops: &'static file::Operation,
+    pub inode_ops: inode::Operation,
+    pub file_ops: file::Operation,
     pub state: InodeState,
     pub data: Box<dyn Any + Send + Sync>,
 }
 
 pub enum Operation {
-    Directory(DirectoryOperation),
-    File(FileOperation),
+    Directory(&'static DirectoryOperation),
+    File(&'static FileOperation),
 }
 
 impl Operation {
@@ -195,7 +208,7 @@ pub struct DirectoryOperation {
     /// # Errors
     /// If the inode could not be removed, an error is returned, described by
     /// the [`LookupError`] enum.
-    pub unlink: fn(inode: &Inode, name: &str) -> Result<(), LookupError>,
+    pub unlink: fn(inode: &Inode, name: &str) -> Result<(), UnlinkError>,
 
     /// Creates a new directory with the given name in the given directory, and returns
     /// the identifier of the new inode.
@@ -203,7 +216,7 @@ pub struct DirectoryOperation {
     /// # Errors
     /// If the inode could not be created, an error is returned, described by
     /// the [`MkdirError`] enum.
-    pub mkdir: fn(inode: &Inode, name: &str) -> Result<(), MkdirError>,
+    pub mkdir: fn(inode: &Inode, name: &str) -> Result<Identifier, MkdirError>,
 
     /// Removes the directory with the given name from the given directory.
     ///
@@ -243,30 +256,71 @@ pub struct FileOperation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TruncateError {}
 
-/// The error returned when an inode could not be truncated.
+/// The error returned when an file inode could not be created.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum CreateError {}
+pub enum CreateError {
+    /// An entry with the same name already exists in the directory.
+    AlreadyExists,
+}
 
 /// The error returned when an inode could not be created.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MknodError {}
 
-/// The error returned when an inode could not be found.
+/// The error returned when an inode could not be found i na directory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum LookupError {}
+pub enum LookupError {
+    /// The entry does not exist in the directory.
+    NoSuchEntry,
+}
 
 /// The error returned when a directory could not be removed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum RmdirError {}
+pub enum RmdirError {
+    /// The entry does not exist in the directory.
+    NoSuchEntry,
+
+    /// The entry is not a directory and cannot be removed with the `rmdir` but
+    /// with the `unlink` operation instead.
+    NotADirectory,
+
+    /// The directory is not empty.
+    NotEmpty,
+}
 
 /// The error returned when a directory could not be created.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MkdirError {}
+pub enum MkdirError {
+    /// An entry with the same name already exists in the directory.
+    AlreadyExists,
+}
 
 /// The error returned when an inode could not be renamed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum RenameError {}
+pub enum RenameError {
+    /// The entry does not exist in the directory.
+    NoSuchEntry,
+
+    /// An entry with the same name already exists in the directory.
+    AlreadyExists,
+}
 
 /// The error returned when a link could not be created.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LinkError {}
+
+/// The error returned when an inode could not be unlinked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum UnlinkError {
+    /// The entry is reserved for the filesystem usage and cannot be removed.
+    /// This error is returned when trying to remove the `.` and `..` entries
+    /// of a directory in some filesystems.
+    ReservedEntry,
+
+    /// The entry is a directory that must be removed with the `rmdir` operation
+    /// and not the `unlink` operation.
+    IsADirectory,
+
+    /// The entry does not exist in the directory.
+    NoSuchEntry,
+}

@@ -84,6 +84,9 @@ pub unsafe extern "C" fn _start() -> ! {
     // Setup the userland environment
     user::setup();
 
+    // Register all the filesystems drivers
+    fs::register_all();
+
     // Initialize the virtual file system
     vfs::setup();
 

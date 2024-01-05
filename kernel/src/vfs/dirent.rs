@@ -21,3 +21,14 @@ pub enum Kind {
     Directory,
     File,
 }
+
+impl From<inode::Kind> for Kind {
+    fn from(kind: inode::Kind) -> Self {
+        match kind {
+            inode::Kind::BlockDevice(_) => Self::BlockDevice,
+            inode::Kind::CharDevice(_) => Self::CharDevice,
+            inode::Kind::Directory => Self::Directory,
+            inode::Kind::File => Self::File,
+        }
+    }
+}

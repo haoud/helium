@@ -79,7 +79,7 @@ impl Super {
         }
 
         // Read the inode from the device and cache it.
-        let inode = Arc::new((self.operation.read_inode)(id)?);
+        let inode = (self.operation.read_inode)(&self, id)?;
         self.cache_inode(Arc::clone(&inode));
         Ok(inode)
     }
@@ -151,7 +151,8 @@ pub struct Operation {
     /// # Errors
     /// If the inode could not be read from the device, an error is returned,
     /// described by the [`ReadInodeError`] enum.
-    pub read_inode: fn(inode: inode::Identifier) -> Result<Inode, ReadInodeError>,
+    pub read_inode:
+        fn(superbloc: &Super, inode: inode::Identifier) -> Result<Arc<Inode>, ReadInodeError>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -161,4 +162,7 @@ pub enum WriteSuperError {}
 pub enum WriteInodeError {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ReadInodeError {}
+pub enum ReadInodeError {
+    /// The inode does not exist.
+    DoesNotExist,
+}

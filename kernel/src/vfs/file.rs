@@ -32,8 +32,8 @@ pub struct OpenFileState {
 /// The operation table for a open file. Depending on the type of the inode
 /// opened by the file, the operation table will be different.
 pub enum Operation {
-    Directory(DirectoryOperation),
-    File(FileOperation),
+    Directory(&'static DirectoryOperation),
+    File(&'static FileOperation),
 }
 
 bitflags::bitflags! {
