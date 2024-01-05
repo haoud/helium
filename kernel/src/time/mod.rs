@@ -4,6 +4,7 @@ use core::sync::atomic::Ordering;
 
 pub mod timer;
 pub mod units;
+pub mod unix;
 
 /// Returns the uptime in nanoseconds.
 #[must_use]
