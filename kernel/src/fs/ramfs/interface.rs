@@ -1,6 +1,7 @@
-use super::{InodeDirectory, InodeFile, Superblock};
+//! TODO: Verify that inode has the correct type (file or directory)
+use super::{generate_inode_id, InodeDirectory, InodeFile, Superblock};
 use crate::{
-    device::{Device, Identifier},
+    device::Device,
     fs::ramfs,
     time::unix::UnixTime,
     vfs::{self, mount::SuperCreationInfo},
@@ -39,19 +40,46 @@ pub static FILE_DIRECTORY_OPS: vfs::file::DirectoryOperation =
 /// VFS superblock.
 #[allow(clippy::unnecessary_wraps)]
 fn read_super(
-    fs: &vfs::fs::Filesystem,
+    _: &vfs::fs::Filesystem,
     _: Device,
-) -> Result<vfs::mount::Super, vfs::fs::ReadSuperError> {
-    let superblock = Superblock::new();
-    let root = superblock.get_root_inode();
-
-    // Create the VFS superblock and return it.
-    Ok(vfs::mount::Super::new(SuperCreationInfo {
+) -> Result<Arc<vfs::mount::Super>, vfs::fs::ReadSuperError> {
+    let ramfs_superblock = Superblock::new();
+    let root_id = ramfs_superblock.get_root_inode_id();
+    let vfs_superblock = Arc::new(vfs::mount::Super::new(SuperCreationInfo {
         operation: &SUPER_OPS,
         device: Device::None,
-        data: Box::new(Spinlock::new(superblock)),
-        root,
-    }))
+        data: Box::new(Spinlock::new(ramfs_superblock)),
+        root: root_id,
+    }));
+
+    // Create the root inode and add it to the ramfs super
+    let mut root = vfs::inode::Inode::new(
+        Arc::downgrade(&vfs_superblock),
+        vfs::inode::InodeCreateInfo {
+            id: vfs::inode::Identifier(generate_inode_id().0),
+            device: Device::None,
+            kind: vfs::inode::Kind::Directory,
+            inode_ops: vfs::inode::Operation::Directory(&INODE_DIR_OPS),
+            file_ops: vfs::file::Operation::Directory(&FILE_DIRECTORY_OPS),
+            state: vfs::inode::InodeState {
+                modification_time: UnixTime::now(),
+                access_time: UnixTime::now(),
+                change_time: UnixTime::now(),
+                links: 0,
+                size: 0,
+            },
+            data: Box::new(()),
+        },
+    );
+    root.data = Box::new(Spinlock::new(InodeDirectory::new(&root, root_id)));
+    vfs_superblock
+        .data
+        .downcast_ref::<Spinlock<Superblock>>()
+        .unwrap()
+        .lock()
+        .inodes
+        .insert(root_id, Arc::new(root));
+    Ok(vfs_superblock)
 }
 
 /// Write the superblock to the device. Since the ramfs is a memory filesystem,
@@ -86,10 +114,10 @@ fn read_inode(
 ) -> Result<Arc<vfs::inode::Inode>, vfs::mount::ReadInodeError> {
     let ramfs_super = superblock
         .data
-        .downcast_ref::<Superblock>()
+        .downcast_ref::<Spinlock<Superblock>>()
         .expect("Superblock is not a ramfs superblock");
 
-    if let Some(inode) = ramfs_super.inodes.get(&id) {
+    if let Some(inode) = ramfs_super.lock().inodes.get(&id) {
         Ok(Arc::clone(inode))
     } else {
         Err(vfs::mount::ReadInodeError::DoesNotExist)
@@ -343,15 +371,17 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
 
+    let mut locked_ramfs_inode = ramfs_inode.lock();
+
     // Find and remove the entry from the directory. If the entry is not
     // found, it return an error.
-    let entry = ramfs_inode
-        .lock()
+    let position = locked_ramfs_inode
         .entries
         .iter()
         .position(|entry| entry.name == name)
-        .map(|index| ramfs_inode.lock().entries.remove(index))
         .ok_or(vfs::inode::RmdirError::NoSuchEntry)?;
+
+    let entry = locked_ramfs_inode.entries.remove(position);
 
     // Fetch the inode and verify that the directory is empty.
     let inode = ramfs_super

@@ -31,12 +31,14 @@ pub struct OpenFileState {
 
 /// The operation table for a open file. Depending on the type of the inode
 /// opened by the file, the operation table will be different.
+#[derive(Debug)]
 pub enum Operation {
     Directory(&'static DirectoryOperation),
     File(&'static FileOperation),
 }
 
 bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct OpenFlags: u32 {
         /// The file is opened for reading.
         const READ = 1 << 0;
@@ -73,6 +75,7 @@ pub enum Whence {
 }
 
 /// The operation table for a directory.
+#[derive(Debug)]
 pub struct DirectoryOperation {
     /// Reads the directory entry at the given offset.
     ///
@@ -83,6 +86,7 @@ pub struct DirectoryOperation {
 }
 
 /// The operation table for a file.
+#[derive(Debug)]
 pub struct FileOperation {
     /// Writes the given buffer to the file at the given offset, and returns the offset
     /// after the last byte written.

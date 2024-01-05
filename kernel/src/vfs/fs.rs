@@ -34,14 +34,17 @@ impl Filesystem {
         }
     }
 
-    /// Reads the superblock of this filesystem from the given device and
-    /// return a VFS superblock.
+    /// Reads the superblock of this filesystem from the given device, add it to
+    /// the list of mounted filesystems of this type, and return a VFS superblock.
     ///
     /// # Errors
     /// If the superblock could not be read from the device, an error is
     /// returned, described by the [`ReadSuperError`] enum.
-    pub fn read_super(&self, device: Device) -> Result<Super, ReadSuperError> {
-        (self.operation.read_super)(self, device)
+    pub fn read_super(&self, device: Device) -> Result<Arc<Super>, ReadSuperError> {
+        (self.operation.read_super)(self, device).map(|superblock| {
+            self.supers.lock().push(Arc::clone(&superblock));
+            superblock
+        })
     }
 }
 
@@ -53,7 +56,7 @@ pub struct Operation {
     /// # Errors
     /// If the superblock could not be read from the device, an error is
     /// returned, described by the [`ReadSuperError`] enum.
-    pub read_super: fn(fs: &Filesystem, device: Device) -> Result<Super, ReadSuperError>,
+    pub read_super: fn(fs: &Filesystem, device: Device) -> Result<Arc<Super>, ReadSuperError>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -100,8 +103,10 @@ pub fn mount_root(name: &str, device: Device) {
         .clone();
     let superblock = fs.read_super(device).expect("Failed to read superblock");
 
-    // Initialize the root inode and push the superblock to the list
-    // of mounted filesystems
-    inode::ROOT.call_once(|| Arc::clone(&superblock.root));
-    fs.supers.lock().push(Arc::new(superblock));
+    // Initialize the root inode
+    inode::ROOT.call_once(|| {
+        superblock
+            .get_inode(superblock.root)
+            .expect("Failed to read root inode")
+    });
 }

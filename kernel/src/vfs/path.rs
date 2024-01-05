@@ -103,6 +103,24 @@ impl Path {
     }
 }
 
+impl From<Vec<Name>> for Path {
+    fn from(components: Vec<Name>) -> Self {
+        Self {
+            components,
+            absolute: false,
+        }
+    }
+}
+
+impl From<&[Name]> for Path {
+    fn from(components: &[Name]) -> Self {
+        Self {
+            components: components.to_vec(),
+            absolute: false,
+        }
+    }
+}
+
 impl IntoIterator for Path {
     type IntoIter = alloc::vec::IntoIter<Self::Item>;
     type Item = Name;

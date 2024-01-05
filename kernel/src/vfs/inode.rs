@@ -21,6 +21,7 @@ pub struct Identifier(pub u64);
 /// allow the use of the container types provided by the standard library.
 /// The comparison is only done by comparing the inode identifiers, since the VFS
 /// assume that all inodes of a filesystem have a unique identifier.
+#[derive(Debug)]
 pub struct Inode {
     /// The identifier of this inode. It is unique among all inodes of the
     /// filesystem.
@@ -74,6 +75,20 @@ impl Inode {
         }
     }
 
+    /// Returns the operation table for this inode if it is a directory inode,
+    /// or `None` if it not a directory inode.
+    #[must_use]
+    pub fn as_directory(&self) -> Option<&DirectoryOperation> {
+        self.inode_ops.as_directory()
+    }
+
+    /// Returns the operation table for this inode if it is a file inode,
+    /// or `None` if it not a file inode.
+    #[must_use]
+    pub fn as_file(&self) -> Option<&FileOperation> {
+        self.inode_ops.as_file()
+    }
+
     /// Returns the kind of this inode, but using the dirent Kind structure
     /// instead of the inode Kind structure that contains more informations
     /// and can be annoying to use.
@@ -113,6 +128,7 @@ impl Drop for Inode {
     }
 }
 
+#[derive(Debug)]
 pub struct InodeState {
     /// The last time the inode data has been modified.
     pub modification_time: UnixTime,
@@ -151,6 +167,7 @@ pub struct InodeCreateInfo {
     pub data: Box<dyn Any + Send + Sync>,
 }
 
+#[derive(Debug)]
 pub enum Operation {
     Directory(&'static DirectoryOperation),
     File(&'static FileOperation),
@@ -178,6 +195,7 @@ impl Operation {
     }
 }
 
+#[derive(Debug)]
 pub struct DirectoryOperation {
     /// Creates a new device inode with the given name and device identifier in the given
     /// directory, and returns the identifier of the new inode.
@@ -241,6 +259,7 @@ pub struct DirectoryOperation {
     pub rename: fn(inode: &Inode, old: &str, new: &str) -> Result<(), RenameError>,
 }
 
+#[derive(Debug)]
 pub struct FileOperation {
     /// Truncates the inode data to the given size. If the size is greater than the current
     /// size of the inode, the inode data is extended and the new bytes are filled with zeros.

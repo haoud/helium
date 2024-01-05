@@ -1,11 +1,7 @@
 //! TODO: Directly use the VFS inode type to store the RAM inode type, instead of
 //! using a separate structure.
-use crate::{
-    device::Device,
-    time::unix::UnixTime,
-    vfs::{self, dirent::DirectoryEntry},
-};
-use alloc::{sync::Weak, vec};
+use crate::vfs::{self, dirent::DirectoryEntry};
+use alloc::vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 use hashbrown::HashMap;
 
@@ -20,34 +16,11 @@ pub struct Superblock {
 }
 
 impl Superblock {
-    /// Create a new superblock with a root inode. Basically, this create a new filesystem
-    /// inside the RAM of the kernel.
-    ///
-    /// FIXME: Weak::default() is not a valid inode identifier.
     #[must_use]
     pub fn new() -> Self {
-        let root = vfs::inode::Inode::new(
-            Weak::default(),
-            vfs::inode::InodeCreateInfo {
-                id: vfs::inode::Identifier(generate_inode_id().0),
-                device: Device::None,
-                kind: vfs::inode::Kind::Directory,
-                inode_ops: vfs::inode::Operation::Directory(&interface::INODE_DIR_OPS),
-                file_ops: vfs::file::Operation::Directory(&interface::FILE_DIRECTORY_OPS),
-                state: vfs::inode::InodeState {
-                    modification_time: UnixTime::now(),
-                    access_time: UnixTime::now(),
-                    change_time: UnixTime::now(),
-                    links: 1,
-                    size: 0,
-                },
-                data: Box::new(Spinlock::new(InodeDirectory::empty())),
-            },
-        );
-
-        let mut inodes = HashMap::new();
-        inodes.insert(root.id, Arc::new(root));
-        Self { inodes }
+        Self {
+            inodes: HashMap::new(),
+        }
     }
 
     /// Get the root inode of the file system.
