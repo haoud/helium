@@ -146,6 +146,16 @@ pub struct InodeState {
     pub size: u64,
 }
 
+impl InodeState {
+    /// Decrements the number of hard links to this inode and returns the new
+    /// number of links.
+    #[must_use]
+    pub fn unlinked(&mut self) -> u64 {
+        self.links -= 1;
+        self.links
+    }
+}
+
 /// The type of an inode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -167,7 +177,7 @@ pub struct InodeCreateInfo {
     pub data: Box<dyn Any + Send + Sync>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operation {
     Directory(&'static DirectoryOperation),
     File(&'static FileOperation),

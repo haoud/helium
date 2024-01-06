@@ -1,5 +1,3 @@
-//! TODO: Directly use the VFS inode type to store the RAM inode type, instead of
-//! using a separate structure.
 use crate::vfs::{self, dirent::DirectoryEntry};
 use alloc::vec;
 use core::sync::atomic::{AtomicU64, Ordering};
@@ -7,22 +5,11 @@ use hashbrown::HashMap;
 
 pub mod interface;
 
-/// A global counter that is used to generate unique inode identifiers.
-static INODE_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-///
 pub struct Superblock {
     inodes: HashMap<vfs::inode::Identifier, Arc<vfs::inode::Inode>>,
 }
 
 impl Superblock {
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            inodes: HashMap::new(),
-        }
-    }
-
     /// Get the root inode of the file system.
     ///
     /// # Panics
@@ -44,7 +31,9 @@ impl Superblock {
 
 impl Default for Superblock {
     fn default() -> Self {
-        Self::new()
+        Self {
+            inodes: HashMap::new(),
+        }
     }
 }
 
@@ -72,18 +61,20 @@ impl InodeDirectory {
         assert!(this.kind == vfs::inode::Kind::Directory);
         assert!(this.state.lock().links == 0);
 
-        this.state.lock().links = 2;
+        this.state.lock().links = 1;
         Self {
             entries: vec![
                 vfs::dirent::DirectoryEntry {
                     inode: this.id,
                     kind: vfs::dirent::Kind::Directory,
                     name: String::from("."),
+                    offset: 1,
                 },
                 DirectoryEntry {
                     inode: parent,
                     kind: vfs::dirent::Kind::Directory,
                     name: String::from(".."),
+                    offset: 1,
                 },
             ],
         }
@@ -99,20 +90,18 @@ impl InodeDirectory {
     /// Add an entry to the directory. If an entry with the same name already
     /// exists, return an error.
     ///
-    /// # Errors
-    /// Return an error if an entry with the same name already exists.
-    pub fn add_entry(&mut self, inode: &vfs::inode::Inode, name: String) -> Result<(), ()> {
-        if self.get_entry(&name).is_some() {
-            return Err(());
-        }
+    /// # Panics
+    /// Panics if the entry already exists.
+    pub fn add_entry(&mut self, inode: &vfs::inode::Inode, name: String) {
+        assert!(self.get_entry(&name).is_none());
 
         inode.state.lock().links += 1;
         self.entries.push(vfs::dirent::DirectoryEntry {
             kind: vfs::dirent::Kind::from(inode.kind),
             inode: inode.id,
+            offset: 1,
             name,
         });
-        Ok(())
     }
 }
 
@@ -128,11 +117,6 @@ impl InodeFile {
         Self {
             content: Vec::new(),
         }
-    }
-
-    #[must_use]
-    pub fn new(content: Vec<u8>) -> Self {
-        Self { content }
     }
 
     /// Get a mutable reference to the content of the file.
@@ -157,6 +141,8 @@ pub fn register() {
     ));
 }
 
+/// Generate a new unique inode identifier.
 pub fn generate_inode_id() -> vfs::inode::Identifier {
+    static INODE_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
     vfs::inode::Identifier(INODE_ID_COUNTER.fetch_add(1, Ordering::SeqCst))
 }

@@ -8,16 +8,17 @@ use crate::{
 };
 use alloc::sync::Weak;
 
+/// Operations that can be performed on the filesystem.
 pub static FS_OPS: vfs::fs::Operation = vfs::fs::Operation { read_super };
 
+/// Operations that can be performed on the superblock.
 pub static SUPER_OPS: vfs::mount::Operation = vfs::mount::Operation {
     write_super,
     write_inode,
     read_inode,
 };
 
-pub static INODE_FILE_OPS: vfs::inode::FileOperation = vfs::inode::FileOperation { truncate };
-
+/// Operations that can be performed on a directory inode.
 pub static INODE_DIR_OPS: vfs::inode::DirectoryOperation = vfs::inode::DirectoryOperation {
     mknod,
     create,
@@ -29,21 +30,29 @@ pub static INODE_DIR_OPS: vfs::inode::DirectoryOperation = vfs::inode::Directory
     rename,
 };
 
+/// Operations that can be performed on a file inode.
+pub static INODE_FILE_OPS: vfs::inode::FileOperation = vfs::inode::FileOperation { truncate };
+
+/// Operations that can be performed on a opened regular file.
 pub static REGULAR_FILE_OPS: vfs::file::FileOperation =
     vfs::file::FileOperation { write, read, seek };
 
+/// Operations that can be performed on a opened directory.
 pub static FILE_DIRECTORY_OPS: vfs::file::DirectoryOperation =
     vfs::file::DirectoryOperation { readdir };
 
 /// Read the superblock from the device. Since the ramfs is a memory filesystem,
 /// it creates a new superblock in memory, creates a root inode, and returns the
 /// VFS superblock.
+///
+/// # Errors
+/// This function never fails.
 #[allow(clippy::unnecessary_wraps)]
 fn read_super(
     _: &vfs::fs::Filesystem,
     _: Device,
 ) -> Result<Arc<vfs::mount::Super>, vfs::fs::ReadSuperError> {
-    let ramfs_superblock = Superblock::new();
+    let ramfs_superblock = Superblock::default();
     let root_id = ramfs_superblock.get_root_inode_id();
     let vfs_superblock = Arc::new(vfs::mount::Super::new(SuperCreationInfo {
         operation: &SUPER_OPS,
@@ -56,7 +65,7 @@ fn read_super(
     let mut root = vfs::inode::Inode::new(
         Arc::downgrade(&vfs_superblock),
         vfs::inode::InodeCreateInfo {
-            id: vfs::inode::Identifier(generate_inode_id().0),
+            id: generate_inode_id(),
             device: Device::None,
             kind: vfs::inode::Kind::Directory,
             inode_ops: vfs::inode::Operation::Directory(&INODE_DIR_OPS),
@@ -71,6 +80,9 @@ fn read_super(
             data: Box::new(()),
         },
     );
+
+    // Create the root directory data (the `.` and `..` entries) and add it to
+    // the root inode before returning the superblock.
     root.data = Box::new(Spinlock::new(InodeDirectory::new(&root, root_id)));
     vfs_superblock
         .data
@@ -99,6 +111,7 @@ fn write_super(_: &vfs::mount::Super) -> Result<(), vfs::mount::WriteSuperError>
 ///
 /// # Errors
 /// This function never fails since it is a no-op.
+#[allow(clippy::unnecessary_wraps)]
 fn write_inode(_: &vfs::inode::Inode) -> Result<(), vfs::mount::WriteInodeError> {
     Ok(())
 }
@@ -151,8 +164,7 @@ fn mknod(
     todo!()
 }
 
-/// Create a new file in the directory. If a file with the same name already
-/// exists, an error is returned.
+/// Create a new file in the directory.
 ///
 /// # Errors
 /// If a file with the same name already exists, an error is returned.
@@ -171,12 +183,8 @@ fn create(
         .expect("Inode is not a ramfs inode");
 
     // Check if a file with the same name already exists.
-    if ramfs_inode
-        .lock()
-        .entries
-        .iter()
-        .any(|entry| entry.name == name)
-    {
+    let mut locked_dir = ramfs_inode.lock();
+    if locked_dir.entries.iter().any(|entry| entry.name == name) {
         return Err(vfs::inode::CreateError::AlreadyExists);
     }
 
@@ -208,10 +216,7 @@ fn create(
         .insert(file_id, Arc::clone(&file_inode));
 
     // Add the inode to the directory and return its identifier.
-    ramfs_inode
-        .lock()
-        .add_entry(&file_inode, String::from(name))
-        .map_err(|_| vfs::inode::CreateError::AlreadyExists)?;
+    locked_dir.add_entry(&file_inode, String::from(name));
     Ok(file_id)
 }
 
@@ -242,8 +247,7 @@ fn lookup(
 /// inode. If the counter reaches 0, the inode is removed from memory.
 ///
 /// # Errors
-/// If the entry does not exist or if the caller tries to remove the `.` or `..`
-/// entries, an error is returned.
+/// If the entry does not exist
 fn unlink(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::UnlinkError> {
     let superblock = inode.superblock.upgrade().unwrap();
     let ramfs_super = superblock
@@ -255,18 +259,22 @@ fn unlink(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::Unlin
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
 
-    // Find and remove the entry from the directory. If the entry is not
-    // found, it return an error.
-    let entry = ramfs_inode
-        .lock()
+    // Find the entry in the directory.
+    let mut locked_dir = ramfs_inode.lock();
+    let index = locked_dir
         .entries
         .iter()
         .position(|entry| entry.name == name)
-        .map(|index| ramfs_inode.lock().entries.remove(index))
         .ok_or(vfs::inode::UnlinkError::NoSuchEntry)?;
+
+    // If the entry is a directory, return an error.
+    if locked_dir.entries[index].kind == vfs::dirent::Kind::Directory {
+        return Err(vfs::inode::UnlinkError::IsADirectory);
+    }
 
     // Fetch the inode and decrement the links counter of the inode.
     // If the counter reaches 0, the inode is removed from the superblock.
+    let entry = locked_dir.entries.remove(index);
     let inode = ramfs_super
         .lock()
         .inodes
@@ -274,11 +282,9 @@ fn unlink(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::Unlin
         .expect("Dead inode in directory")
         .clone();
 
-    inode.state.lock().links -= 1;
-    if inode.state.lock().links == 0 {
+    if inode.state.lock().unlinked() == 0 {
         ramfs_super.lock().inodes.remove(&entry.inode);
     }
-
     Ok(())
 }
 
@@ -302,12 +308,8 @@ fn mkdir(
         .expect("Inode is not a ramfs inode");
 
     // Check if a file with the same name already exists.
-    if ramfs_inode
-        .lock()
-        .entries
-        .iter()
-        .any(|entry| entry.name == name)
-    {
+    let mut locked_dir = ramfs_inode.lock();
+    if locked_dir.entries.iter().any(|entry| entry.name == name) {
         return Err(vfs::inode::MkdirError::AlreadyExists);
     }
 
@@ -346,10 +348,7 @@ fn mkdir(
         .insert(directory_id, Arc::clone(&directory_inode));
 
     // Add the inode to the directory and return its identifier.
-    ramfs_inode
-        .lock()
-        .add_entry(&directory_inode, String::from(name))
-        .map_err(|_| vfs::inode::MkdirError::AlreadyExists)?;
+    locked_dir.add_entry(&directory_inode, String::from(name));
     Ok(directory_id)
 }
 
@@ -371,19 +370,29 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
 
-    let mut locked_ramfs_inode = ramfs_inode.lock();
+    // Check if the caller tries to remove the `.` or `..` entries. If so, return
+    // an error by indicating that the entry does not exist (reserved by the
+    // filesystem implementation).
+    if name == "." || name == ".." {
+        return Err(vfs::inode::RmdirError::NoSuchEntry);
+    }
 
     // Find and remove the entry from the directory. If the entry is not
     // found, it return an error.
-    let position = locked_ramfs_inode
+    let mut locked_dir = ramfs_inode.lock();
+    let index = locked_dir
         .entries
         .iter()
         .position(|entry| entry.name == name)
         .ok_or(vfs::inode::RmdirError::NoSuchEntry)?;
 
-    let entry = locked_ramfs_inode.entries.remove(position);
+    // If the entry is not a directory, return an error.
+    if locked_dir.entries[index].kind != vfs::dirent::Kind::Directory {
+        return Err(vfs::inode::RmdirError::NotADirectory);
+    }
 
     // Fetch the inode and verify that the directory is empty.
+    let entry = locked_dir.entries.remove(index);
     let inode = ramfs_super
         .lock()
         .inodes
@@ -394,17 +403,16 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
         .data
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
+
     if directory_data.lock().entries.len() > 2 {
         return Err(vfs::inode::RmdirError::NotEmpty);
     }
 
     // Decrement the links counter of the inode. If the counter reaches 0, the
     // inode is removed from the superblock.
-    inode.state.lock().links -= 1;
-    if inode.state.lock().links == 0 {
+    if inode.state.lock().unlinked() == 0 {
         ramfs_super.lock().inodes.remove(&entry.inode);
     }
-
     Ok(())
 }
 
@@ -430,19 +438,14 @@ fn rename(inode: &vfs::inode::Inode, old: &str, new: &str) -> Result<(), vfs::in
         .expect("Inode is not a ramfs inode");
 
     // Check if a file with the same name already exists.
-    if ramfs_inode
-        .lock()
-        .entries
-        .iter()
-        .any(|entry| entry.name == new)
-    {
+    let mut locked_dir = ramfs_inode.lock();
+    if locked_dir.entries.iter().any(|entry| entry.name == new) {
         return Err(vfs::inode::RenameError::AlreadyExists);
     }
 
     // Find and rename the entry from the directory. If the entry is not
     // found, it return an error.
-    ramfs_inode
-        .lock()
+    locked_dir
         .entries
         .iter_mut()
         .find(|entry| entry.name == old)
@@ -451,11 +454,25 @@ fn rename(inode: &vfs::inode::Inode, old: &str, new: &str) -> Result<(), vfs::in
     Ok(())
 }
 
+#[allow(clippy::cast_possible_wrap)]
+#[allow(clippy::cast_possible_truncation)]
 fn readdir(
     file: &vfs::file::OpenFile,
     offset: vfs::file::Offset,
 ) -> Result<vfs::dirent::DirectoryEntry, vfs::file::ReaddirError> {
-    todo!()
+    let file_data = file
+        .inode
+        .data
+        .downcast_ref::<Spinlock<InodeDirectory>>()
+        .expect("Inode is not a ramfs inode");
+
+    let locked_dir = file_data.lock();
+    if offset.0 >= locked_dir.entries.len() as i64 {
+        return Err(vfs::file::ReaddirError::EndOfDirectory);
+    }
+
+    let entry = &locked_dir.entries[offset.0 as usize];
+    Ok(entry.clone())
 }
 
 fn write(
@@ -466,6 +483,7 @@ fn write(
     todo!()
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn read(
     file: &vfs::file::OpenFile,
     buf: &mut [u8],
@@ -474,10 +492,41 @@ fn read(
     todo!()
 }
 
+/// Seek into the file and return the new offset.
+/// TODO: This function will probably not vary much between filesystems. Maybe
+/// we can make it a default implementation in the VFS?
+/// 
+/// # Errors
+/// If an overflow occurs, `SeekError::Overflow` is returned.
+#[allow(clippy::cast_possible_wrap)]
 fn seek(
     file: &vfs::file::OpenFile,
     offset: vfs::file::Offset,
     whence: vfs::file::Whence,
 ) -> Result<vfs::file::Offset, vfs::file::SeekError> {
-    todo!()
+    match whence {
+        vfs::file::Whence::Start => Ok(offset),
+        vfs::file::Whence::Current => {
+            let offset = file
+                .state
+                .lock()
+                .offset
+                .0
+                .checked_add(offset.0)
+                .ok_or(vfs::file::SeekError::Overflow)?;
+            Ok(vfs::file::Offset(offset))
+        }
+        vfs::file::Whence::End => {
+            let file_data = file
+                .inode
+                .data
+                .downcast_ref::<Spinlock<InodeFile>>()
+                .expect("Inode is not a ramfs inode");
+            let len = file_data.lock().content().len() as i64;
+            let offset = len
+                .checked_add(offset.0)
+                .ok_or(vfs::file::SeekError::Overflow)?;
+            Ok(vfs::file::Offset(offset))
+        }
+    }
 }

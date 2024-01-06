@@ -6,7 +6,7 @@ pub struct OpenFile {
     pub inode: Arc<Inode>,
 
     /// The operation table for this file.
-    pub operation: &'static Operation,
+    pub operation: Operation,
 
     /// The flags used to open this file.
     pub open_flags: OpenFlags,
@@ -17,6 +17,43 @@ pub struct OpenFile {
     pub state: Spinlock<OpenFileState>,
 
     /// Custom data, freely usable by the filesystem driver.
+    pub data: Box<dyn Any + Send + Sync>,
+}
+
+impl OpenFile {
+    #[must_use]
+    pub fn new(info: OpenFileCreateInfo) -> Self {
+        let state = OpenFileState { offset: Offset(0) };
+        Self {
+            inode: info.inode,
+            operation: info.operation,
+            open_flags: info.open_flags,
+            state: Spinlock::new(state),
+            data: info.data,
+        }
+    }
+
+    #[must_use]
+    pub fn as_directory(&self) -> Option<&DirectoryOperation> {
+        match &self.operation {
+            Operation::Directory(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    #[must_use]
+    pub fn as_file(&self) -> Option<&FileOperation> {
+        match &self.operation {
+            Operation::File(f) => Some(f),
+            _ => None,
+        }
+    }
+}
+
+pub struct OpenFileCreateInfo {
+    pub inode: Arc<Inode>,
+    pub operation: Operation,
+    pub open_flags: OpenFlags,
     pub data: Box<dyn Any + Send + Sync>,
 }
 
@@ -31,7 +68,7 @@ pub struct OpenFileState {
 
 /// The operation table for a open file. Depending on the type of the inode
 /// opened by the file, the operation table will be different.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operation {
     Directory(&'static DirectoryOperation),
     File(&'static FileOperation),
@@ -58,6 +95,7 @@ bitflags::bitflags! {
 }
 
 /// An offset in a file.
+/// FIXME: Use a unsigned type instead of a signed one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Offset(pub i64);
 
@@ -113,7 +151,10 @@ pub struct FileOperation {
 
 /// The error returned when reading a directory fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ReaddirError {}
+pub enum ReaddirError {
+    /// There is no more entry to read.
+    EndOfDirectory,
+}
 
 /// The error returned when reading from a file fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -125,4 +166,7 @@ pub enum WriteError {}
 
 /// The error returned when seeking into a file fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SeekError {}
+pub enum SeekError {
+    /// Overflowing when computing the new offset.
+    Overflow,
+}

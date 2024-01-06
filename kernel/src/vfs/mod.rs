@@ -3,7 +3,13 @@ use self::{
     mount::ReadInodeError,
     path::{InvalidPath, Path},
 };
-use crate::{device::Device, vfs::inode::ROOT};
+use crate::{
+    device::Device,
+    vfs::{
+        file::{OpenFile, OpenFileCreateInfo, OpenFlags},
+        inode::ROOT,
+    },
+};
 
 pub mod dirent;
 pub mod file;
@@ -31,6 +37,20 @@ pub fn test() {
     log::debug!("{:#?}", lookup("/dev"));
     log::debug!("{:#?}", (root.as_directory().unwrap().rmdir)(root, "dev"));
     log::debug!("{:#?}", lookup("/dev"));
+    log::debug!(
+        "{:#?}",
+        (root.as_directory().unwrap().create)(root, "test.txt")
+    );
+
+    let inode = lookup("/test.txt").unwrap();
+    let file = OpenFile::new(OpenFileCreateInfo {
+        inode: Arc::clone(&inode),
+        operation: inode.file_ops.clone(),
+        open_flags: OpenFlags::READ | OpenFlags::WRITE,
+        data: Box::new(()),
+    });
+
+    (file.as_file().unwrap().write)(&file, b"Hello world!", file.state.lock().offset).unwrap();
 
     log::debug!("END");
 }
