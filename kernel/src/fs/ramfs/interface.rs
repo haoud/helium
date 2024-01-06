@@ -144,6 +144,7 @@ fn read_inode(
 /// # Errors
 /// This function never fails.
 #[allow(clippy::unnecessary_wraps)]
+#[allow(clippy::cast_possible_truncation)]
 fn truncate(inode: &vfs::inode::Inode, size: u64) -> Result<u64, vfs::inode::TruncateError> {
     inode
         .data
@@ -454,7 +455,11 @@ fn rename(inode: &vfs::inode::Inode, old: &str, new: &str) -> Result<(), vfs::in
     Ok(())
 }
 
-#[allow(clippy::cast_possible_wrap)]
+/// Read the directory entry at the given offset.
+/// 
+/// # Errors
+/// If there is no more entries in the directory, `ReaddirError::EndOfDirectory`
+/// is returned.
 #[allow(clippy::cast_possible_truncation)]
 fn readdir(
     file: &vfs::file::OpenFile,
@@ -467,27 +472,25 @@ fn readdir(
         .expect("Inode is not a ramfs inode");
 
     let locked_dir = file_data.lock();
-    if offset.0 >= locked_dir.entries.len() as i64 {
+    if offset.0 >= locked_dir.entries.len() as u64 {
         return Err(vfs::file::ReaddirError::EndOfDirectory);
     }
-
-    let entry = &locked_dir.entries[offset.0 as usize];
-    Ok(entry.clone())
+    Ok(locked_dir.entries[offset.0 as usize].clone())
 }
 
 fn write(
-    file: &vfs::file::OpenFile,
-    buf: &[u8],
-    offset: vfs::file::Offset,
+    _file: &vfs::file::OpenFile,
+    _buf: &[u8],
+    _offset: vfs::file::Offset,
 ) -> Result<vfs::file::Offset, vfs::file::WriteError> {
     todo!()
 }
 
 #[allow(clippy::unnecessary_wraps)]
 fn read(
-    file: &vfs::file::OpenFile,
-    buf: &mut [u8],
-    offset: vfs::file::Offset,
+    _file: &vfs::file::OpenFile,
+    _buf: &mut [u8],
+    _offset: vfs::file::Offset,
 ) -> Result<vfs::file::Offset, vfs::file::ReadError> {
     todo!()
 }
@@ -495,24 +498,28 @@ fn read(
 /// Seek into the file and return the new offset.
 /// TODO: This function will probably not vary much between filesystems. Maybe
 /// we can make it a default implementation in the VFS?
-/// 
+///
 /// # Errors
 /// If an overflow occurs, `SeekError::Overflow` is returned.
-#[allow(clippy::cast_possible_wrap)]
 fn seek(
     file: &vfs::file::OpenFile,
-    offset: vfs::file::Offset,
+    offset: i64,
     whence: vfs::file::Whence,
 ) -> Result<vfs::file::Offset, vfs::file::SeekError> {
     match whence {
-        vfs::file::Whence::Start => Ok(offset),
+        vfs::file::Whence::Start => {
+            let offset = offset
+                .try_into()
+                .map_err(|_| vfs::file::SeekError::Overflow)?;
+            Ok(vfs::file::Offset(offset))
+        }
         vfs::file::Whence::Current => {
             let offset = file
                 .state
                 .lock()
                 .offset
                 .0
-                .checked_add(offset.0)
+                .checked_add_signed(offset)
                 .ok_or(vfs::file::SeekError::Overflow)?;
             Ok(vfs::file::Offset(offset))
         }
@@ -522,9 +529,9 @@ fn seek(
                 .data
                 .downcast_ref::<Spinlock<InodeFile>>()
                 .expect("Inode is not a ramfs inode");
-            let len = file_data.lock().content().len() as i64;
+            let len = file_data.lock().content().len() as u64;
             let offset = len
-                .checked_add(offset.0)
+                .checked_add_signed(offset)
                 .ok_or(vfs::file::SeekError::Overflow)?;
             Ok(vfs::file::Offset(offset))
         }

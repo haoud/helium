@@ -95,9 +95,8 @@ bitflags::bitflags! {
 }
 
 /// An offset in a file.
-/// FIXME: Use a unsigned type instead of a signed one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Offset(pub i64);
+pub struct Offset(pub u64);
 
 /// The seek mode for a file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -146,7 +145,7 @@ pub struct FileOperation {
     ///
     /// # Errors
     /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
-    pub seek: fn(file: &OpenFile, offset: Offset, whence: Whence) -> Result<Offset, SeekError>,
+    pub seek: fn(file: &OpenFile, offset: i64, whence: Whence) -> Result<Offset, SeekError>,
 }
 
 /// The error returned when reading a directory fails.
