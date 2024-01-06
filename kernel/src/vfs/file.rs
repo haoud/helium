@@ -37,7 +37,7 @@ impl OpenFile {
     pub fn as_directory(&self) -> Option<&DirectoryOperation> {
         match &self.operation {
             Operation::Directory(d) => Some(d),
-            _ => None,
+            Operation::File(_) => None,
         }
     }
 
@@ -45,11 +45,10 @@ impl OpenFile {
     pub fn as_file(&self) -> Option<&FileOperation> {
         match &self.operation {
             Operation::File(f) => Some(f),
-            _ => None,
+            Operation::Directory(_) => None,
         }
     }
 }
-
 pub struct OpenFileCreateInfo {
     pub inode: Arc<Inode>,
     pub operation: Operation,

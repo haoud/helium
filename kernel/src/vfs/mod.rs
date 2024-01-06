@@ -26,7 +26,7 @@ pub fn setup() {
     test();
 }
 
-pub fn test() {
+fn test() {
     let root = ROOT.get().unwrap();
 
     log::debug!("Testing vfs and ramfs");
