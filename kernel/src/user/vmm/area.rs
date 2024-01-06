@@ -1,13 +1,16 @@
+use crate::{
+    vfs::file::OpenFile,
+    x86_64::paging::table::{PageEntryFlags, PageFaultErrorCode},
+};
 use addr::user::UserVirtual;
 use bitflags::bitflags;
 use core::ops::Range;
 use typed_builder::TypedBuilder;
 
-use crate::x86_64::paging::table::{PageEntryFlags, PageFaultErrorCode};
 
 /// A virtual memory area. This structure is used to represent a range of a
 /// virtual memory range that is mapped in a task address space.
-#[derive(TypedBuilder, Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(TypedBuilder, Debug, Clone)]
 pub struct Area {
     /// The range of virtual addresses that are mapped by this area. The start address
     /// of the range must be page-aligned.
@@ -18,6 +21,11 @@ pub struct Area {
 
     /// The flags of this area.
     flags: Flags,
+
+    /// An offset in the ressource associated with this area. This is used for
+    /// file areas to determine where the file content should be copied in the
+    /// area.
+    offset: usize,
 
     /// The kind of this area.
     kind: Type,
@@ -41,6 +49,12 @@ impl Area {
         self.access
     }
 
+    /// Return the ressource offset of this area.
+    #[must_use]
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
     /// Return the flags of this area.
     #[must_use]
     pub fn flags(&self) -> Flags {
@@ -55,8 +69,8 @@ impl Area {
 
     /// Return the type of this area.
     #[must_use]
-    pub fn kind(&self) -> Type {
-        self.kind
+    pub fn kind(&self) -> &Type {
+        &self.kind
     }
 
     /// Return true if this area length is zero, false otherwise.
@@ -72,11 +86,17 @@ impl Area {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone)]
 pub enum Type {
     /// An anonymous area is an area that is not backed by any file and is
     /// initialized with zeros when it is mapped.
     Anonymous,
+
+    /// A file area is an area that is backed by a file. When it is mapped,
+    /// the content of the file is copied into the area and can be copied
+    /// back to the file when the area is unmapped if some flags are set
+    /// during the mapping.
+    File(Arc<OpenFile>),
 }
 
 bitflags! {

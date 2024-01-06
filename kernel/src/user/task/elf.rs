@@ -56,6 +56,7 @@ pub fn load(vmm: Arc<Spinlock<vmm::Manager>>, file: &[u8]) -> Result<Arc<Task>, 
             .access(user::vmm::area::Access::from(mapping_flags))
             .flags(user::vmm::area::Flags::FIXED)
             .kind(user::vmm::area::Type::Anonymous)
+            .offset(0)
             .build();
 
         vmm.lock()

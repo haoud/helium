@@ -57,6 +57,7 @@ impl Manager {
             .access(Access::empty())
             .kind(Type::Anonymous)
             .range(start..end)
+            .offset(0)
             .build();
 
         // The "end of the world" guard
@@ -67,6 +68,7 @@ impl Manager {
             .access(Access::empty())
             .kind(Type::Anonymous)
             .range(start..end)
+            .offset(0)
             .build();
 
         areas.insert(null_guard.base(), null_guard);
@@ -105,9 +107,6 @@ impl Manager {
     /// - `OutOfVirtualMemory`: there is not enough contiguous virtual memory to map
     ///                         the area.
     ///
-    /// # Panics
-    /// Panics if the manager does not contain a area map. This mean that this is a
-    /// manager for kernel task, where mapping user memory is not allowed.
     pub fn mmap(&mut self, mut area: Area) -> Result<Range<UserVirtual>, MmapError> {
         // If the area is not page aligned or has a length of zero, then return
         // an error because it is invalid.
@@ -149,12 +148,10 @@ impl Manager {
     /// Otherwise, this function can return the following errors:
     /// - `InvalidRange`: the range is not page aligned, has a length of zero or has an end
     ///                  address that is greater than `UserVirtual::second_last_page_aligned()`.
-    ///
+    /// 
     /// # Panics
-    /// Panics if the manager does not contain a area map. This mean that this is a
-    /// manager for kernel task, where mapping user memory is not allowed. A panic
-    /// can also occur if the code that unmap the range is not correct and is
-    /// detected by a few assertions.
+    /// Panics if the function detects an algorithm implementation error. This is a
+    /// serious bug and should never happen.
     pub fn munmap(&mut self, range: Range<UserVirtual>) -> Result<(), UnmapError> {
         if !valid_range(&range) {
             return Err(UnmapError::InvalidRange);
@@ -223,6 +220,8 @@ impl Manager {
                 unreachable!("Unmap: algorithm implementation error");
             };
 
+            // TODO: The framebuffer will probably need a special treatment
+            // here because it frames must not be deallocated.
             self.unmap_range(unmap_range);
         }
 
@@ -256,8 +255,7 @@ impl Manager {
         }
 
         // Depending on the type of the area, we need to handle the page in
-        // differently. For now, we only support anonymous areas and we simply
-        // allocate a new zeroed frame and map it at the given address.
+        // differently.
         match area.kind() {
             Type::Anonymous => unsafe {
                 let frame = FRAME_ALLOCATOR
@@ -271,6 +269,13 @@ impl Manager {
 
                 paging::map(&self.table, virt, frame, flags)?;
             },
+            Type::File(_file) => {
+                // Allocate a frame
+                // Compute the offset of the page in the file
+                // Read the page from the file. If the page is not fully filled because
+                // the file is not large enough, then zero the remaining bytes.
+                unimplemented!("File mapping not implemented yet");
+            }
         }
 
         Ok(())

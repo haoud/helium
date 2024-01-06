@@ -1,6 +1,7 @@
 use super::{dirent::DirectoryEntry, inode::Inode};
 use core::any::Any;
 
+#[derive(Debug)]
 pub struct OpenFile {
     /// The inode opened by this file.
     pub inode: Arc<Inode>,
@@ -49,6 +50,8 @@ impl OpenFile {
         }
     }
 }
+
+#[derive(Debug)]
 pub struct OpenFileCreateInfo {
     pub inode: Arc<Inode>,
     pub operation: Operation,
@@ -60,6 +63,7 @@ pub struct OpenFileCreateInfo {
 /// can change over time, like the current offset in the file. It is stored
 /// in a separate structure to avoid locking the file just to read fields
 /// that are never modified.
+#[derive(Debug, PartialEq, Eq)]
 pub struct OpenFileState {
     /// The current offset in the file.
     pub offset: Offset,
@@ -67,7 +71,7 @@ pub struct OpenFileState {
 
 /// The operation table for a open file. Depending on the type of the inode
 /// opened by the file, the operation table will be different.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Operation {
     Directory(&'static DirectoryOperation),
     File(&'static FileOperation),
@@ -111,7 +115,7 @@ pub enum Whence {
 }
 
 /// The operation table for a directory.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DirectoryOperation {
     /// Reads the directory entry at the given offset.
     ///
@@ -122,7 +126,7 @@ pub struct DirectoryOperation {
 }
 
 /// The operation table for a file.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct FileOperation {
     /// Writes the given buffer to the file at the given offset, and returns the offset
     /// after the last byte written.

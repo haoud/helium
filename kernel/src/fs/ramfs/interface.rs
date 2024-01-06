@@ -456,7 +456,7 @@ fn rename(inode: &vfs::inode::Inode, old: &str, new: &str) -> Result<(), vfs::in
 }
 
 /// Read the directory entry at the given offset.
-/// 
+///
 /// # Errors
 /// If there is no more entries in the directory, `ReaddirError::EndOfDirectory`
 /// is returned.

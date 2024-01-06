@@ -238,6 +238,7 @@ impl Thread {
             .access(area::Access::READ | area::Access::WRITE)
             .range(stack_start..stack_end)
             .kind(area::Type::Anonymous)
+            .offset(0)
             .build();
 
         vmm.lock().mmap(area).expect("Failed to map the user stack");

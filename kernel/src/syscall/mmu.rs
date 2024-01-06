@@ -39,6 +39,7 @@ pub fn map(
         .range(start..end)
         .access(access)
         .flags(flags)
+        .offset(0)
         .build();
 
     let range = SCHEDULER
