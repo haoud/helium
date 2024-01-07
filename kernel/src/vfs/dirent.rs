@@ -6,7 +6,7 @@ pub struct DirectoryEntry {
     /// The name of the entry.
     pub name: String,
 
-    /// Offset of the next entry.
+    /// Offset to get the next entry.
     pub offset: usize,
 
     /// The kind of this entry.

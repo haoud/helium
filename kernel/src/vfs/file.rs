@@ -99,7 +99,11 @@ bitflags::bitflags! {
 
 /// An offset in a file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Offset(pub u64);
+pub struct Offset(pub usize);
+
+/// An file size.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Size(pub usize);
 
 /// The seek mode for a file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -145,7 +149,7 @@ pub struct FileOperation {
     /// # Errors
     /// If the buffer could not be written to the file, an error is returned,
     /// described by the [`WriteError`] enum.
-    pub write: fn(file: &OpenFile, buf: &[u8], offset: Offset) -> Result<Offset, WriteError>,
+    pub write: fn(file: &OpenFile, buf: &[u8], offset: Offset) -> Result<usize, WriteError>,
 
     /// Reads from the file at the given offset into the given buffer, and returns the
     /// offset after the last byte read.
@@ -153,13 +157,13 @@ pub struct FileOperation {
     /// # Errors
     /// If the buffer could not be read from the file, an error is returned,
     /// described by the [`ReadError`] enum.
-    pub read: fn(file: &OpenFile, buf: &mut [u8], offset: Offset) -> Result<Offset, ReadError>,
+    pub read: fn(file: &OpenFile, buf: &mut [u8], offset: Offset) -> Result<usize, ReadError>,
 
     /// Seeks into the file and returns the new offset.
     ///
     /// # Errors
     /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
-    pub seek: fn(file: &OpenFile, offset: i64, whence: Whence) -> Result<Offset, SeekError>,
+    pub seek: fn(file: &OpenFile, offset: isize, whence: Whence) -> Result<Offset, SeekError>,
 }
 
 impl FileOperation {
@@ -169,7 +173,7 @@ impl FileOperation {
     /// # Errors
     /// If the buffer could not be written to the file, an error is returned,
     /// described by the [`WriteError`] enum.
-    pub fn write(&self, file: &OpenFile, buf: &[u8], offset: Offset) -> Result<Offset, WriteError> {
+    pub fn write(&self, file: &OpenFile, buf: &[u8], offset: Offset) -> Result<usize, WriteError> {
         (self.write)(file, buf, offset)
     }
 
@@ -184,7 +188,7 @@ impl FileOperation {
         file: &OpenFile,
         buf: &mut [u8],
         offset: Offset,
-    ) -> Result<Offset, ReadError> {
+    ) -> Result<usize, ReadError> {
         (self.read)(file, buf, offset)
     }
 
@@ -192,7 +196,12 @@ impl FileOperation {
     ///
     /// # Errors
     /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
-    pub fn seek(&self, file: &OpenFile, offset: i64, whence: Whence) -> Result<Offset, SeekError> {
+    pub fn seek(
+        &self,
+        file: &OpenFile,
+        offset: isize,
+        whence: Whence,
+    ) -> Result<Offset, SeekError> {
         (self.seek)(file, offset, whence)
     }
 }

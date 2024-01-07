@@ -12,16 +12,16 @@ use core::any::Any;
 /// to ensure that all informations are up-to-date on the device.
 pub struct Super {
     /// The device on which this filesystem is mounted.
-    pub device: Device,
+    device: Device,
 
     /// The operation table for this filesystem.
-    pub operation: &'static Operation,
+    operation: &'static Operation,
 
     /// The root inode of this filesystem.
-    pub root: inode::Identifier,
+    root: inode::Identifier,
 
     /// Custom data, freely usable by the filesystem driver.
-    pub data: Box<dyn Any + Send + Sync>,
+    data: Box<dyn Any + Send + Sync>,
 
     /// The list of all used inodes of this filesystem. This improves performances,
     /// but is also required to prevent the kernel from having multiple instances
@@ -43,6 +43,24 @@ impl Super {
             root: info.root,
             data: info.data,
         }
+    }
+
+    /// Returns the device on which this filesystem is mounted.
+    #[must_use]
+    pub fn device(&self) -> Device {
+        self.device
+    }
+
+    /// Returns the root inode identifier of this filesystem.
+    #[must_use]
+    pub fn root(&self) -> inode::Identifier {
+        self.root
+    }
+
+    /// Returns the custom data of this filesystem.
+    #[must_use]
+    pub fn data(&self) -> &dyn Any {
+        &*self.data
     }
 
     /// Verifies that the given inode identifier is already cached or not by

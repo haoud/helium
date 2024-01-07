@@ -106,7 +106,7 @@ pub fn mount_root(name: &str, device: Device) {
     // Initialize the root inode
     inode::ROOT.call_once(|| {
         superblock
-            .get_inode(superblock.root)
+            .get_inode(superblock.root())
             .expect("Failed to read root inode")
     });
 }

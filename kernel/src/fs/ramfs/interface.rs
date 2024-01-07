@@ -85,7 +85,7 @@ fn read_super(
     // the root inode before returning the superblock.
     root.data = Box::new(Spinlock::new(InodeDirectory::new(&root, root_id)));
     vfs_superblock
-        .data
+        .data()
         .downcast_ref::<Spinlock<Superblock>>()
         .unwrap()
         .lock()
@@ -126,7 +126,7 @@ fn read_inode(
     id: vfs::inode::Identifier,
 ) -> Result<Arc<vfs::inode::Inode>, vfs::mount::ReadInodeError> {
     let ramfs_super = superblock
-        .data
+        .data()
         .downcast_ref::<Spinlock<Superblock>>()
         .expect("Superblock is not a ramfs superblock");
 
@@ -144,15 +144,14 @@ fn read_inode(
 /// # Errors
 /// This function never fails.
 #[allow(clippy::unnecessary_wraps)]
-#[allow(clippy::cast_possible_truncation)]
-fn truncate(inode: &vfs::inode::Inode, size: u64) -> Result<u64, vfs::inode::TruncateError> {
+fn truncate(inode: &vfs::inode::Inode, size: usize) -> Result<usize, vfs::inode::TruncateError> {
     inode
         .data
         .downcast_ref::<Spinlock<InodeFile>>()
         .expect("Inode is not a ramfs inode")
         .lock()
         .content_mut()
-        .resize(size as usize, 0);
+        .resize(size, 0);
 
     Ok(size)
 }
@@ -175,7 +174,7 @@ fn create(
 ) -> Result<vfs::inode::Identifier, vfs::inode::CreateError> {
     let superblock = inode.superblock.upgrade().unwrap();
     let ramfs_super = superblock
-        .data
+        .data()
         .downcast_ref::<Spinlock<Superblock>>()
         .expect("Superblock is not a ramfs superblock");
     let ramfs_inode = inode
@@ -252,7 +251,7 @@ fn lookup(
 fn unlink(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::UnlinkError> {
     let superblock = inode.superblock.upgrade().unwrap();
     let ramfs_super = superblock
-        .data
+        .data()
         .downcast_ref::<Spinlock<Superblock>>()
         .expect("Superblock is not a ramfs superblock");
     let ramfs_inode = inode
@@ -300,7 +299,7 @@ fn mkdir(
 ) -> Result<vfs::inode::Identifier, vfs::inode::MkdirError> {
     let superblock = inode.superblock.upgrade().unwrap();
     let ramfs_super = superblock
-        .data
+        .data()
         .downcast_ref::<Spinlock<Superblock>>()
         .expect("Superblock is not a ramfs superblock");
     let ramfs_inode = inode
@@ -363,7 +362,7 @@ fn mkdir(
 fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirError> {
     let superblock = inode.superblock.upgrade().unwrap();
     let ramfs_super = superblock
-        .data
+        .data()
         .downcast_ref::<Spinlock<Superblock>>()
         .expect("Superblock is not a ramfs superblock");
     let ramfs_inode = inode
@@ -460,7 +459,6 @@ fn rename(inode: &vfs::inode::Inode, old: &str, new: &str) -> Result<(), vfs::in
 /// # Errors
 /// If there is no more entries in the directory, `ReaddirError::EndOfDirectory`
 /// is returned.
-#[allow(clippy::cast_possible_truncation)]
 fn readdir(
     file: &vfs::file::OpenFile,
     offset: vfs::file::Offset,
@@ -472,19 +470,18 @@ fn readdir(
         .expect("Inode is not a ramfs inode");
 
     let locked_dir = file_data.lock();
-    if offset.0 >= locked_dir.entries.len() as u64 {
+    if offset.0 >= locked_dir.entries.len() {
         return Err(vfs::file::ReaddirError::EndOfDirectory);
     }
-    Ok(locked_dir.entries[offset.0 as usize].clone())
+    Ok(locked_dir.entries[offset.0].clone())
 }
 
 #[allow(clippy::unnecessary_wraps)]
-#[allow(clippy::cast_possible_truncation)]
 fn write(
     file: &vfs::file::OpenFile,
     buf: &[u8],
     offset: vfs::file::Offset,
-) -> Result<vfs::file::Offset, vfs::file::WriteError> {
+) -> Result<usize, vfs::file::WriteError> {
     let file_data = file
         .inode
         .data
@@ -494,15 +491,15 @@ fn write(
     // Write the buffer to the file, and extend the file if necessary.
     let mut locked_file = file_data.lock();
     let content = locked_file.content_mut();
-    let offset = offset.0 as usize;
+    let offset = offset.0;
 
     if offset + buf.len() > content.len() {
         content.resize(offset + buf.len(), 0);
     }
 
-    // Write the buffer to the file and return the new offset.
+    // Write the buffer to the file and return the written size
     content[offset..offset + buf.len()].copy_from_slice(buf);
-    Ok(vfs::file::Offset((offset + buf.len()) as u64))
+    Ok(buf.len())
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -510,7 +507,7 @@ fn read(
     file: &vfs::file::OpenFile,
     buf: &mut [u8],
     offset: vfs::file::Offset,
-) -> Result<vfs::file::Offset, vfs::file::ReadError> {
+) -> Result<usize, vfs::file::ReadError> {
     let file_data = file
         .inode
         .data
@@ -519,19 +516,13 @@ fn read(
 
     let locked_file = file_data.lock();
     let content = locked_file.content();
-    let offset = offset.0 as usize;
-
-    // If the offset is beyond the end of the file, return the offset,
-    // // indicating that the buffer is empty.
-    if offset >= content.len() {
-        return Ok(vfs::file::Offset(content.len() as u64));
-    }
 
     // Read the buffer from the file. If the read goes beyond the end of the
-    // file, the buffer is only partially written and the offset is returned.
-    let len = core::cmp::min(buf.len(), content.len() - offset);
-    buf[..len].copy_from_slice(&content[offset..offset + len]);
-    Ok(vfs::file::Offset((offset + len) as u64))
+    // file, the buffer is only partially written and the size readed is
+    // returned.
+    let len = core::cmp::min(buf.len(), content.len() - offset.0);
+    buf[..len].copy_from_slice(&content[offset.0..offset.0 + len]);
+    Ok(len)
 }
 
 /// Seek into the file and return the new offset.
@@ -542,7 +533,7 @@ fn read(
 /// If an overflow occurs, `SeekError::Overflow` is returned.
 fn seek(
     file: &vfs::file::OpenFile,
-    offset: i64,
+    offset: isize,
     whence: vfs::file::Whence,
 ) -> Result<vfs::file::Offset, vfs::file::SeekError> {
     match whence {
@@ -568,8 +559,10 @@ fn seek(
                 .data
                 .downcast_ref::<Spinlock<InodeFile>>()
                 .expect("Inode is not a ramfs inode");
-            let len = file_data.lock().content().len() as u64;
-            let offset = len
+            let offset = file_data
+                .lock()
+                .content()
+                .len()
                 .checked_add_signed(offset)
                 .ok_or(vfs::file::SeekError::Overflow)?;
             Ok(vfs::file::Offset(offset))

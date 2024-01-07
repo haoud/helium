@@ -24,10 +24,13 @@ pub fn setup() {
 
     log::debug!("Creating test.txt");
     let root = ROOT.get().unwrap();
-    (root.as_directory().unwrap().create)(root, "test.txt").expect("Failed to create test.txt");
-    let test = lookup("/test.txt").expect("Test.txt created but not found");
+    root.as_directory()
+        .unwrap()
+        .create(root, "test.txt")
+        .expect("Failed to create test.txt");
 
     log::debug!("Writing \"Hello world !\" to test.txt");
+    let test = lookup("/test.txt").expect("Test.txt created but not found");
     let file = file::OpenFile::new(OpenFileCreateInfo {
         operation: test.file_ops.clone(),
         inode: test,
@@ -36,35 +39,39 @@ pub fn setup() {
     });
 
     // Write "Hello world !" to the file
-    let offset = file.as_file()
+    let len = file
+        .as_file()
         .unwrap()
         .write(&file, b"Hello world !", file::Offset(0))
         .expect("Failed to write to test.txt");
-    assert!(offset.0 == 13, "Wrote {} bytes instead of 13", offset.0);
+    assert!(len == 13, "Wrote {len} bytes instead of 13");
 
     // Read the file and print the result
     let mut buf = [0; 13];
-    let offset = file.as_file()
+    let len = file
+        .as_file()
         .unwrap()
         .read(&file, &mut buf, file::Offset(0))
         .expect("Failed to read from test.txt");
-    assert!(offset.0 == 13, "Read {} bytes instead of 13", offset.0);
+    assert!(len == 13, "Read {len} bytes instead of 13");
     log::debug!("test.txt: {:?}", core::str::from_utf8(&buf).unwrap());
 
     // Remplace "world" by "kernel"
     log::debug!("Writing \"kernel\" instead of \"world\" to test.txt");
-    let offset = file.as_file()
+    let len = file
+        .as_file()
         .unwrap()
         .write(&file, b"kernel", file::Offset(6))
         .expect("Failed to write to test.txt");
-    assert!(offset.0 == 12, "Wrote {} bytes instead of 6", offset.0 - 6);
+    assert!(len == 6, "Wrote {len} bytes instead of 6");
 
     // Read the file again and print the result
-    let offset = file.as_file()
+    let len = file
+        .as_file()
         .unwrap()
         .read(&file, &mut buf, file::Offset(0))
         .expect("Failed to read from test.txt");
-    assert!(offset.0 == 13, "Read {} bytes instead of 13", offset.0);
+    assert!(len == 13, "Read {len} bytes instead of 13");
     log::debug!("test.txt: {:?}", core::str::from_utf8(&buf).unwrap());
 }
 

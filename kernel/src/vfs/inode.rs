@@ -269,6 +269,90 @@ pub struct DirectoryOperation {
     pub rename: fn(inode: &Inode, old: &str, new: &str) -> Result<(), RenameError>,
 }
 
+impl DirectoryOperation {
+    /// Creates a new device inode with the given name and device identifier in the given
+    /// directory, and returns the identifier of the new inode.
+    ///
+    /// # Errors
+    /// If the inode could not be created, an error is returned, described by
+    /// the [`MknodError`] enum.
+    pub fn mknod(
+        &self,
+        inode: &Inode,
+        name: &str,
+        device: Device,
+    ) -> Result<Identifier, CreateError> {
+        (self.mknod)(inode, name, device)
+    }
+
+    /// Creates a new regular file with the given name in the given directory, and returns
+    /// the identifier of the new inode.
+    ///
+    /// # Errors
+    /// If the inode could not be created, an error is returned, described by
+    /// the [`CreateError`] enum.
+    pub fn create(&self, inode: &Inode, name: &str) -> Result<Identifier, CreateError> {
+        (self.create)(inode, name)
+    }
+
+    /// Looks up the inode with the given name in the given directory, and returns its
+    /// identifier.
+    ///
+    /// # Errors
+    /// If the inode could not be found, an error is returned, described by
+    /// the [`LookupError`] enum.
+    pub fn lookup(&self, inode: &Inode, name: &str) -> Result<Identifier, LookupError> {
+        (self.lookup)(inode, name)
+    }
+
+    /// Removes the inode with the given name from the given directory.
+    ///
+    /// # Errors
+    /// If the inode could not be removed, an error is returned, described by
+    /// the [`LookupError`] enum.
+    pub fn unlink(&self, inode: &Inode, name: &str) -> Result<(), UnlinkError> {
+        (self.unlink)(inode, name)
+    }
+
+    /// Creates a new directory with the given name in the given directory, and returns
+    /// the identifier of the new inode.
+    ///
+    /// # Errors
+    /// If the inode could not be created, an error is returned, described by
+    /// the [`MkdirError`] enum.
+    pub fn mkdir(&self, inode: &Inode, name: &str) -> Result<Identifier, MkdirError> {
+        (self.mkdir)(inode, name)
+    }
+
+    /// Removes the directory with the given name from the given directory.
+    ///
+    /// # Errors
+    /// If the directory could not be removed, an error is returned, described by
+    /// the [`RmdirError`] enum.
+    pub fn rmdir(&self, inode: &Inode, name: &str) -> Result<(), RmdirError> {
+        (self.rmdir)(inode, name)
+    }
+
+    /// Creates a new hard link with the given name in the given directory, pointing to the
+    /// given inode.
+    ///
+    /// # Errors
+    /// If the link could not be created, an error is returned, described by
+    /// the [`LinkError`] enum.
+    pub fn link(&self, inode: &Inode, name: &str, target: &Inode) -> Result<(), LinkError> {
+        (self.link)(inode, name, target)
+    }
+
+    /// Renames the inode with the given name in the given directory to the given name.
+    ///
+    /// # Errors
+    /// If the inode could not be renamed, an error is returned, described by
+    /// the [`RenameError`] enum.
+    pub fn rename(&self, inode: &Inode, old: &str, new: &str) -> Result<(), RenameError> {
+        (self.rename)(inode, old, new)
+    }
+}
+
 #[derive(Debug)]
 pub struct FileOperation {
     /// Truncates the inode data to the given size. If the size is greater than the current
@@ -278,7 +362,20 @@ pub struct FileOperation {
     /// # Errors
     /// If the inode could not be truncated, an error is returned, described by
     /// the [`TruncateError`] enum.
-    pub truncate: fn(inode: &Inode, size: u64) -> Result<u64, TruncateError>,
+    pub truncate: fn(inode: &Inode, size: usize) -> Result<usize, TruncateError>,
+}
+
+impl FileOperation {
+    /// Truncates the inode data to the given size. If the size is greater than the current
+    /// size of the inode, the inode data is extended and the new bytes are filled with zeros.
+    /// If the size is less than the current size of the inode, the inode data is truncated.
+    ///
+    /// # Errors
+    /// If the inode could not be truncated, an error is returned, described by
+    /// the [`TruncateError`] enum.
+    pub fn truncate(&self, inode: &Inode, size: usize) -> Result<usize, TruncateError> {
+        (self.truncate)(inode, size)
+    }
 }
 
 /// The error returned when an inode could not be truncated.
