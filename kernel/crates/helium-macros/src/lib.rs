@@ -27,6 +27,22 @@ pub fn init(_: TokenStream, item: TokenStream) -> TokenStream {
     ))
 }
 
+/// A macro to indicate that a static variable is only used during the initialization of the kernel.
+/// This macro will this attribute are put in a separate .init section. When the kernel has been
+/// initialized, this section will be discarded and the memory will be freed, allowing the kernel
+/// to reduce its memory footprint.
+///
+/// # Safety
+/// If an static variable with this attribute is called after the kernel has been initialized, the
+/// behavior is undefined and will probably cause a kernel panic.
+#[proc_macro_attribute]
+pub fn initdata(_: TokenStream, item: TokenStream) -> TokenStream {
+    let mut var = parse_macro_input!(item as ItemStatic);
+    var.attrs.push(syn::parse_quote!(#[link_section = ".init"]));
+
+    TokenStream::from(quote::quote!(#var))
+}
+
 /// A macro to indicate that a function is an interrupt handler. This macro will automatically
 /// add the necessary code to the function to save the state of the CPU before calling the handler
 /// and to restore the state of the CPU after the handler has been called.
