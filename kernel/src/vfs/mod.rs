@@ -23,37 +23,12 @@ pub mod path;
 #[init]
 pub fn setup() {
     fs::mount_root("ramfs", Device::None);
-    test();
+    fill_ramdisk();
 }
 
-fn test() {
-    let root = ROOT.get().unwrap();
-
-    log::debug!("Testing vfs and ramfs");
-
-    log::debug!("{:#?}", lookup("/"));
-    log::debug!("{:#?}", lookup("/dev"));
-    log::debug!("{:#?}", (root.as_directory().unwrap().mkdir)(root, "dev"));
-    log::debug!("{:#?}", lookup("/dev"));
-    log::debug!("{:#?}", (root.as_directory().unwrap().rmdir)(root, "dev"));
-    log::debug!("{:#?}", lookup("/dev"));
-    log::debug!(
-        "{:#?}",
-        (root.as_directory().unwrap().create)(root, "test.txt")
-    );
-
-    let inode = lookup("/test.txt").unwrap();
-    let file = OpenFile::new(OpenFileCreateInfo {
-        inode: Arc::clone(&inode),
-        operation: inode.file_ops.clone(),
-        open_flags: OpenFlags::READ | OpenFlags::WRITE,
-        data: Box::new(()),
-    });
-
-    (file.as_file().unwrap().write)(&file, b"Hello world!", file.state.lock().offset).unwrap();
-
-    log::debug!("END");
-}
+/// Fill the ramdisk with the initrd, and create some files and directories
+/// to simulate a real filesystem.
+fn fill_ramdisk() {}
 
 /// Lookup the path and return the inode associated with it.
 ///

@@ -1,4 +1,4 @@
-use crate::x86_64;
+use crate::{module, x86_64};
 
 use self::scheduler::{Scheduler, SCHEDULER};
 pub mod buffer;
@@ -20,7 +20,7 @@ pub fn setup() {
     SCHEDULER.add_task(
         task::elf::load(
             Arc::new(Spinlock::new(vmm::Manager::new())),
-            include_bytes!("../../../iso/boot/init.elf"),
+            module::read("/boot/init.elf").expect("Failed to read init task"),
         )
         .expect("Failed to load init task"),
     );

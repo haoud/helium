@@ -29,6 +29,7 @@ pub mod fs;
 pub mod limine;
 pub mod logger;
 pub mod mm;
+pub mod module;
 pub mod panic;
 pub mod qemu;
 pub mod syscall;
@@ -78,17 +79,20 @@ pub unsafe extern "C" fn _start() -> ! {
     // needs the memory manager to be initialized first
     x86_64::setup();
 
-    // Initialize dynamic timers
-    time::timer::setup();
-
-    // Setup the userland environment
-    user::setup();
+    // Initialize the module system
+    module::setup();
 
     // Register all the filesystems drivers
     fs::register_all();
 
     // Initialize the virtual file system
     vfs::setup();
+
+    // Initialize dynamic timers
+    time::timer::setup();
+
+    // Setup the userland environment
+    user::setup();
 
     // Run the APs
     x86_64::smp::go();

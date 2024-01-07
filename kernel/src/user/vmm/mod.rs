@@ -148,7 +148,7 @@ impl Manager {
     /// Otherwise, this function can return the following errors:
     /// - `InvalidRange`: the range is not page aligned, has a length of zero or has an end
     ///                  address that is greater than `UserVirtual::second_last_page_aligned()`.
-    /// 
+    ///
     /// # Panics
     /// Panics if the function detects an algorithm implementation error. This is a
     /// serious bug and should never happen.

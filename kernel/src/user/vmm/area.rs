@@ -7,7 +7,6 @@ use bitflags::bitflags;
 use core::ops::Range;
 use typed_builder::TypedBuilder;
 
-
 /// A virtual memory area. This structure is used to represent a range of a
 /// virtual memory range that is mapped in a task address space.
 #[derive(TypedBuilder, Debug, Clone)]
