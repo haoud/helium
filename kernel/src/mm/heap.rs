@@ -29,7 +29,7 @@ impl Heap {
     pub unsafe fn init(&self, range: Range<Frame>) {
         self.inner.lock().init(
             Virtual::from(range.start.addr()).as_mut_ptr::<u8>(),
-            usize::from(range.end.addr() - range.start.addr()) * Frame::SIZE,
+            usize::from(range.end.addr() - range.start.addr()),
         );
     }
 }
@@ -47,6 +47,7 @@ unsafe impl GlobalAlloc for Heap {
     /// Allocate memory with the given layout. This function returns a null pointer if the
     /// allocation failed.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        log::debug!("Allocating memory with layout {:?}", layout);
         self.inner
             .lock()
             .allocate_first_fit(layout)
