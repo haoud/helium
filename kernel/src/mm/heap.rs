@@ -1,13 +1,14 @@
 use addr::{frame::Frame, virt::Virtual};
 use core::{
     alloc::{GlobalAlloc, Layout},
-    ops::{Deref, Range},
+    ops::{Deref, Range}, sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// A heap that can be used for memory allocation. The inner heap is protected by a spinlock,
 /// allowing for concurrent access to the heap.
 pub struct Heap {
     inner: Spinlock<linked_list_allocator::Heap>,
+    allocated: AtomicUsize,
 }
 
 impl Heap {
@@ -17,6 +18,7 @@ impl Heap {
     pub const fn new() -> Self {
         Heap {
             inner: Spinlock::new(linked_list_allocator::Heap::empty()),
+            allocated: AtomicUsize::new(0),
         }
     }
 
@@ -47,6 +49,7 @@ unsafe impl GlobalAlloc for Heap {
     /// Allocate memory with the given layout. This function returns a null pointer if the
     /// allocation failed.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        self.allocated.fetch_add(layout.size(), Ordering::SeqCst);
         self.inner
             .lock()
             .allocate_first_fit(layout)
@@ -59,5 +62,6 @@ unsafe impl GlobalAlloc for Heap {
         self.inner
             .lock()
             .deallocate(core::ptr::NonNull::new_unchecked(ptr), layout);
+        self.allocated.fetch_sub(layout.size(), Ordering::SeqCst);
     }
 }

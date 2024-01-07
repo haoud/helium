@@ -24,8 +24,7 @@ pub fn setup() {
     fill_ramdisk();
 }
 
-/// Fill the ramdisk with the initrd, and create some files and directories
-/// to simulate a real filesystem.
+/// Fill the ramdisk with some files and directories
 fn fill_ramdisk() {
     let shell_data = module::read("/boot/shell.elf").expect("Shell executable not found");
 
