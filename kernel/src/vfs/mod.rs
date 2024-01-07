@@ -5,6 +5,7 @@ use self::{
 };
 use crate::{
     device::Device,
+    module,
     vfs::{file::OpenFileCreateInfo, inode::ROOT},
 };
 
@@ -21,63 +22,35 @@ pub mod path;
 pub fn setup() {
     fs::mount_root("ramfs", Device::None);
     fill_ramdisk();
-
-    log::debug!("Creating test.txt");
-    let root = ROOT.get().unwrap();
-    root.as_directory()
-        .unwrap()
-        .create(root, "test.txt")
-        .expect("Failed to create test.txt");
-
-    log::debug!("Writing \"Hello world !\" to test.txt");
-    let test = lookup("/test.txt").expect("Test.txt created but not found");
-    let file = file::OpenFile::new(OpenFileCreateInfo {
-        operation: test.file_ops.clone(),
-        inode: test,
-        open_flags: file::OpenFlags::READ | file::OpenFlags::WRITE,
-        data: Box::new(()),
-    });
-
-    // Write "Hello world !" to the file
-    let len = file
-        .as_file()
-        .unwrap()
-        .write(&file, b"Hello world !", file::Offset(0))
-        .expect("Failed to write to test.txt");
-    assert!(len == 13, "Wrote {len} bytes instead of 13");
-
-    // Read the file and print the result
-    let mut buf = [0; 13];
-    let len = file
-        .as_file()
-        .unwrap()
-        .read(&file, &mut buf, file::Offset(0))
-        .expect("Failed to read from test.txt");
-    assert!(len == 13, "Read {len} bytes instead of 13");
-    log::debug!("test.txt: {:?}", core::str::from_utf8(&buf).unwrap());
-
-    // Remplace "world" by "kernel"
-    log::debug!("Writing \"kernel\" instead of \"world\" to test.txt");
-    let len = file
-        .as_file()
-        .unwrap()
-        .write(&file, b"kernel", file::Offset(6))
-        .expect("Failed to write to test.txt");
-    assert!(len == 6, "Wrote {len} bytes instead of 6");
-
-    // Read the file again and print the result
-    let len = file
-        .as_file()
-        .unwrap()
-        .read(&file, &mut buf, file::Offset(0))
-        .expect("Failed to read from test.txt");
-    assert!(len == 13, "Read {len} bytes instead of 13");
-    log::debug!("test.txt: {:?}", core::str::from_utf8(&buf).unwrap());
 }
 
 /// Fill the ramdisk with the initrd, and create some files and directories
 /// to simulate a real filesystem.
-fn fill_ramdisk() {}
+fn fill_ramdisk() {
+    let shell_data = module::read("/boot/shell.elf").expect("Shell executable not found");
+
+    let root = ROOT.get().unwrap();
+    root.as_directory()
+        .unwrap()
+        .create(root, "shell.elf")
+        .expect("Failed to create shell.elf");
+
+    let shell = lookup("/shell.elf").expect("Shell.elf created but not found");
+    let file = file::OpenFile::new(OpenFileCreateInfo {
+        operation: shell.file_ops.clone(),
+        inode: shell,
+        open_flags: file::OpenFlags::READ | file::OpenFlags::WRITE,
+        data: Box::new(()),
+    });
+
+    // Write the shell to the file
+    let len = file
+        .as_file()
+        .unwrap()
+        .write(&file, shell_data, file::Offset(0))
+        .expect("Failed to write to shell.elf");
+    assert!(len == shell_data.len(), "Wrote {len} bytes instead of {}", shell_data.len());
+}
 
 /// Lookup the path and return the inode associated with it.
 ///
