@@ -125,6 +125,17 @@ pub struct DirectoryOperation {
     pub readdir: fn(file: &OpenFile, offset: Offset) -> Result<DirectoryEntry, ReaddirError>,
 }
 
+impl DirectoryOperation {
+    /// Reads the directory entry at the given offset.
+    ///
+    /// # Errors
+    /// If the directory entry could not be read, an error is returned, described
+    /// by the [`ReaddirError`] enum.
+    pub fn readdir(&self, file: &OpenFile, offset: Offset) -> Result<DirectoryEntry, ReaddirError> {
+        (self.readdir)(file, offset)
+    }
+}
+
 /// The operation table for a file.
 #[derive(Debug, PartialEq, Eq)]
 pub struct FileOperation {
@@ -149,6 +160,41 @@ pub struct FileOperation {
     /// # Errors
     /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
     pub seek: fn(file: &OpenFile, offset: i64, whence: Whence) -> Result<Offset, SeekError>,
+}
+
+impl FileOperation {
+    /// Writes the given buffer to the file at the given offset, and returns the offset
+    /// after the last byte written.
+    ///
+    /// # Errors
+    /// If the buffer could not be written to the file, an error is returned,
+    /// described by the [`WriteError`] enum.
+    pub fn write(&self, file: &OpenFile, buf: &[u8], offset: Offset) -> Result<Offset, WriteError> {
+        (self.write)(file, buf, offset)
+    }
+
+    /// Reads from the file at the given offset into the given buffer, and returns the
+    /// offset after the last byte read.
+    ///
+    /// # Errors
+    /// If the buffer could not be read from the file, an error is returned,
+    /// described by the [`ReadError`] enum.
+    pub fn read(
+        &self,
+        file: &OpenFile,
+        buf: &mut [u8],
+        offset: Offset,
+    ) -> Result<Offset, ReadError> {
+        (self.read)(file, buf, offset)
+    }
+
+    /// Seeks into the file and returns the new offset.
+    ///
+    /// # Errors
+    /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
+    pub fn seek(&self, file: &OpenFile, offset: i64, whence: Whence) -> Result<Offset, SeekError> {
+        (self.seek)(file, offset, whence)
+    }
 }
 
 /// The error returned when reading a directory fails.

@@ -420,9 +420,9 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
 /// Create a new hard link to the inode. If a file with the same name already
 /// exists, an error is returned.
 fn link(
-    inode: &vfs::inode::Inode,
-    name: &str,
-    target: &vfs::inode::Inode,
+    _inode: &vfs::inode::Inode,
+    _name: &str,
+    _target: &vfs::inode::Inode,
 ) -> Result<(), vfs::inode::LinkError> {
     todo!()
 }
@@ -478,21 +478,60 @@ fn readdir(
     Ok(locked_dir.entries[offset.0 as usize].clone())
 }
 
+#[allow(clippy::unnecessary_wraps)]
+#[allow(clippy::cast_possible_truncation)]
 fn write(
-    _file: &vfs::file::OpenFile,
-    _buf: &[u8],
-    _offset: vfs::file::Offset,
+    file: &vfs::file::OpenFile,
+    buf: &[u8],
+    offset: vfs::file::Offset,
 ) -> Result<vfs::file::Offset, vfs::file::WriteError> {
-    todo!()
+    let file_data = file
+        .inode
+        .data
+        .downcast_ref::<Spinlock<InodeFile>>()
+        .expect("Inode is not a ramfs inode");
+
+    // Write the buffer to the file, and extend the file if necessary.
+    let mut locked_file = file_data.lock();
+    let content = locked_file.content_mut();
+    let offset = offset.0 as usize;
+
+    if offset + buf.len() > content.len() {
+        content.resize(offset + buf.len(), 0);
+    }
+
+    // Write the buffer to the file and return the new offset.
+    content[offset..offset + buf.len()].copy_from_slice(buf);
+    Ok(vfs::file::Offset((offset + buf.len()) as u64))
 }
 
 #[allow(clippy::unnecessary_wraps)]
 fn read(
-    _file: &vfs::file::OpenFile,
-    _buf: &mut [u8],
-    _offset: vfs::file::Offset,
+    file: &vfs::file::OpenFile,
+    buf: &mut [u8],
+    offset: vfs::file::Offset,
 ) -> Result<vfs::file::Offset, vfs::file::ReadError> {
-    todo!()
+    let file_data = file
+        .inode
+        .data
+        .downcast_ref::<Spinlock<InodeFile>>()
+        .expect("Inode is not a ramfs inode");
+
+    let locked_file = file_data.lock();
+    let content = locked_file.content();
+    let offset = offset.0 as usize;
+
+    // If the offset is beyond the end of the file, return the offset,
+    // // indicating that the buffer is empty.
+    if offset >= content.len() {
+        return Ok(vfs::file::Offset(content.len() as u64));
+    }
+
+    // Read the buffer from the file. If the read goes beyond the end of the
+    // file, the buffer is only partially written and the offset is returned.
+    let len = core::cmp::min(buf.len(), content.len() - offset);
+    buf[..len].copy_from_slice(&content[offset..offset + len]);
+    Ok(vfs::file::Offset((offset + len) as u64))
 }
 
 /// Seek into the file and return the new offset.
