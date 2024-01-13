@@ -1,10 +1,16 @@
+use alloc::vec;
+
 use super::{SyscallError, SyscallValue};
 use crate::{
     time::{timer::Timer, units::Nanosecond, uptime_fast},
     user::{
+        object::Object,
+        pointer::Pointer,
         scheduler::{self, Scheduler, SCHEDULER},
-        task,
+        string::{SyscallString, UserString},
+        task, vmm,
     },
+    vfs,
 };
 
 /// Exit the current task with the given exit code. The task will be terminated and
@@ -73,4 +79,73 @@ pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
 pub fn yields() -> Result<SyscallValue, SyscallError> {
     unsafe { scheduler::yield_cpu() };
     Ok(0)
+}
+
+/// Spawn a new task from the given ELF file. The ELF file must be a statically linked
+/// executable. The ELF file will be loaded into memory and the task will be created.
+/// The task will be put in the ready queue and will be scheduled to run as soon as
+/// possible.
+///
+/// # Errors
+/// TODO:
+///
+/// # Panics
+/// TODO:
+///
+/// # Optimization
+/// Currently, the whole ELF file is read into memory before being loaded. This is
+/// inefficient and should be changed to map the file into memory and load it on
+/// demand during the execution of the task.
+pub fn spawn(path: usize) -> Result<SyscallValue, SyscallError> {
+    let path = unsafe {
+        let ptr = Pointer::try_new(path as *mut SyscallString).ok_or(SyscallError::BadAddress)?;
+        UserString::new(&Object::read(&ptr))
+            .ok_or(SyscallError::BadAddress)?
+            .fetch()
+            .map_err(|_| SyscallError::BadAddress)?
+    };
+
+    // Read all the elf file into memory
+    let current_task = SCHEDULER.current_task();
+    let inode = vfs::lookup(
+        &path,
+        &current_task.root().lock(),
+        &current_task.cwd().lock(),
+    )
+    .map_err(|e| match e {
+        vfs::LookupError::NotFound(_, _) => todo!(),
+        vfs::LookupError::InvalidPath(_) => todo!(),
+        vfs::LookupError::NotADirectory => todo!(),
+        vfs::LookupError::CorruptedFilesystem => todo!(),
+        vfs::LookupError::IoError => SyscallError::IoError,
+    })?;
+
+    let len = inode.state.lock().size;
+    let file = vfs::file::OpenFile::new(vfs::file::OpenFileCreateInfo {
+        operation: inode.file_ops.clone(),
+        inode: inode,
+        open_flags: vfs::file::OpenFlags::READ,
+        data: Box::new(()),
+    });
+
+    // Read all the file
+    let mut data = vec![0; len as usize].into_boxed_slice();
+    let readed = file
+        .as_file()
+        .unwrap()
+        .read(&file, &mut data, vfs::file::Offset(0))
+        .map_err(|_| SyscallError::IoError)?;
+
+    if readed != len as usize {
+        log::debug!("Readed {} bytes, expected {}", readed, len);
+        return Err(SyscallError::IoError);
+    }
+
+    let task = task::elf::load(Arc::new(Spinlock::new(vmm::Manager::new())), &data)
+        .expect("Failed to load task");
+
+    let id = task.id();
+    SCHEDULER.add_task(task);
+
+    Ok(id.0 as usize)
 }

@@ -1,3 +1,4 @@
+use super::Task;
 use crate::{
     mm::{
         frame::{allocator::Allocator, AllocationFlags},
@@ -12,8 +13,6 @@ use addr::{
 };
 use core::{cmp::min, num::TryFromIntError};
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
-
-use super::Task;
 
 /// Parse an ELF file, load it into the passed page table, and return a new task with the entry
 /// point of the ELF file as the entry point of the task.

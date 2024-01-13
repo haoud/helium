@@ -13,17 +13,18 @@ pub type SyscallValue = usize;
 
 // A struct that contains all the syscall numbers used by the kernel.
 #[non_exhaustive]
-#[repr(usize)]
+#[repr(u64)]
 pub enum Syscall {
     TaskExit = 0,
     TaskId = 1,
-    SerialRead = 2,
-    SerialWrite = 3,
-    TaskSleep = 4,
-    TaskYield = 5,
-    MmuMap = 6,
-    MmuUnmap = 7,
-    VideoFramebufferInfo = 8,
+    TaskSleep = 2,
+    TaskYield = 3,
+    TaskSpawn = 4,
+    SerialRead = 5,
+    SerialWrite = 6,
+    MmuMap = 7,
+    MmuUnmap = 8,
+    VideoFramebufferInfo = 9,
 }
 
 impl Syscall {
@@ -34,13 +35,14 @@ impl Syscall {
         match id {
             0 => Some(Self::TaskExit),
             1 => Some(Self::TaskId),
-            2 => Some(Self::SerialRead),
-            3 => Some(Self::SerialWrite),
-            4 => Some(Self::TaskSleep),
-            5 => Some(Self::TaskYield),
-            6 => Some(Self::MmuMap),
-            7 => Some(Self::MmuUnmap),
-            8 => Some(Self::VideoFramebufferInfo),
+            2 => Some(Self::TaskSleep),
+            3 => Some(Self::TaskYield),
+            4 => Some(Self::TaskSpawn),
+            5 => Some(Self::SerialRead),
+            6 => Some(Self::SerialWrite),
+            7 => Some(Self::MmuMap),
+            8 => Some(Self::MmuUnmap),
+            9 => Some(Self::VideoFramebufferInfo),
             _ => None,
         }
     }
@@ -60,6 +62,10 @@ pub enum SyscallError {
     NotImplemented = 6,
     OutOfMemory = 7,
     AlreadyExists = 8,
+    IoError = 9,
+    NotADirectory = 10,
+    IsADirectory = 11,
+    DoesNotExists = 12,
 }
 
 impl SyscallError {
@@ -97,10 +103,11 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
     let result = match Syscall::from(id) {
         Some(Syscall::TaskExit) => task::exit(a),
         Some(Syscall::TaskId) => task::id(),
-        Some(Syscall::SerialRead) => serial::read(a, b),
-        Some(Syscall::SerialWrite) => serial::write(a, b),
         Some(Syscall::TaskSleep) => task::sleep(a),
         Some(Syscall::TaskYield) => task::yields(),
+        Some(Syscall::TaskSpawn) => task::spawn(a),
+        Some(Syscall::SerialRead) => serial::read(a, b),
+        Some(Syscall::SerialWrite) => serial::write(a, b),
         Some(Syscall::MmuMap) => mmu::map(a, b, c, d),
         Some(Syscall::MmuUnmap) => mmu::unmap(a, b),
         Some(Syscall::VideoFramebufferInfo) => video::framebuffer_info(a),

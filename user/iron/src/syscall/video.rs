@@ -1,4 +1,4 @@
-use super::Errno;
+use super::{Errno, Syscall};
 
 /// Information about the framebuffer. It is a very simple structure that only
 /// describes the height, width and bits per pixel of the framebuffer. Assumptions
@@ -23,7 +23,7 @@ pub fn framebuffer_info() -> Result<FramebufferInfo, Errno> {
     unsafe {
         core::arch::asm!(
             "syscall",
-            in("rax") 8,
+            in("rax") Syscall::VideoFramebufferInfo as u64,
             in("rsi") &mut framebuffer_info as *mut FramebufferInfo,
             lateout("rax") ret,
         );

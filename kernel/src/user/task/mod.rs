@@ -2,8 +2,11 @@ use super::{
     idle,
     scheduler::{Scheduler, SCHEDULER},
 };
-use crate::{user::vmm, vfs::{fd::OpenedFiles, inode::Inode, self}};
 use crate::x86_64::thread::{KernelThreadFn, Thread};
+use crate::{
+    user::vmm,
+    vfs::{self, fd::OpenedFiles, inode::Inode},
+};
 use core::sync::atomic::{AtomicU64, Ordering};
 
 pub mod elf;
@@ -160,7 +163,7 @@ pub struct Task {
 impl Task {
     /// Create a new kernel task in the `Created` state with the given entry point and
     /// priority, add it to the task list and return it.
-    /// 
+    ///
     /// # Panics
     /// This function will panic the VFS subsystem is not initialized.
     #[must_use]
@@ -182,7 +185,7 @@ impl Task {
     /// Create a new task in the `Created` state with the given memory map and entry
     /// point, add it to the task list and return it. It return an `Arc` to the task
     /// so that it can be shared between multiple kernel subsystems.
-    /// 
+    ///
     /// # Panics
     /// This function will panic the VFS subsystem is not initialized.
     #[must_use]

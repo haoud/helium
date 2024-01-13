@@ -27,6 +27,29 @@ pub mod serial;
 pub mod task;
 pub mod video;
 
+/// A string that is stored in the userland address space. It is a structure that are created by
+/// the rust syscall library and passed to the kernel, so the kernel can then fetch the string from
+/// the userland address space.
+///
+/// We cannot directly pass an `String` to the kernel, because the layout of an `String` is
+/// unspecified and may change between different versions of Rust. Therefore, we use this custom
+/// structure that has an fixed layout, allowing us to safely read it from the userland address
+/// in the kernel.
+#[repr(C)]
+pub(crate) struct SyscallString {
+    pub data: *mut u8,
+    pub len: usize,
+}
+
+impl From<&str> for SyscallString {
+    fn from(value: &str) -> Self {
+        Self {
+            data: value.as_ptr() as *mut u8,
+            len: value.len(),
+        }
+    }
+}
+
 #[repr(u64)]
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -93,4 +116,20 @@ impl Errno {
     pub const fn syscall_error(register: usize) -> bool {
         register > (usize::MAX - 4096)
     }
+}
+
+// A struct that contains all the syscall numbers used by the kernel.
+#[non_exhaustive]
+#[repr(u64)]
+pub enum Syscall {
+    TaskExit = 0,
+    TaskId = 1,
+    TaskSleep = 2,
+    TaskYield = 3,
+    TaskSpawn = 4,
+    SerialRead = 5,
+    SerialWrite = 6,
+    MmuMap = 7,
+    MmuUnmap = 8,
+    VideoFramebufferInfo = 9,
 }

@@ -7,11 +7,11 @@ pub struct Descriptor(pub usize);
 
 /// A table of opened files. This is a simple array of 32 elements, where each
 /// element is an optional reference to an opened file.
-/// 
+///
 /// The descriptor of a file is its index in this table.
 #[derive(Default, Debug, Clone)]
 pub struct OpenedFiles {
-    files: [Option<Arc<OpenFile>>; 32]
+    files: [Option<Arc<OpenFile>>; 32],
 }
 
 impl OpenedFiles {
@@ -47,4 +47,3 @@ impl OpenedFiles {
         self.files[fd.0].as_ref()
     }
 }
-

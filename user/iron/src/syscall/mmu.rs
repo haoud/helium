@@ -1,4 +1,4 @@
-use super::Errno;
+use super::{Errno, Syscall};
 use bitflags::bitflags;
 
 bitflags! {
@@ -82,7 +82,7 @@ pub unsafe fn map(base: usize, len: usize, access: Access, flags: Flags) -> Resu
     let ret: usize;
     core::arch::asm!(
         "syscall",
-        in("rax") 6,
+        in("rax") Syscall::MmuMap as u64,
         in("rsi") base,
         in("rdx") len,
         in("r10") access.bits(),
@@ -115,7 +115,7 @@ pub unsafe fn unmap(base: usize, len: usize) -> Result<(), Errno> {
         let ret: usize;
         core::arch::asm!(
             "syscall",
-            in("rax") 7,
+            in("rax") Syscall::MmuUnmap as u64,
             in("rsi") base,
             in("rdx") len,
             lateout("rax") ret,

@@ -1,3 +1,9 @@
+use super::{Errno, SyscallString};
+use crate::syscall::Syscall;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Identifier(pub u64);
+
 /// Obtain the current task ID.
 ///
 /// A task ID is a unique identifier for a task. Each task has a unique task ID, and unlike
@@ -8,7 +14,7 @@ pub fn id() -> u64 {
     unsafe {
         core::arch::asm!(
             "syscall",
-            in("rax") 1,
+            in("rax") Syscall::TaskId as u64,
             lateout("rax") id,
         );
     }
@@ -22,7 +28,7 @@ pub fn nanosleep(nano: u64) {
     unsafe {
         core::arch::asm!(
             "syscall",
-            in("rax") 4,
+            in("rax") Syscall::TaskSleep as u64,
             in("rsi") nano,
         );
     }
@@ -45,7 +51,7 @@ pub fn yields() {
     unsafe {
         core::arch::asm!(
             "syscall",
-            in("rax") 5,
+            in("rax") Syscall::TaskYield as u64,
         );
     }
 }
@@ -58,9 +64,29 @@ pub fn exit(code: i32) -> ! {
     unsafe {
         core::arch::asm!(
             "syscall",
-            in("rax") 0,
+            in("rax") Syscall::TaskExit as u64,
             in("rsi") code,
             options(noreturn)
         );
+    }
+}
+
+/// Spawn a new task from the specified ELF file.
+pub fn spawn(path: &str) -> Result<Identifier, Errno> {
+    let str = SyscallString::from(path);
+    let ret;
+
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") Syscall::TaskSpawn as u64,
+            in("rsi") &str as *const _ as u64,
+            lateout("rax") ret,
+        );
+    }
+
+    match Errno::from_syscall_return(ret) {
+        Some(errno) => Err(errno),
+        None => Ok(Identifier(ret as u64)),
     }
 }

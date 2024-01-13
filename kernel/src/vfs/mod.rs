@@ -10,13 +10,13 @@ use crate::{
 };
 
 pub mod dirent;
+pub mod fd;
 pub mod file;
 pub mod fs;
 pub mod inode;
 pub mod mount;
 pub mod name;
 pub mod path;
-pub mod fd;
 
 /// Setup the virtual filesystem
 #[init]
@@ -61,7 +61,7 @@ fn fill_ramdisk() {
 /// # Errors
 /// This function can fails in many ways, and each of them is described by the
 /// [`LookupError`] enum.
-/// 
+///
 /// # Panics
 /// This function panics if an inode of one component of the path does not
 /// have a superblock associated with it. This should never happen, and is
