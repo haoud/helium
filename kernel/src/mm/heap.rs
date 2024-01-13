@@ -1,7 +1,8 @@
 use addr::{frame::Frame, virt::Virtual};
 use core::{
     alloc::{GlobalAlloc, Layout},
-    ops::{Deref, Range}, sync::atomic::{AtomicUsize, Ordering},
+    ops::{Deref, Range},
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// A heap that can be used for memory allocation. The inner heap is protected by a spinlock,

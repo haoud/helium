@@ -1,10 +1,12 @@
+use crate::limine::LIMINE_MEMMAP;
+
 use super::{FrameFlags, Stats};
 use addr::{
     frame::{self, Frame},
     phys::Physical,
     virt::Virtual,
 };
-use core::mem::size_of;
+use core::{mem::size_of, ops::Range};
 use limine::NonNullPtr;
 
 /// Represents the state of a physical memory frame, and contains information about the frame such
@@ -199,6 +201,53 @@ impl<T: Default> State<T> {
             frames: array,
             statistics,
         }
+    }
+
+    /// Reclaim the memory used by the bootloader during the boot process. This function
+    /// remove the [`FrameFlags::BOOT`] flag from the frame flags, and add the [`FrameFlags::FREE`]
+    /// flag, and return a list of a range of frames that can be used by the kernel.
+    ///
+    /// This is the responsibility of the caller to ensure that the returned frames are taken
+    /// into account by the frame allocator, because some allocators may not be able to allocate
+    /// frames that were not marked as free by the frame allocator during their initialization.
+    ///
+    /// # Panics
+    /// Panics if the memory map is not found. This should never happen, because the memory map
+    /// is needed to initialize the frame state and if this function is called, it means that the
+    /// frame state was correctly initialized.
+    ///
+    /// # Safety
+    /// TODO:
+    #[must_use]
+    pub unsafe fn reclaim_boot_memory(&mut self) -> Vec<Range<Frame>> {
+        let boot_reclaimable = LIMINE_MEMMAP
+            .get_response()
+            .get()
+            .expect("No memory map found")
+            .memmap()
+            .iter()
+            .filter(|entry| entry.typ == limine::MemoryMapEntryType::BootloaderReclaimable)
+            .map(|entry| {
+                let start = Frame::new(Physical::from(entry.base));
+                let end = Frame::upper(Physical::from(entry.base + entry.len));
+                start..end
+            })
+            .collect::<Vec<_>>();
+
+        for range in &boot_reclaimable {
+            for frame in range.start..range.end {
+                let frame_info = self.frame_info_mut(frame.addr()).unwrap();
+                frame_info.flags.remove(FrameFlags::BOOT);
+                frame_info.flags.insert(FrameFlags::FREE);
+                frame_info.count = 0;
+
+                // Update the statistics
+                self.statistics.allocated.0 -= 1;
+                self.statistics.kernel.0 -= 1;
+            }
+        }
+
+        boot_reclaimable
     }
 
     /// Return an mutable reference to the frame info for the given physical address, or `None` if

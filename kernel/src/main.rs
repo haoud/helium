@@ -97,6 +97,21 @@ pub unsafe extern "C" fn _start() -> ! {
     // Run the APs
     x86_64::smp::go();
 
+    // Terminate the setup and jump to userland
+    terminate_setup();
+}
+
+/// Reclaim the memory only used during the boot process and jump to userland (or run the
+/// integration tests depending on the `test` feature flag).
+///
+/// # Safety
+/// This function is unsafe because it reclaim the memory used by the boot process, which could
+/// result in undefined behavior if the memory is still used (see the [`mm::reclaim_boot_memory`]
+/// function for more details).
+#[inline(never)]
+pub unsafe fn terminate_setup() -> ! {
+    //mm::reclaim_boot_memory();
+
     // Jump to userland or run the tests depending on the features flags
     cfg_if::cfg_if! {
         if #[cfg(feature = "test")] {

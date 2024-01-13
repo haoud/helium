@@ -1,5 +1,5 @@
+use crate::{limine::LIMINE_MEMMAP, module};
 use self::heap::Heap;
-use crate::limine::LIMINE_MEMMAP;
 use frame::{
     allocator::{dummy, Allocator},
     AllocationFlags,
@@ -42,4 +42,30 @@ pub unsafe fn setup() {
         .into_inner();
 
     HEAP_ALLOCATOR.init(frames);
+}
+
+/// Reclaim the memory used by the kernel during the boot process.
+/// 
+/// # Safety
+/// This function is unsafe because it will free the memory used by the kernel
+/// during the boot process. Trying to use the memory after calling this function
+/// will cause undefined behavior: the caller must ensure that there is no more
+/// references to the memory that will be freed.
+pub unsafe fn reclaim_boot_memory() {
+    // Compute the number of memory that cound be freed
+    let mut size = FRAME_ALLOCATOR
+        .lock()
+        .state
+        .reclaim_boot_memory()
+        .iter()
+        .map(|range| range.end.addr().as_usize() - range.start.addr().as_usize())
+        .sum::<usize>();
+
+    // TODO: Reclaim the memory used by .init section
+
+    // The shell was copied into the ramfs and isn't needed anymore
+    // The init task was loaded into memory and isn't needed anymore
+    size += module::free("/boot/shell.elf").unwrap_or_default();
+    size += module::free("/boot/init.elf").unwrap_or_default();
+    log::info!("{size} bytes of boot memory was reclaimed by the kernel");
 }

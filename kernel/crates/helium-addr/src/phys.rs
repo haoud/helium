@@ -15,7 +15,7 @@ pub struct InvalidPhysical(pub(crate) usize);
 
 impl Physical {
     /// The maximum physical address supported by the x86_64 architecture.
-    pub const MAX: usize = 0x0010_0000_0000_0000;
+    pub const MAX: usize = 0x000F_FFFF_FFFF_FFFF;
 
     /// Creates a new physical address.
     ///
@@ -35,7 +35,7 @@ impl Physical {
     /// If the address is not valid (bits 52-63 must be 0), this function returns an error,
     /// containing the invalid address.
     pub const fn try_new(address: usize) -> Result<Self, InvalidPhysical> {
-        if address > 0x000F_FFFF_FFFF_FFFF {
+        if address > Self::MAX {
             Err(InvalidPhysical(address))
         } else {
             Ok(Self(address))

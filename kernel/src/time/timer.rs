@@ -165,6 +165,7 @@ impl Drop for Guard {
 }
 
 /// Setup the timer subsystem.
+#[init]
 pub fn setup() {
     Lazy::force(&TIMERS);
 }

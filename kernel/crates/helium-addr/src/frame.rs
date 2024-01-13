@@ -18,7 +18,7 @@ impl Index {
     /// does not represent a valid frame).
     #[must_use]
     pub const fn new(index: usize) -> Self {
-        assert!(index < Index::MAX);
+        assert!(index <= Index::MAX);
         Self(index)
     }
 
@@ -203,7 +203,7 @@ impl Step for Frame {
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
         let offset = count * Frame::SIZE;
-        if start.0 + offset < Physical::from(Physical::MAX) {
+        if start.0 + offset <= Physical::from(Physical::MAX) {
             return Some(Self::new(start.0 + offset));
         }
         None

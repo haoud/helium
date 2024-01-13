@@ -80,7 +80,7 @@ pub fn read(path: &str) -> Option<&[u8]> {
 }
 
 /// Free the module data at the given path. If the module does not exist, this function does
-/// nothing.
+/// nothing, otherwise it will return the number of bytes freed.
 ///
 /// # Panics
 /// This function will panic if the module subsystem is not initialized.
@@ -90,13 +90,18 @@ pub fn read(path: &str) -> Option<&[u8]> {
 /// used after being freed. To safely use this function, you must ensure that there are no longer
 /// any references to the module data before calling this function. Failure to do so will cause
 /// undefined behavior.
-pub unsafe fn free(path: &str) {
-    MODULES
+#[allow(clippy::must_use_candidate)]
+pub unsafe fn free(path: &str) -> Option<usize> {
+    let size = MODULES
         .as_mut()
         .expect("Module system not initialized")
-        .remove(path);
+        .remove(path)
+        .map(|data| data.len());
+
     MODULES
         .as_mut()
         .expect("Module system not initialized")
         .shrink_to_fit();
+
+    size
 }

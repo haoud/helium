@@ -48,7 +48,11 @@ fn fill_ramdisk() {
         .unwrap()
         .write(&file, shell_data, file::Offset(0))
         .expect("Failed to write to shell.elf");
-    assert!(len == shell_data.len(), "Wrote {len} bytes instead of {}", shell_data.len());
+    assert!(
+        len == shell_data.len(),
+        "Wrote {len} bytes instead of {}",
+        shell_data.len()
+    );
 }
 
 /// Lookup the path and return the inode associated with it.

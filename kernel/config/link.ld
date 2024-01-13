@@ -6,6 +6,8 @@ KERNEL_VIRT_BASE = 0xFFFFFFFF80000000;
 SECTIONS
 {
     . = KERNEL_VIRT_BASE;
+
+    __init_start = .;
     .init :
     {
         *(.init*)
@@ -19,6 +21,8 @@ SECTIONS
         *(.percpu*)
         __percpu_end = .;
     }
+
+    __init_end = .;
 
     . = ALIGN(4096);
     .text :
