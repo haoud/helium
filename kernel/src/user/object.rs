@@ -33,7 +33,7 @@ impl<T> Object<T> {
     #[must_use]
     pub unsafe fn new(ptr: Pointer<T>) -> Self {
         Self {
-            inner: Self::read(ptr.inner()),
+            inner: Self::read(&ptr),
             ptr,
         }
     }
@@ -62,9 +62,9 @@ impl<T> Object<T> {
     /// function to copy the object from the userland memory. This function is safe if the pointer
     /// is valid and if the object in userland memory has exactly the same layout as the object in
     /// the kernel: otherwise, this function will cause undefined behavior.
-    pub unsafe fn read(src: *const T) -> T {
+    pub unsafe fn read(src: &Pointer<T>) -> T {
         let mut dst = core::mem::MaybeUninit::<T>::uninit();
-        x86_64::user::read(src, dst.as_mut_ptr());
+        x86_64::user::read(src.inner(), dst.as_mut_ptr());
         dst.assume_init()
     }
 }

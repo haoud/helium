@@ -47,7 +47,7 @@ impl UserString {
         // SAFETY: This is safe because even if we fill the syscall string with invalid
         // data, it will be caught by the `new` or `fetch` functions and will not
         // cause undefined behavior.
-        unsafe { Self::new(&Object::read(ptr.inner())) }
+        unsafe { Self::new(&Object::read(ptr)) }
     }
 
     /// Fetch an string from the userland address space. This function will copy the string from
@@ -73,7 +73,7 @@ impl UserString {
         }
 
         // Check if the string is entirely in the userland address space.
-        if UserVirtual::is_user(self.data.inner() as usize + self.len) {
+        if !UserVirtual::is_user(self.data.inner() as usize + self.len) {
             return Err(FetchError::InvalidMemory);
         }
 
@@ -90,6 +90,7 @@ impl UserString {
         // responsability of the user program.
         unsafe {
             x86_64::user::copy_from(src, dst, len);
+            vector.set_len(len);
             Ok(String::from_utf8(vector)?)
         }
     }
