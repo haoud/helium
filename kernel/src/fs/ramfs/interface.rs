@@ -144,6 +144,7 @@ fn read_inode(
 /// This function never fails.
 #[allow(clippy::unnecessary_wraps)]
 fn truncate(inode: &vfs::inode::Inode, size: usize) -> Result<usize, vfs::inode::TruncateError> {
+    inode.state.lock().size = size;
     inode
         .data
         .downcast_ref::<Spinlock<InodeFile>>()
