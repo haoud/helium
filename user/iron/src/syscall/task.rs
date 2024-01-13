@@ -17,7 +17,7 @@ pub enum SpawnError {
 
 impl From<Errno> for SpawnError {
     fn from(error: Errno) -> Self {
-        if error.code() > Self::UnknownError as isize {
+        if error.code() > -(Self::UnknownError as isize) {
             unsafe { core::mem::transmute(error) }
         } else {
             Self::UnknownError

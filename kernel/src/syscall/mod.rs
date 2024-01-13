@@ -1,6 +1,7 @@
 pub mod mmu;
 pub mod serial;
 pub mod task;
+pub mod vfs;
 pub mod video;
 
 /// The type of the return value of a syscall. All syscalls must return a value that fits
@@ -22,6 +23,7 @@ pub enum Syscall {
     MmuMap = 7,
     MmuUnmap = 8,
     VideoFramebufferInfo = 9,
+    VfsOpen = 10,
 }
 
 impl Syscall {
@@ -40,6 +42,7 @@ impl Syscall {
             7 => Some(Self::MmuMap),
             8 => Some(Self::MmuUnmap),
             9 => Some(Self::VideoFramebufferInfo),
+            10 => Some(Self::VfsOpen),
             _ => None,
         }
     }
@@ -69,6 +72,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::VideoFramebufferInfo) => {
             video::framebuffer_info(a).map_err(bitfield::Into::into)
         }
+        Some(Syscall::VfsOpen) => vfs::open(a, b).map_err(bitfield::Into::into),
         None => Err(-1), // NoSuchSyscall,
     };
 

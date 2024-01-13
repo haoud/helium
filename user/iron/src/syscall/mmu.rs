@@ -73,7 +73,7 @@ pub enum MapError {
 
 impl From<Errno> for MapError {
     fn from(error: Errno) -> Self {
-        if error.code() > Self::UnknownError as isize {
+        if error.code() > -(Self::UnknownError as isize) {
             unsafe { core::mem::transmute(error) }
         } else {
             Self::UnknownError
@@ -91,7 +91,7 @@ pub enum UnmapError {
 
 impl From<Errno> for UnmapError {
     fn from(error: Errno) -> Self {
-        if error.code() > Self::UnknownError as isize {
+        if error.code() > -(Self::UnknownError as isize) {
             unsafe { core::mem::transmute(error) }
         } else {
             Self::UnknownError

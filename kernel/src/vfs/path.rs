@@ -67,6 +67,17 @@ impl Path {
         Ok(())
     }
 
+    /// Try to convert the path to a name. This will return None if the path is not a valid
+    /// name (for example, if it contains more than one component), or Some(name) if the path
+    /// is a valid name.
+    #[must_use]
+    pub fn as_name(&self) -> Option<&Name> {
+        if self.components.len() != 1 {
+            return None;
+        }
+        Some(&self.components[0])
+    }
+
     /// Iterate over the components of the path.
     pub fn iter(&self) -> impl Iterator<Item = &Name> {
         self.components.iter()

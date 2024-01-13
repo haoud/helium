@@ -10,7 +10,7 @@ pub enum ReadInfoError {
 
 impl From<Errno> for ReadInfoError {
     fn from(error: Errno) -> Self {
-        if error.code() > Self::UnknownError as isize {
+        if error.code() > -(Self::UnknownError as isize) {
             unsafe { core::mem::transmute(error) }
         } else {
             Self::UnknownError

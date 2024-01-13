@@ -79,21 +79,23 @@ pub enum Operation {
 
 bitflags::bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-    pub struct OpenFlags: u32 {
+    pub struct OpenFlags: usize {
         /// The file is opened for reading.
         const READ = 1 << 0;
 
         /// The file is opened for writing.
         const WRITE = 1 << 1;
 
-        /// The file is created if it does not exist.
-        const CREAT = 1 << 2;
-
-        /// The cursor is set at the end of the file when opened.
-        const APPEND = 1 << 3;
+        /// The file is created if it does not exist. If the file exists,
+        /// it is simply opened.
+        const CREATE = 1 << 2;
 
         /// The file is truncated to 0 length if it exists.
-        const TRUNCATE = 1 << 4;
+        const TRUNCATE = 1 << 3;
+
+        /// The file must be created during the open call. If the file already
+        /// exists, the call will fail.
+        const MUST_CREATE = 1 << 4;
     }
 }
 

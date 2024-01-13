@@ -25,6 +25,7 @@
 pub mod mmu;
 pub mod serial;
 pub mod task;
+pub mod vfs;
 pub mod video;
 
 /// A string that is stored in the userland address space. It is a structure that are created by
@@ -87,6 +88,7 @@ pub enum Syscall {
     MmuMap = 7,
     MmuUnmap = 8,
     VideoFramebufferInfo = 9,
+    VfsOpen = 10,
 }
 
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {
