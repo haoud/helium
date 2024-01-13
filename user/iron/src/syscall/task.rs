@@ -1,5 +1,26 @@
-use super::{Errno, SyscallString};
+use super::{syscall_return, SyscallString, Errno};
 use crate::syscall::Syscall;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum SpawnError {
+    NoSuchSyscall = 1,
+    BadAddress,
+    IoError,
+    InvalidElf,
+    OutOfMemory,
+    UnknownError,
+}
+
+impl From<Errno> for SpawnError {
+    fn from(error: Errno) -> Self {
+        if error.code() > Self::UnknownError as isize {
+            unsafe { core::mem::transmute(error) }
+        } else {
+            Self::UnknownError
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Identifier(pub u64);
@@ -72,7 +93,7 @@ pub fn exit(code: i32) -> ! {
 }
 
 /// Spawn a new task from the specified ELF file.
-pub fn spawn(path: &str) -> Result<Identifier, Errno> {
+pub fn spawn(path: &str) -> Result<Identifier, SpawnError> {
     let str = SyscallString::from(path);
     let ret;
 
@@ -85,8 +106,8 @@ pub fn spawn(path: &str) -> Result<Identifier, Errno> {
         );
     }
 
-    match Errno::from_syscall_return(ret) {
-        Some(errno) => Err(errno),
-        None => Ok(Identifier(ret as u64)),
+    match syscall_return(ret) {
+        Err(errno) => Err(SpawnError::from(errno)),
+        Ok(ret) => Ok(Identifier(ret as u64)),
     }
 }

@@ -50,71 +50,26 @@ impl From<&str> for SyscallString {
     }
 }
 
-#[repr(u64)]
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Errno {
-    /// The errno code is unknown.
-    Unknown = 0,
-
-    /// The syscall number is invalid.
-    NoSuchSyscall = 1,
-
-    /// One (or more) argument passed to the syscall is invalid.
-    InvalidArgument = 2,
-
-    /// The task with the given id does not exist.
-    TaskNotFound = 3,
-
-    /// The task is already in use.
-    TaskInUse = 4,
-
-    /// The address passed to the syscall is invalid.
-    BadAddress = 5,
-
-    /// The requestred syscall exist but is not implemented.
-    NotImplemented = 6,
-
-    /// The kernel ran out of memory while handling the syscall.
-    OutOfMemory = 7,
-
-    /// The resource already exists.
-    AlreadyExists = 8,
-}
-
-impl From<usize> for Errno {
-    fn from(value: usize) -> Self {
-        match value {
-            1 => Errno::NoSuchSyscall,
-            2 => Errno::InvalidArgument,
-            3 => Errno::TaskNotFound,
-            4 => Errno::TaskInUse,
-            5 => Errno::BadAddress,
-            6 => Errno::NotImplemented,
-            7 => Errno::OutOfMemory,
-            8 => Errno::AlreadyExists,
-            _ => Errno::Unknown,
-        }
-    }
-}
+/// A syscall error code. It is returned by the kernel when a syscall fails. The kernel
+/// provides different error codes for each syscall, so errno cannot be used as it.
+/// 
+/// This structure guarantees that the error code is always a valid error code (between
+/// -4095 and -1), but does not guarantee that the error code is valid for the syscall
+/// that was called.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Errno(isize);
 
 impl Errno {
-    /// Create an `Errno` from a syscall return value. If the return value is not an error,
-    /// this function will return `None`.
+    /// Check if the given error code is a valid error code.
     #[must_use]
-    pub fn from_syscall_return(register: usize) -> Option<Self> {
-        match Self::syscall_error(register) {
-            true => Some(Self::from((register as isize).unsigned_abs())),
-            false => None,
-        }
+    pub fn valid(code: isize) -> bool {
+        (-4095..0).contains(&code)
     }
 
-    /// Verify if the syscall return value is an error. An syscall is allowed to return
-    /// any value excepted value greater than `usize::MAX - 4096` that are reserved for
-    /// indicating an error.
+    /// Get the error code as an isize.
     #[must_use]
-    pub const fn syscall_error(register: usize) -> bool {
-        register > (usize::MAX - 4096)
+    pub fn code(&self) -> isize {
+        self.0
     }
 }
 
@@ -132,4 +87,12 @@ pub enum Syscall {
     MmuMap = 7,
     MmuUnmap = 8,
     VideoFramebufferInfo = 9,
+}
+
+pub fn syscall_return(code: usize) -> Result<usize, Errno> {
+    if Errno::valid(code as isize){
+        Err(Errno(-(code as isize)))
+    } else {
+        Ok(code)
+    }
 }

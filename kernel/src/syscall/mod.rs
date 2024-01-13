@@ -1,6 +1,3 @@
-use crate::user::buffer::BufferError;
-use addr::user::InvalidUserVirtual;
-
 pub mod mmu;
 pub mod serial;
 pub mod task;
@@ -48,49 +45,8 @@ impl Syscall {
     }
 }
 
-/// A struct that contains all the possible syscall errors. When a syscall returns, it can
-/// return any value that fit in an i64, but values between -1 and -4095 are reserved for
-/// indicating an error. This works similarly to errno in Linux.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(i64)]
-pub enum SyscallError {
-    NoSuchSyscall = 1,
-    InvalidArgument = 2,
-    TaskNotFound = 3,
-    TaskInUse = 4,
-    BadAddress = 5,
-    NotImplemented = 6,
-    OutOfMemory = 7,
-    AlreadyExists = 8,
-    IoError = 9,
-    NotADirectory = 10,
-    IsADirectory = 11,
-    DoesNotExists = 12,
-}
-
-impl SyscallError {
-    /// Return the errno value of the current error. A syscall can return any value that
-    /// fits in an i64, but values between -1 and -4095 are reserved for indicating an
-    /// error, so we just convert the error to its negative value. This works similarly
-    /// to errno in Linux.
-    #[must_use]
-    pub fn errno(&self) -> isize {
-        -(*self as isize)
-    }
-}
-
-impl From<BufferError> for SyscallError {
-    fn from(e: BufferError) -> Self {
-        match e {
-            BufferError::NotInUserSpace => Self::BadAddress,
-        }
-    }
-}
-
-impl From<InvalidUserVirtual> for SyscallError {
-    fn from(_: InvalidUserVirtual) -> Self {
-        Self::BadAddress
-    }
+pub trait Errno {
+    fn errno(&self) -> isize;
 }
 
 /// Handle a syscall. This function is called from the syscall interrupt handler, written in
@@ -100,22 +56,24 @@ impl From<InvalidUserVirtual> for SyscallError {
 #[allow(unused_variables)]
 #[allow(clippy::cast_possible_wrap)]
 fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize {
-    let result = match Syscall::from(id) {
+    let result: Result<usize, isize> = match Syscall::from(id) {
         Some(Syscall::TaskExit) => task::exit(a),
         Some(Syscall::TaskId) => task::id(),
         Some(Syscall::TaskSleep) => task::sleep(a),
         Some(Syscall::TaskYield) => task::yields(),
-        Some(Syscall::TaskSpawn) => task::spawn(a),
-        Some(Syscall::SerialRead) => serial::read(a, b),
-        Some(Syscall::SerialWrite) => serial::write(a, b),
-        Some(Syscall::MmuMap) => mmu::map(a, b, c, d),
-        Some(Syscall::MmuUnmap) => mmu::unmap(a, b),
-        Some(Syscall::VideoFramebufferInfo) => video::framebuffer_info(a),
-        None => Err(SyscallError::NoSuchSyscall),
+        Some(Syscall::TaskSpawn) => task::spawn(a).map_err(bitfield::Into::into),
+        Some(Syscall::SerialRead) => serial::read(a, b).map_err(bitfield::Into::into),
+        Some(Syscall::SerialWrite) => serial::write(a, b).map_err(bitfield::Into::into),
+        Some(Syscall::MmuMap) => mmu::map(a, b, c, d).map_err(bitfield::Into::into),
+        Some(Syscall::MmuUnmap) => mmu::unmap(a, b).map_err(bitfield::Into::into),
+        Some(Syscall::VideoFramebufferInfo) => {
+            video::framebuffer_info(a).map_err(bitfield::Into::into)
+        }
+        None => Err(-1), // NoSuchSyscall,
     };
 
     match result {
-        Err(error) => error.errno(),
+        Err(error) => error,
         Ok(value) => value as isize,
     }
 }

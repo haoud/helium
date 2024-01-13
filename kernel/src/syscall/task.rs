@@ -1,6 +1,3 @@
-use alloc::vec;
-
-use super::{SyscallError, SyscallValue};
 use crate::{
     time::{timer::Timer, units::Nanosecond, uptime_fast},
     user::{
@@ -12,6 +9,7 @@ use crate::{
     },
     vfs,
 };
+use alloc::vec;
 
 /// Exit the current task with the given exit code. The task will be terminated and
 /// will not be scheduled again. If there is no other reference to the task, it will
@@ -40,7 +38,7 @@ pub fn exit(code: usize) -> ! {
 /// This function panics if there is no current task running on the CPU (which should
 /// never happen and is a bug).
 #[allow(clippy::cast_possible_truncation)]
-pub fn id() -> Result<SyscallValue, SyscallError> {
+pub fn id() -> Result<usize, isize> {
     Ok(SCHEDULER.current_task().id().0 as usize)
 }
 
@@ -52,7 +50,7 @@ pub fn id() -> Result<SyscallValue, SyscallError> {
 /// # Errors
 /// This function will never return an error, but it is declared as returning a `Result`
 /// to be consistent with the other syscalls. It always returns `0`.
-pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
+pub fn sleep(nano: usize) -> Result<usize, isize> {
     let expiration = uptime_fast() + Nanosecond::new(nano as u64);
 
     // Create a timer that will wake up the task when it expires.
@@ -76,7 +74,7 @@ pub fn sleep(nano: usize) -> Result<SyscallValue, SyscallError> {
 /// # Errors
 /// This function will never return an error, but it is declared as returning a `Result`
 /// to be consistent with the other syscalls. It always returns `0`.
-pub fn yields() -> Result<SyscallValue, SyscallError> {
+pub fn yields() -> Result<usize, isize> {
     unsafe { scheduler::yield_cpu() };
     Ok(0)
 }
@@ -96,13 +94,13 @@ pub fn yields() -> Result<SyscallValue, SyscallError> {
 /// Currently, the whole ELF file is read into memory before being loaded. This is
 /// inefficient and should be changed to map the file into memory and load it on
 /// demand during the execution of the task.
-pub fn spawn(path: usize) -> Result<SyscallValue, SyscallError> {
+pub fn spawn(path: usize) -> Result<usize, SpawnError> {
     let path = unsafe {
-        let ptr = Pointer::try_new(path as *mut SyscallString).ok_or(SyscallError::BadAddress)?;
+        let ptr = Pointer::try_new(path as *mut SyscallString).ok_or(SpawnError::BadAddress)?;
         UserString::new(&Object::read(&ptr))
-            .ok_or(SyscallError::BadAddress)?
+            .ok_or(SpawnError::BadAddress)?
             .fetch()
-            .map_err(|_| SyscallError::BadAddress)?
+            .map_err(|_| SpawnError::BadAddress)?
     };
 
     // Read all the elf file into memory
@@ -117,7 +115,7 @@ pub fn spawn(path: usize) -> Result<SyscallValue, SyscallError> {
         vfs::LookupError::InvalidPath(_) => todo!(),
         vfs::LookupError::NotADirectory => todo!(),
         vfs::LookupError::CorruptedFilesystem => todo!(),
-        vfs::LookupError::IoError => SyscallError::IoError,
+        vfs::LookupError::IoError => SpawnError::IoError,
     })?;
 
     let len = inode.state.lock().size;
@@ -134,11 +132,11 @@ pub fn spawn(path: usize) -> Result<SyscallValue, SyscallError> {
         .as_file()
         .unwrap()
         .read(&file, &mut data, vfs::file::Offset(0))
-        .map_err(|_| SyscallError::IoError)?;
+        .map_err(|_| SpawnError::IoError)?;
 
     if readed != len as usize {
         log::debug!("Readed {} bytes, expected {}", readed, len);
-        return Err(SyscallError::IoError);
+        return Err(SpawnError::IoError);
     }
 
     let task = task::elf::load(Arc::new(Spinlock::new(vmm::Manager::new())), &data)
@@ -148,4 +146,21 @@ pub fn spawn(path: usize) -> Result<SyscallValue, SyscallError> {
     SCHEDULER.add_task(task);
 
     Ok(id.0 as usize)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum SpawnError {
+    NoSuchSyscall = 1,
+    BadAddress,
+    IoError,
+    InvalidElf,
+    OutOfMemory,
+    UnknownError,
+}
+
+impl From<SpawnError> for isize {
+    fn from(error: SpawnError) -> Self {
+        -(error as isize)
+    }
 }
