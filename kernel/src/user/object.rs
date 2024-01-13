@@ -62,10 +62,25 @@ impl<T> Object<T> {
     /// function to copy the object from the userland memory. This function is safe if the pointer
     /// is valid and if the object in userland memory has exactly the same layout as the object in
     /// the kernel: otherwise, this function will cause undefined behavior.
+    #[must_use]
     pub unsafe fn read(src: &Pointer<T>) -> T {
         let mut dst = core::mem::MaybeUninit::<T>::uninit();
         x86_64::user::read(src.inner(), dst.as_mut_ptr());
         dst.assume_init()
+    }
+
+    /// Write the object to the userland memory. This function will write the object to the
+    /// userland memory, so the object in the userland memory will be updated. This function
+    /// is advantageous to use this over using the `Object` struct if you does not need to
+    /// read the object from the userland memory, but only need to write it.
+    ///
+    /// # Safety
+    /// This function is unsafe because it dereference a raw user pointer and use the `copy_to`
+    /// function to copy the object to the userland memory. This function is safe if the pointer
+    /// is valid and if the object in userland memory has exactly the same layout as the object in
+    /// the kernel: otherwise, this function will cause undefined behavior.
+    pub unsafe fn write(dst: &Pointer<T>, src: &T) {
+        x86_64::user::write(src, dst.inner());
     }
 }
 

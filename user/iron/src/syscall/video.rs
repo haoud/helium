@@ -1,4 +1,4 @@
-use super::{syscall_return, Syscall, Errno};
+use super::{syscall_return, Errno, Syscall};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(usize)]

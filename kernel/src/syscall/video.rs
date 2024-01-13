@@ -10,8 +10,6 @@ pub struct FramebufferInfo {
     pub bpp: u16,
 }
 
-pub fn map_framebuffer() {}
-
 /// Write the framebuffer info to an user structure
 ///
 /// # Errors
@@ -21,20 +19,24 @@ pub fn map_framebuffer() {}
 /// # Panics
 /// Panics if the framebuffer info could not be retrieved from Limine.
 pub fn framebuffer_info(info_ptr: usize) -> Result<usize, ReadInfoError> {
-    let info_ptr = info_ptr as *mut FramebufferInfo;
-    let framebuffer_info_ptr = Pointer::try_new(info_ptr).ok_or(ReadInfoError::BadAddress)?;
+    let framebuffer_info_ptr =
+        Pointer::<FramebufferInfo>::from_usize(info_ptr).ok_or(ReadInfoError::BadAddress)?;
 
-    // SAFETY: We checked that the pointer is valid.
-    let mut user_framebuffer_info = unsafe { Object::new(framebuffer_info_ptr) };
     let framebuffer = &LIMINE_FRAMEBUFFER
         .get_response()
         .get()
         .expect("Failed to get framebuffer info")
         .framebuffers()[0];
 
-    user_framebuffer_info.height = framebuffer.height;
-    user_framebuffer_info.width = framebuffer.width;
-    user_framebuffer_info.bpp = framebuffer.bpp;
+    let framebuffer_info = FramebufferInfo {
+        height: framebuffer.height,
+        width: framebuffer.width,
+        bpp: framebuffer.bpp,
+    };
+
+    unsafe {
+        Object::write(&framebuffer_info_ptr, &framebuffer_info);
+    }
     Ok(0)
 }
 

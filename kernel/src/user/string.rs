@@ -21,12 +21,12 @@ pub struct SyscallString {
 /// similar to the [`SyscallString`] structure, but it more convenient to use in the kernel as it
 /// make some guarantees about the pointer that the [`SyscallString`] structure does not make.
 #[derive(Debug)]
-pub struct UserString {
+pub struct String {
     data: Pointer<u8>,
     len: usize,
 }
 
-impl UserString {
+impl String {
     /// Creates a new user string from a string from a syscall . This function does not copy the
     /// string from the userland address space to the kernel address space, but simply create a
     /// new string with an user pointer to the string in the userland address space and the length
@@ -35,7 +35,7 @@ impl UserString {
     /// If the pointer contained in the syscall string is invalid, this function will return `None`.
     #[must_use]
     pub fn new(str: &SyscallString) -> Option<Self> {
-        let data = Pointer::try_new(str.data)?;
+        let data = Pointer::new(str.data)?;
         let len = str.len;
         Some(Self { data, len })
     }
@@ -66,7 +66,7 @@ impl UserString {
     /// function to copy the object from the userland memory. This function is safe only if the
     /// pointer is valid and if the object in userland memory has exactly the same layout as the
     /// object in the kernel: otherwise, this function will cause undefined behavior.
-    pub fn fetch(&self) -> Result<String, FetchError> {
+    pub fn fetch(&self) -> Result<alloc::string::String, FetchError> {
         // Check if the string is too long to be handled by the kernel.
         if self.len > MAX_STR {
             return Err(FetchError::StringTooLong);
@@ -91,7 +91,7 @@ impl UserString {
         unsafe {
             x86_64::user::copy_from(src, dst, len);
             vector.set_len(len);
-            Ok(String::from_utf8(vector)?)
+            Ok(alloc::string::String::from_utf8(vector)?)
         }
     }
 }

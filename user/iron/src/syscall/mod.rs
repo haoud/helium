@@ -52,7 +52,7 @@ impl From<&str> for SyscallString {
 
 /// A syscall error code. It is returned by the kernel when a syscall fails. The kernel
 /// provides different error codes for each syscall, so errno cannot be used as it.
-/// 
+///
 /// This structure guarantees that the error code is always a valid error code (between
 /// -4095 and -1), but does not guarantee that the error code is valid for the syscall
 /// that was called.
@@ -90,7 +90,7 @@ pub enum Syscall {
 }
 
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {
-    if Errno::valid(code as isize){
+    if Errno::valid(code as isize) {
         Err(Errno(-(code as isize)))
     } else {
         Ok(code)

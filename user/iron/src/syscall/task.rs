@@ -1,4 +1,4 @@
-use super::{syscall_return, SyscallString, Errno};
+use super::{syscall_return, Errno, SyscallString};
 use crate::syscall::Syscall;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

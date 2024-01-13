@@ -25,28 +25,14 @@ pub struct UserBuffer<const N: usize> {
 }
 
 impl<const N: usize> UserBuffer<N> {
-    /// Create a new user buffer from a start address and a length.
-    ///
-    /// # Panics
-    /// Panic if a part of the buffer is not in the user address space.
-    #[must_use]
-    pub fn new(start: UserVirtual, len: usize) -> Self {
-        match Self::try_new(start, len) {
-            Err(BufferError::NotInUserSpace) => {
-                panic!("UserBuffer: buffer not in user address space")
-            }
-            Ok(buffer) => buffer,
-        }
-    }
-
     /// Try to create a new user buffer from a start address and a length.
     ///
     /// # Errors
     /// Return an error if a part of the buffer is not in the user address space.
-    pub fn try_new(start: UserVirtual, len: usize) -> Result<Self, BufferError> {
-        if UserVirtual::is_user(start.as_usize() + len) {
+    pub fn new(start: usize, len: usize) -> Result<Self, BufferError> {
+        if UserVirtual::is_user(start + len) {
             Ok(Self {
-                start,
+                start: UserVirtual::new(start),
                 offset: 0,
                 len,
                 buffer: [0; N],

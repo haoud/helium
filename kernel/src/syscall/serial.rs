@@ -2,16 +2,14 @@ use crate::{
     logger::SERIAL,
     user::buffer::{BufferError, UserStandardBuffer},
 };
-use addr::user::{InvalidUserVirtual, UserVirtual};
+use addr::user::InvalidUserVirtual;
 
 /// Write data to the serial port.
 ///
 /// # Errors
 /// - `SyscallError::BadAddress`: the buffer is not in the user address space.
 pub fn write(buffer: usize, len: usize) -> Result<usize, WriteError> {
-    let address = UserVirtual::try_new(buffer)?;
-    let mut buffer = UserStandardBuffer::try_new(address, len)?;
-
+    let mut buffer = UserStandardBuffer::new(buffer, len)?;
     let serial = SERIAL.lock();
     while let Some(buf) = buffer.read_buffered() {
         buf.iter().for_each(|&byte| serial.write(byte));

@@ -1,5 +1,5 @@
+use super::{Errno, Syscall};
 use crate::syscall::syscall_return;
-use super::{Syscall, Errno};
 use bitflags::bitflags;
 
 bitflags! {

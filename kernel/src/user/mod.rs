@@ -9,6 +9,13 @@ pub mod string;
 pub mod task;
 pub mod vmm;
 
+// Re-export the userland types to avoid having to import them from the userland module.
+// Example: "user::pointer::Pointer" will become "user::Pointer". This is useful because
+// the userland types are heavily used in the kernel, espcielly in the syscalls.
+pub use object::Object;
+pub use pointer::Pointer;
+pub use string::String;
+
 /// Setup the userland subsystem. This function initialize the scheduler and
 /// load the init task.
 ///

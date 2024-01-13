@@ -1,10 +1,9 @@
 use crate::{
     time::{timer::Timer, units::Nanosecond, uptime_fast},
     user::{
-        object::Object,
-        pointer::Pointer,
+        self,
         scheduler::{self, Scheduler, SCHEDULER},
-        string::{SyscallString, UserString},
+        string::SyscallString,
         task, vmm,
     },
     vfs,
@@ -95,13 +94,11 @@ pub fn yields() -> Result<usize, isize> {
 /// inefficient and should be changed to map the file into memory and load it on
 /// demand during the execution of the task.
 pub fn spawn(path: usize) -> Result<usize, SpawnError> {
-    let path = unsafe {
-        let ptr = Pointer::try_new(path as *mut SyscallString).ok_or(SpawnError::BadAddress)?;
-        UserString::new(&Object::read(&ptr))
-            .ok_or(SpawnError::BadAddress)?
-            .fetch()
-            .map_err(|_| SpawnError::BadAddress)?
-    };
+    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(SpawnError::BadAddress)?;
+    let path = user::String::from_raw_ptr(&ptr)
+        .ok_or(SpawnError::BadAddress)?
+        .fetch()
+        .map_err(|_| SpawnError::BadAddress)?;
 
     // Read all the elf file into memory
     let current_task = SCHEDULER.current_task();

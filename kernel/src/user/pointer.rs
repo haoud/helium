@@ -16,20 +16,9 @@ pub struct Pointer<T> {
 }
 
 impl<T> Pointer<T> {
-    /// Creates a new user pointer from a raw pointer.
-    ///
-    /// # Panics
-    /// Panics if the given pointer is not in user space.
-    pub fn new(ptr: *mut T) -> Self {
-        match Self::try_new(ptr) {
-            None => panic!("Invalid user pointer"),
-            Some(ptr) => ptr,
-        }
-    }
-
     /// Tries to create a new user pointer. Returns `None` if the given pointer is not
     /// in user space.
-    pub fn try_new(ptr: *mut T) -> Option<Self> {
+    pub fn new(ptr: *mut T) -> Option<Self> {
         if UserVirtual::is_user_ptr(ptr) {
             Some(Self { inner: ptr })
         } else {
@@ -41,14 +30,14 @@ impl<T> Pointer<T> {
     /// would not be in user space.
     #[must_use]
     pub fn from_usize(ptr: usize) -> Option<Self> {
-        Self::try_new(ptr as *mut T)
+        Self::new(ptr as *mut T)
     }
 
     /// Tries to create a new user pointer from a u64. Returns `None` if the resulting pointer
     /// would not be in user space.
     #[must_use]
     pub fn from_u64(ptr: u64) -> Option<Self> {
-        Self::try_new(ptr as *mut T)
+        Self::new(ptr as *mut T)
     }
 
     /// Get the pointer to the object in the userland memory.
