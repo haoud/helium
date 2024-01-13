@@ -2,13 +2,21 @@
 #![allow(internal_features)]
 #![feature(lang_items)]
 #![feature(never_type)]
+#![feature(format_args_nl)]
 #![feature(panic_info_message)]
+#![feature(allow_internal_unstable)]
 
 extern crate alloc;
 
 pub mod allocator;
+pub mod macros;
 pub mod process;
 pub mod syscall;
+
+pub mod prelude {
+    pub use core::prelude::rust_2021::*;
+    pub use crate::macros::*;
+}
 
 #[global_allocator]
 static mut ALLOCATOR: allocator::Allocator = allocator::Allocator::empty();
