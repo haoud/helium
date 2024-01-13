@@ -4,7 +4,7 @@ use crate::{
         self,
         scheduler::{self, Scheduler, SCHEDULER},
         string::SyscallString,
-        task, vmm,
+        task,
     },
     vfs,
 };

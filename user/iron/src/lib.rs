@@ -2,13 +2,16 @@
 #![allow(internal_features)]
 #![feature(lang_items)]
 #![feature(never_type)]
+#![feature(panic_info_message)]
 
-pub mod alloc;
+extern crate alloc;
+
+pub mod allocator;
 pub mod process;
 pub mod syscall;
 
 #[global_allocator]
-static mut ALLOCATOR: alloc::Allocator = alloc::Allocator::empty();
+static mut ALLOCATOR: allocator::Allocator = allocator::Allocator::empty();
 
 /// Initialize the runtime. For now, this function does nothing but in the future it should
 /// initialize the thread-local storage, the command line arguments, the environment variables
@@ -54,10 +57,31 @@ unsafe extern "C" fn _start() -> ! {
 /// The panic handler.
 ///
 /// This function is called when the application panics. The library does not support unwinding,
-/// so this function simply print a message and exit the application. In the future, this function
-/// should be able to print more information about the panic message and the backtrace.
+/// so this function simply print a message and exit the application.
 #[panic_handler]
-pub fn panic(_: &core::panic::PanicInfo) -> ! {
-    syscall::serial::print("Application panicked");
+pub fn panic(info: &core::panic::PanicInfo) -> ! {
+    if let Some(location) = info.location() {
+        if let Some(message) = info.message() {
+            syscall::serial::print(&alloc::format!(
+                "Panic: {} at {}:{}:{}\n",
+                message,
+                location.file(),
+                location.line(),
+                location.column()
+            ));
+        } else {
+            syscall::serial::print(&alloc::format!(
+                "Panic at {}:{}:{}\n",
+                location.file(),
+                location.line(),
+                location.column()
+            ));
+        }
+    } else if let Some(message) = info.message() {
+        syscall::serial::print(&alloc::format!("Panic: {}\n", message));
+    } else {
+        syscall::serial::print("Panic\n");
+    }
+
     syscall::task::exit(1);
 }
