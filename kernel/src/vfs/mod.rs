@@ -8,6 +8,7 @@ use crate::{
     module,
     vfs::{file::OpenFileCreateInfo, inode::ROOT},
 };
+use alloc::vec;
 
 pub mod dirent;
 pub mod fd;
@@ -94,6 +95,54 @@ pub fn lookup(path: &str, root: &Arc<Inode>, cwd: &Arc<Inode>) -> Result<Arc<Ino
     // because the parent is set to the inode found at the end of each iteration
     // of the loop.
     Ok(parent)
+}
+
+/// Read all the data of the file at the given path.
+///
+/// # Errors
+/// This function can fails in many ways, and each of them is described by the
+/// [`ReadAllError`] enum.
+pub fn read_all(
+    path: &str,
+    root: &Arc<Inode>,
+    cwd: &Arc<Inode>,
+) -> Result<Box<[u8]>, ReadAllError> {
+    let inode = lookup(path, root, cwd).map_err(ReadAllError::LookupError)?;
+    let file = file::OpenFile::new(OpenFileCreateInfo {
+        operation: inode.file_ops.clone(),
+        open_flags: file::OpenFlags::READ,
+        data: Box::new(()),
+        inode,
+    });
+
+    let len = file.inode.state.lock().size;
+    let mut data = vec![0; len].into_boxed_slice();
+    let readed = file
+        .as_file()
+        .ok_or(ReadAllError::NotAFile)?
+        .read(&file, &mut data, file::Offset(0))
+        .map_err(|_| ReadAllError::IoError)?;
+
+    if readed != len {
+        return Err(ReadAllError::PartialRead);
+    }
+    Ok(data)
+}
+
+#[derive(Debug)]
+pub enum ReadAllError {
+    /// The path could not be resolved. This variant contains the error that
+    /// occurred while resolving the path.
+    LookupError(LookupError),
+
+    /// The path does not point to a file.
+    NotAFile,
+
+    /// The file could not be read entirely.
+    PartialRead,
+
+    /// An I/O error occurred while reading the file.
+    IoError,
 }
 
 #[derive(Debug)]

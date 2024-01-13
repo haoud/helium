@@ -6,6 +6,9 @@ use crate::syscall::Syscall;
 pub enum SpawnError {
     NoSuchSyscall = 1,
     BadAddress,
+    InvalidArgument,
+    NoSuchFile,
+    NotAFile,
     IoError,
     InvalidElf,
     OutOfMemory,

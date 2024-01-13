@@ -24,13 +24,10 @@ pub use string::String;
 #[init]
 pub fn setup() {
     scheduler::setup();
-    SCHEDULER.add_task(
-        task::elf::load(
-            Arc::new(Spinlock::new(vmm::Manager::new())),
-            module::read("/boot/init.elf").expect("Failed to read init task"),
-        )
-        .expect("Failed to load init task"),
-    );
+
+    let module = module::read("/boot/init.elf").expect("Failed to read init task");
+    let task = task::elf::load(module).expect("Failed to load init task");
+    SCHEDULER.add_task(task);
 }
 
 /// Enter userland. This function after the kernel has been initialized and jumps to the init

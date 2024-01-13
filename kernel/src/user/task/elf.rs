@@ -14,8 +14,7 @@ use addr::{
 use core::{cmp::min, num::TryFromIntError};
 use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
 
-/// Parse an ELF file, load it into the passed page table, and return a new task with the entry
-/// point of the ELF file as the entry point of the task.
+/// Create a empty user address space and load the ELF file into it.
 ///
 /// # Errors
 /// Returns an `LoadError` if the the ELF file could not be loaded. On success, returns a new task
@@ -25,8 +24,9 @@ use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
 /// Panics if the kernel ran out of memory when loading the ELF file or if the ELF file contains
 /// overlapping segments
 #[allow(clippy::cast_possible_truncation)]
-pub fn load(vmm: Arc<Spinlock<vmm::Manager>>, file: &[u8]) -> Result<Arc<Task>, LoadError> {
+pub fn load(file: &[u8]) -> Result<Arc<Task>, LoadError> {
     let elf = check_elf(ElfBytes::<NativeEndian>::minimal_parse(file)?)?;
+    let vmm = Arc::new(Spinlock::new(vmm::Manager::new()));
 
     // Map all the segments of the ELF file that are loadable
     for phdr in elf

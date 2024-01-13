@@ -8,7 +8,6 @@ use crate::{
     },
     vfs,
 };
-use alloc::vec;
 
 /// Exit the current task with the given exit code. The task will be terminated and
 /// will not be scheduled again. If there is no other reference to the task, it will
@@ -84,10 +83,8 @@ pub fn yields() -> Result<usize, isize> {
 /// possible.
 ///
 /// # Errors
-/// TODO:
-///
-/// # Panics
-/// TODO:
+/// This syscall can fail in many ways, and each of them is described by the
+/// [`SpawnError`] enum.
 ///
 /// # Optimization
 /// Currently, the whole ELF file is read into memory before being loaded. This is
@@ -103,58 +100,79 @@ pub fn spawn(path: usize) -> Result<usize, SpawnError> {
 
     // Read all the elf file into memory
     let current_task = SCHEDULER.current_task();
-    let inode = vfs::lookup(
+    let data = vfs::read_all(
         &path,
         &current_task.root().lock(),
         &current_task.cwd().lock(),
-    )
-    .map_err(|e| match e {
-        vfs::LookupError::NotFound(_, _) => todo!(),
-        vfs::LookupError::InvalidPath(_) => todo!(),
-        vfs::LookupError::NotADirectory => todo!(),
-        vfs::LookupError::CorruptedFilesystem => todo!(),
-        vfs::LookupError::IoError => SpawnError::IoError,
-    })?;
+    )?;
 
-    let len = inode.state.lock().size;
-    let file = vfs::file::OpenFile::new(vfs::file::OpenFileCreateInfo {
-        operation: inode.file_ops.clone(),
-        inode,
-        open_flags: vfs::file::OpenFlags::READ,
-        data: Box::new(()),
-    });
-
-    // Read all the file
-    let mut data = vec![0; len as usize].into_boxed_slice();
-    let readed = file
-        .as_file()
-        .unwrap()
-        .read(&file, &mut data, vfs::file::Offset(0))
-        .map_err(|_| SpawnError::IoError)?;
-
-    if readed != len {
-        log::debug!("Readed {} bytes, expected {}", readed, len);
-        return Err(SpawnError::IoError);
-    }
-
-    let task = task::elf::load(Arc::new(Spinlock::new(vmm::Manager::new())), &data)
-        .expect("Failed to load task");
-
+    let task = task::elf::load(&data)?;
     let id = task.id();
-    SCHEDULER.add_task(task);
 
+    SCHEDULER.add_task(task);
     Ok(id.0 as usize)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(usize)]
 pub enum SpawnError {
+    /// The syscall number is invalid.
     NoSuchSyscall = 1,
+
+    /// An invalid address was passed as an argument
     BadAddress,
+
+    /// An invalid argument was passed to the syscall
+    InvalidArgument,
+
+    /// The file does not exist
+    NoSuchFile,
+
+    /// The path does not point to a file
+    NotAFile,
+
+    /// An I/O error occurred while reading the file
     IoError,
+
+    /// The ELF file is invalid
     InvalidElf,
+
+    /// The kernel ran out of memory while spawning the task
     OutOfMemory,
+
+    /// An unknown error occurred
     UnknownError,
+}
+
+impl From<vfs::ReadAllError> for SpawnError {
+    fn from(error: vfs::ReadAllError) -> Self {
+        match error {
+            vfs::ReadAllError::LookupError(e) => match e {
+                vfs::LookupError::NotFound(_, _) => SpawnError::NoSuchFile,
+                vfs::LookupError::InvalidPath(_) | vfs::LookupError::NotADirectory => {
+                    SpawnError::InvalidArgument
+                }
+                vfs::LookupError::CorruptedFilesystem | vfs::LookupError::IoError => {
+                    SpawnError::IoError
+                }
+            },
+            vfs::ReadAllError::IoError | vfs::ReadAllError::PartialRead => SpawnError::IoError,
+            vfs::ReadAllError::NotAFile => SpawnError::NotAFile,
+        }
+    }
+}
+
+impl From<user::task::elf::LoadError> for SpawnError {
+    fn from(error: user::task::elf::LoadError) -> Self {
+        match error {
+            task::elf::LoadError::InvalidElf
+            | task::elf::LoadError::InvalidAddress
+            | task::elf::LoadError::InvalidOffset
+            | task::elf::LoadError::OverlappingSegments
+            | task::elf::LoadError::UnsupportedArchitecture
+            | task::elf::LoadError::UnsupportedEndianness => SpawnError::InvalidElf,
+        }
+    }
 }
 
 impl From<SpawnError> for isize {
