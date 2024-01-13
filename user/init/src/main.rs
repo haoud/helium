@@ -16,4 +16,6 @@ fn main() {
     let fd = iron::syscall::vfs::open("/test.txt", iron::syscall::vfs::OpenFlags::MUST_CREATE)
         .expect("Failed to open file");
     println!("Opened file with fd: {:?}", fd);
+
+    iron::syscall::vfs::close(fd).expect("Failed to close file");
 }

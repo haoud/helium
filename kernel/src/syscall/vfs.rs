@@ -158,3 +158,37 @@ impl From<OpenError> for isize {
         -(error as isize)
     }
 }
+
+/// Close a file descriptor.
+///
+/// # Errors
+/// This function return an error if the file descriptor is invalid.
+pub fn close(fd: usize) -> Result<usize, CloseError> {
+    let current_task = SCHEDULER.current_task();
+    current_task
+        .files()
+        .lock()
+        .remove(vfs::fd::Descriptor(fd))
+        .ok_or(CloseError::InvalidFileDescriptor)?;
+
+    Ok(0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum CloseError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// An invalid file descriptor was passed as an argument
+    InvalidFileDescriptor,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<CloseError> for isize {
+    fn from(error: CloseError) -> Self {
+        -(error as isize)
+    }
+}

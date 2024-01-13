@@ -24,6 +24,7 @@ pub enum Syscall {
     MmuUnmap = 8,
     VideoFramebufferInfo = 9,
     VfsOpen = 10,
+    VfsClose = 11,
 }
 
 impl Syscall {
@@ -43,6 +44,7 @@ impl Syscall {
             8 => Some(Self::MmuUnmap),
             9 => Some(Self::VideoFramebufferInfo),
             10 => Some(Self::VfsOpen),
+            11 => Some(Self::VfsClose),
             _ => None,
         }
     }
@@ -73,6 +75,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
             video::framebuffer_info(a).map_err(bitfield::Into::into)
         }
         Some(Syscall::VfsOpen) => vfs::open(a, b).map_err(bitfield::Into::into),
+        Some(Syscall::VfsClose) => vfs::close(a).map_err(bitfield::Into::into),
         None => Err(-1), // NoSuchSyscall,
     };
 

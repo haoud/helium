@@ -89,6 +89,7 @@ pub enum Syscall {
     MmuUnmap = 8,
     VideoFramebufferInfo = 9,
     VfsOpen = 10,
+    VfsClose = 11,
 }
 
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {

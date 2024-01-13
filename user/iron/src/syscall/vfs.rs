@@ -2,7 +2,7 @@ use super::{syscall_return, Errno, Syscall, SyscallString};
 
 /// A file descriptor. This is an opaque handle that can be used to refer to
 /// an open file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FileDescriptor(usize);
 
 bitflags::bitflags! {
@@ -80,8 +80,31 @@ impl From<Errno> for OpenError {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum CloseError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// An invalid file descriptor was passed as an argument
+    InvalidFileDescriptor,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<Errno> for CloseError {
+    fn from(error: Errno) -> Self {
+        if error.code() > -(Self::UnknownError as isize) {
+            unsafe { core::mem::transmute(error) }
+        } else {
+            Self::UnknownError
+        }
+    }
+}
+
 /// Open a file and return a file descriptor that can be used to refer to it.
-/// 
+///
 /// # Errors
 /// See `OpenError` for a list of possible errors.
 pub fn open(path: &str, flags: OpenFlags) -> Result<FileDescriptor, OpenError> {
@@ -101,5 +124,23 @@ pub fn open(path: &str, flags: OpenFlags) -> Result<FileDescriptor, OpenError> {
     match syscall_return(ret) {
         Err(errno) => Err(OpenError::from(errno)),
         Ok(ret) => Ok(FileDescriptor(ret)),
+    }
+}
+
+pub fn close(fd: FileDescriptor) -> Result<(), CloseError> {
+    let ret;
+
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") Syscall::VfsClose as u64,
+            in("rsi") fd.0 as u64,
+            lateout("rax") ret,
+        );
+    }
+
+    match syscall_return(ret) {
+        Err(errno) => Err(CloseError::from(errno)),
+        Ok(_) => Ok(()),
     }
 }
