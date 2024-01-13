@@ -1,4 +1,3 @@
-//! TODO: Verify that inode has the correct type (file or directory)
 use super::{generate_inode_id, InodeDirectory, InodeFile, Superblock};
 use crate::{
     device::Device,
@@ -495,7 +494,7 @@ fn write(
 
     if offset + buf.len() > content.len() {
         content.resize(offset + buf.len(), 0);
-        file.inode.state.lock().size = content.len() as u64;
+        file.inode.state.lock().size = content.len();
     }
 
     // Write the buffer to the file and return the written size

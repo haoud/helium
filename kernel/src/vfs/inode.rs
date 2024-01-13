@@ -143,7 +143,7 @@ pub struct InodeState {
     pub links: u64,
 
     /// The size of this inode, in bytes.
-    pub size: u64,
+    pub size: usize,
 }
 
 impl InodeState {

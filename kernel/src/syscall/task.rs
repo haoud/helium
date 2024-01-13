@@ -93,6 +93,7 @@ pub fn yields() -> Result<usize, isize> {
 /// Currently, the whole ELF file is read into memory before being loaded. This is
 /// inefficient and should be changed to map the file into memory and load it on
 /// demand during the execution of the task.
+#[allow(clippy::cast_possible_truncation)]
 pub fn spawn(path: usize) -> Result<usize, SpawnError> {
     let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(SpawnError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
@@ -118,7 +119,7 @@ pub fn spawn(path: usize) -> Result<usize, SpawnError> {
     let len = inode.state.lock().size;
     let file = vfs::file::OpenFile::new(vfs::file::OpenFileCreateInfo {
         operation: inode.file_ops.clone(),
-        inode: inode,
+        inode,
         open_flags: vfs::file::OpenFlags::READ,
         data: Box::new(()),
     });
@@ -131,7 +132,7 @@ pub fn spawn(path: usize) -> Result<usize, SpawnError> {
         .read(&file, &mut data, vfs::file::Offset(0))
         .map_err(|_| SpawnError::IoError)?;
 
-    if readed != len as usize {
+    if readed != len {
         log::debug!("Readed {} bytes, expected {}", readed, len);
         return Err(SpawnError::IoError);
     }
