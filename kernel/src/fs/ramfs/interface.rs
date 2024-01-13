@@ -495,6 +495,7 @@ fn write(
 
     if offset + buf.len() > content.len() {
         content.resize(offset + buf.len(), 0);
+        file.inode.state.lock().size = content.len() as u64;
     }
 
     // Write the buffer to the file and return the written size
