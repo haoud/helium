@@ -1,5 +1,5 @@
-use crate::{limine::LIMINE_MEMMAP, module};
 use self::heap::Heap;
+use crate::{limine::LIMINE_MEMMAP, module};
 use frame::{
     allocator::{dummy, Allocator},
     AllocationFlags,
@@ -45,7 +45,7 @@ pub unsafe fn setup() {
 }
 
 /// Reclaim the memory used by the kernel during the boot process.
-/// 
+///
 /// # Safety
 /// This function is unsafe because it will free the memory used by the kernel
 /// during the boot process. Trying to use the memory after calling this function

@@ -16,6 +16,7 @@ pub mod inode;
 pub mod mount;
 pub mod name;
 pub mod path;
+pub mod fd;
 
 /// Setup the virtual filesystem
 #[init]
@@ -34,7 +35,7 @@ fn fill_ramdisk() {
         .create(root, "shell.elf")
         .expect("Failed to create shell.elf");
 
-    let shell = lookup("/shell.elf").expect("Shell.elf created but not found");
+    let shell = lookup("/shell.elf", root, root).expect("Shell.elf created but not found");
     let file = file::OpenFile::new(OpenFileCreateInfo {
         operation: shell.file_ops.clone(),
         inode: shell,
@@ -60,14 +61,19 @@ fn fill_ramdisk() {
 /// # Errors
 /// This function can fails in many ways, and each of them is described by the
 /// [`LookupError`] enum.
-///
+/// 
 /// # Panics
-/// Panics if the path is not absolute (unimplemented yet).
-pub fn lookup(path: &str) -> Result<Arc<Inode>, LookupError> {
+/// This function panics if an inode of one component of the path does not
+/// have a superblock associated with it. This should never happen, and is
+/// a serious bug if it does.
+pub fn lookup(path: &str, root: &Arc<Inode>, cwd: &Arc<Inode>) -> Result<Arc<Inode>, LookupError> {
     let path = Path::new(path)?;
-    assert!(path.is_absolute(), "Relative paths are not supported yet");
+    let mut parent = if path.is_absolute() {
+        Arc::clone(root)
+    } else {
+        Arc::clone(cwd)
+    };
 
-    let mut parent = Arc::clone(ROOT.get().unwrap());
     for (i, name) in path.components.iter().enumerate() {
         let superblock = parent.superblock.upgrade().unwrap();
 

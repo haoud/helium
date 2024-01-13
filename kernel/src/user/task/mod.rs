@@ -2,7 +2,7 @@ use super::{
     idle,
     scheduler::{Scheduler, SCHEDULER},
 };
-use crate::user::vmm;
+use crate::{user::vmm, vfs::{fd::OpenedFiles, inode::Inode, self}};
 use crate::x86_64::thread::{KernelThreadFn, Thread};
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -127,13 +127,42 @@ impl Priority {
 }
 
 pub struct Task {
+    /// The identifier of the task. This is used to identify the task and is unique across
+    /// the lifetime of the kernel.
     id: Identifier,
+
+    /// The current state of the task
     state: Spinlock<State>,
+
+    /// The thread of the task. For now, a task can only have one thread, but this will
+    /// change in the future when we will implement multi-threading.
     thread: Spinlock<Thread>,
+
+    /// The priority of the task. This is used by the scheduler to know which task to pick
+    /// when multiple tasks are executable. If an task has a higher priority, it will be
+    /// picked before a task with a lower priority. Tasks with the same priority are picked
+    /// in a round-robin fashion.
     priority: Spinlock<Priority>,
+
+    /// The list of opened files of the task. This is used by the VFS subsystem to know
+    /// which files are opened by the task.
+    files: Spinlock<OpenedFiles>,
+
+    /// The root directory of the task. This is used by the VFS subsystem to know the
+    /// root directory used by the task.
+    root: Spinlock<Arc<Inode>>,
+
+    /// The current working directory of the task. This is used by the VFS subsystem to
+    /// know the current working directory of the task.
+    cwd: Spinlock<Arc<Inode>>,
 }
 
 impl Task {
+    /// Create a new kernel task in the `Created` state with the given entry point and
+    /// priority, add it to the task list and return it.
+    /// 
+    /// # Panics
+    /// This function will panic the VFS subsystem is not initialized.
     #[must_use]
     pub fn kernel(entry: KernelThreadFn, priority: Priority) -> Arc<Task> {
         let thread = Thread::kernel(entry);
@@ -142,6 +171,9 @@ impl Task {
             state: Spinlock::new(State::Created),
             thread: Spinlock::new(thread),
             priority: Spinlock::new(priority),
+            files: Spinlock::new(OpenedFiles::empty()),
+            root: Spinlock::new(vfs::inode::ROOT.get().unwrap().clone()),
+            cwd: Spinlock::new(vfs::inode::ROOT.get().unwrap().clone()),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
@@ -150,6 +182,9 @@ impl Task {
     /// Create a new task in the `Created` state with the given memory map and entry
     /// point, add it to the task list and return it. It return an `Arc` to the task
     /// so that it can be shared between multiple kernel subsystems.
+    /// 
+    /// # Panics
+    /// This function will panic the VFS subsystem is not initialized.
     #[must_use]
     pub fn user(mm: Arc<Spinlock<vmm::Manager>>, entry: usize) -> Arc<Task> {
         let thread = Thread::new(mm, entry, STACK_BASE, STACK_SIZE);
@@ -158,6 +193,9 @@ impl Task {
             state: Spinlock::new(State::Created),
             thread: Spinlock::new(thread),
             priority: Spinlock::new(Priority::Normal),
+            files: Spinlock::new(OpenedFiles::empty()),
+            root: Spinlock::new(vfs::inode::ROOT.get().unwrap().clone()),
+            cwd: Spinlock::new(vfs::inode::ROOT.get().unwrap().clone()),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
@@ -204,6 +242,24 @@ impl Task {
     #[must_use]
     pub fn state(&self) -> State {
         *self.state.lock()
+    }
+
+    /// Return the list of opened files of the task.
+    #[must_use]
+    pub fn files(&self) -> &Spinlock<OpenedFiles> {
+        &self.files
+    }
+
+    /// Get the root directory of the task.
+    #[must_use]
+    pub fn root(&self) -> &Spinlock<Arc<Inode>> {
+        &self.root
+    }
+
+    /// Get the current working directory of the task.
+    #[must_use]
+    pub fn cwd(&self) -> &Spinlock<Arc<Inode>> {
+        &self.cwd
     }
 
     /// Return the identifier of the task. The identifier of an task is unique and will
