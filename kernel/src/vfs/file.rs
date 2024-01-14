@@ -120,6 +120,19 @@ pub enum Whence {
     End,
 }
 
+impl TryFrom<usize> for Whence {
+    type Error = ();
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Current),
+            1 => Ok(Self::Start),
+            2 => Ok(Self::End),
+            _ => Err(()),
+        }
+    }
+}
+
 /// The operation table for a directory.
 #[derive(Debug, PartialEq, Eq)]
 pub struct DirectoryOperation {
@@ -169,8 +182,8 @@ pub struct FileOperation {
 }
 
 impl FileOperation {
-    /// Writes the given buffer to the file at the given offset, and returns the offset
-    /// after the last byte written.
+    /// Writes the given buffer to the file at the given offset, and returns the number
+    /// of bytes written.
     ///
     /// # Errors
     /// If the buffer could not be written to the file, an error is returned,
@@ -180,7 +193,7 @@ impl FileOperation {
     }
 
     /// Reads from the file at the given offset into the given buffer, and returns the
-    /// offset after the last byte read.
+    /// number of bytes read.
     ///
     /// # Errors
     /// If the buffer could not be read from the file, an error is returned,

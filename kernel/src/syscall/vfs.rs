@@ -1,3 +1,5 @@
+use alloc::vec;
+
 use crate::{
     user::{
         self,
@@ -189,6 +191,260 @@ pub enum CloseError {
 
 impl From<CloseError> for isize {
     fn from(error: CloseError) -> Self {
+        -(error as isize)
+    }
+}
+
+/// Read `len` bytes from the file descriptor `fd` into the buffer `buf`.
+///
+/// # Errors
+/// See [`ReadError`] for more details.
+///
+/// # Panics
+/// This function panics if this function try to write more bytes than the user buffer
+/// can hold. This is a serious bug in this function if it happens.
+pub fn read(fd: usize, buf: usize, len: usize) -> Result<usize, ReadError> {
+    let current_task = SCHEDULER.current_task();
+    let file = current_task
+        .files()
+        .lock()
+        .get(vfs::fd::Descriptor(fd))
+        .ok_or(ReadError::InvalidFileDescriptor)?
+        .clone();
+
+    // Check that the file was opened for reading
+    if !file.open_flags.contains(vfs::file::OpenFlags::READ) {
+        return Err(ReadError::NotReadable);
+    }
+
+    let mut read_buffer = vec![0; 256].into_boxed_slice();
+    let mut buffer = user::buffer::UserStandardBuffer::new(buf, len)?;
+
+    let mut state = file.state.lock();
+    let mut offset = state.offset;
+    let mut remaning = len;
+    let mut readed = 0;
+
+    while remaning > 0 {
+        let bytes_read =
+            file.as_file()
+                .ok_or(ReadError::NotAFile)?
+                .read(&file, &mut read_buffer, offset)?;
+
+        // If there is nothing left to read, we break out of the loop
+        if bytes_read == 0 {
+            break;
+        }
+
+        // Write the readed bytes to the user buffer
+        buffer.write_buffered(&read_buffer[..bytes_read]).unwrap();
+
+        // Update the offset, the total number of bytes read and the
+        //number of bytes left to read to fill the user buffer
+        offset.0 += bytes_read;
+        remaning -= bytes_read;
+        readed += bytes_read;
+    }
+
+    state.offset = offset;
+    Ok(readed)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum ReadError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// An invalid file descriptor was passed as an argument
+    InvalidFileDescriptor,
+
+    /// The buffer passed as an argument is invalid
+    BadAddress,
+
+    /// The file is not a file
+    NotAFile,
+
+    /// The file was not opened with the `Read` flag
+    NotReadable,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<user::buffer::BufferError> for ReadError {
+    fn from(error: user::buffer::BufferError) -> Self {
+        match error {
+            user::buffer::BufferError::NotInUserSpace => Self::BadAddress,
+        }
+    }
+}
+
+impl From<vfs::file::ReadError> for ReadError {
+    fn from(error: vfs::file::ReadError) -> Self {
+        match error {}
+    }
+}
+
+impl From<ReadError> for isize {
+    fn from(error: ReadError) -> Self {
+        -(error as isize)
+    }
+}
+
+/// Write `len` bytes from the buffer `buf` to the file descriptor `fd`.
+///
+/// # Errors
+/// See [`WriteError`] for more details.
+///
+/// # Panics
+/// This function panics if a partial write occurs in the filesystem: this is not yet
+/// supported by this syscall.
+pub fn write(fd: usize, buf: usize, len: usize) -> Result<usize, WriteError> {
+    let current_task = SCHEDULER.current_task();
+    let file = current_task
+        .files()
+        .lock()
+        .get(vfs::fd::Descriptor(fd))
+        .ok_or(WriteError::InvalidFileDescriptor)?
+        .clone();
+
+    // Check that the file was opened for writing
+    if !file.open_flags.contains(vfs::file::OpenFlags::WRITE) {
+        return Err(WriteError::NotWritable);
+    }
+
+    let mut buffer = user::buffer::UserStandardBuffer::new(buf, len)?;
+
+    let mut state = file.state.lock();
+    let mut offset = state.offset;
+    let mut written = 0;
+
+    while let Some(data) = buffer.read_buffered() {
+        let bytes_written = file
+            .as_file()
+            .ok_or(WriteError::NotAFile)?
+            .write(&file, data, offset)?;
+
+        assert!(
+            bytes_written == data.len(),
+            "Partial writes are not supported"
+        );
+        offset.0 += bytes_written;
+        written += bytes_written;
+    }
+
+    state.offset = offset;
+    Ok(written)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum WriteError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// An invalid file descriptor was passed as an argument
+    InvalidFileDescriptor,
+
+    /// The buffer passed as an argument is invalid
+    BadAddress,
+
+    /// The file is not a file
+    NotAFile,
+
+    /// The file was not opened with the `WRITE` flag
+    NotWritable,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<user::buffer::BufferError> for WriteError {
+    fn from(error: user::buffer::BufferError) -> Self {
+        match error {
+            user::buffer::BufferError::NotInUserSpace => Self::BadAddress,
+        }
+    }
+}
+
+impl From<vfs::file::WriteError> for WriteError {
+    fn from(error: vfs::file::WriteError) -> Self {
+        match error {}
+    }
+}
+
+impl From<WriteError> for isize {
+    fn from(error: WriteError) -> Self {
+        -(error as isize)
+    }
+}
+
+/// Repositions the file offset of the open file description associated with the file
+/// descriptor `fd` to the argument `offset` according to the directive `whence` as
+/// follows:
+///  - `Whence::Current`: The offset is set to its current location plus `offset` bytes.
+///  - `Whence::End`: The offset is set to the size of the file plus `offset` bytes.
+///  - `Whence::Set`: The offset is set to `offset` bytes.
+///
+/// # Errors
+/// See [`SeekError`] for more details.
+pub fn seek(fd: usize, offset: usize, whence: usize) -> Result<usize, SeekError> {
+    let whence = vfs::file::Whence::try_from(whence).map_err(|_| SeekError::InvalidWhence)?;
+    let current_task = SCHEDULER.current_task();
+    let file = current_task
+        .files()
+        .lock()
+        .get(vfs::fd::Descriptor(fd))
+        .ok_or(SeekError::InvalidFileDescriptor)?
+        .clone();
+
+    let mut state = file.state.lock();
+    #[allow(clippy::cast_possible_wrap)]
+    let offset =
+        file.as_file()
+            .ok_or(SeekError::NotSeekable)?
+            .seek(&file, offset as isize, whence)?;
+
+    state.offset = offset;
+    Ok(offset.0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum SeekError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// An invalid file descriptor was passed as an argument
+    InvalidFileDescriptor,
+
+    /// The file is not seekable
+    NotSeekable,
+
+    /// An invalid whence was passed as an argument
+    InvalidWhence,
+
+    /// An invalid offset was passed as an argument
+    InvalidOffset,
+
+    /// the offset could not be represented by an `isize` and would overflow
+    Overflow,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<vfs::file::SeekError> for SeekError {
+    fn from(error: vfs::file::SeekError) -> Self {
+        match error {
+            vfs::file::SeekError::Overflow => Self::Overflow,
+        }
+    }
+}
+
+impl From<SeekError> for isize {
+    fn from(error: SeekError) -> Self {
         -(error as isize)
     }
 }

@@ -42,6 +42,12 @@ impl<const N: usize> UserBuffer<N> {
         }
     }
 
+    /// Get the length of the internal buffer.
+    #[must_use]
+    pub const fn internal_buffer_len(&self) -> usize {
+        N
+    }
+
     /// Get the remaning bytes to read or the remaning space to write in the user buffer.
     #[must_use]
     pub fn remaning(&self) -> usize {

@@ -90,6 +90,9 @@ pub enum Syscall {
     VideoFramebufferInfo = 9,
     VfsOpen = 10,
     VfsClose = 11,
+    VfsRead = 12,
+    VfsWrite = 13,
+    VfsSeek = 14,
 }
 
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {
