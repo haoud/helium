@@ -67,6 +67,15 @@ pub trait Errno {
 #[allow(unused_variables)]
 #[allow(clippy::cast_possible_wrap)]
 fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize {
+    log::trace!(
+        "syscall: id={:#x}, a={:#x}, b={:#x}, c={:#x}, d={:#x}, e={:#x}",
+        id,
+        a,
+        b,
+        c,
+        d,
+        e
+    );
     let result: Result<usize, isize> = match Syscall::from(id) {
         Some(Syscall::TaskExit) => task::exit(a),
         Some(Syscall::TaskId) => task::id(),

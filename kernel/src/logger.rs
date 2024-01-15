@@ -39,7 +39,7 @@ impl log::Log for Logger {
 #[init]
 pub fn setup() {
     log::set_logger(&Logger).expect("A logger is already set");
-    log::set_max_level(log::LevelFilter::Trace);
+    log::set_max_level(log::LevelFilter::Error);
 }
 
 /// Called when the kernel panics. This function force the unlock of the serial port, because the

@@ -26,6 +26,14 @@ pub fn map(addr: usize, len: usize, access: usize, flags: usize) -> Result<usize
     let end = UserVirtual::try_new(addr + len)?;
     let start = UserVirtual::try_new(addr)?;
 
+    log::trace!(
+        "mmap: addr={:#x}, len={:#x}, access={:?}, flags={:?}",
+        addr,
+        len,
+        access,
+        flags
+    );
+
     let area = Area::builder()
         .kind(Type::Anonymous)
         .range(start..end)
@@ -43,6 +51,11 @@ pub fn map(addr: usize, len: usize, access: usize, flags: usize) -> Result<usize
         .lock()
         .mmap(area)?;
 
+    log::trace!(
+        "mmap: mapped {:#x} bytes at {:#x}",
+        len,
+        range.start.as_usize()
+    );
     Ok(range.start.as_usize())
 }
 
