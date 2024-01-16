@@ -19,26 +19,32 @@ jobs:
 
     - uses: awalsh128/cache-apt-pkgs-action@latest
       with:
-        packages: qemu-system-x86 libssl-dev ninja-build
+        packages: ninja-build lld libssl-dev qemu-system-x86
         version: 1.0
 
-    - name: Cache rust compiler artifacts
-      id: cache-rust
-      uses: actions/cache@v3
+    - name: Restore rust compiler artifacts
+      id: restore-rust-artifacts
+      uses: actions/cache/restore@v3
       with:
         path: bin/src/rust-1.73.0
         key: ${{ runner.os }}-rust-${{ hashFiles('patch/rust.diff') }}
 
     - name: Build rust compiler
-      if: steps.cache-rust.outputs.cache-hit != 'true'
-      run: chmod +x ./scripts/* && ./scripts/first_build.sh
+      if: steps.restore-rust-artifacts.outputs.cache-hit != 'true'
+      run: |
+        chmod +x ./scripts/*
+        ./scripts/first_build.sh
+        rm -rf bin/src/rust-1.73.0/build
 
-    - name: Remove temporary build artifacts
-      if: steps.cache-rust.outputs.cache-hit != 'true'
-      run: rm -rf bin/src/rust-1.73.0/build 
+    - name: Save rust compiler artifacts
+      id: save-rust-artifacts
+      uses: actions/cache/save@v3
+      with:
+        path: bin/src/rust-1.73.0
+        key: ${{ runner.os }}-rust-${{ hashFiles('patch/rust.diff') }}
 
     - name: Add x86_64-unknown-helium target
-      if: steps.cache-rust.outputs.cache-hit != 'false'
+      if: steps.restore-rust-artifacts.outputs.cache-hit != 'false'
       run: ./scripts/add_user_toolchain.sh
 
     - name: Build kernel and userland
