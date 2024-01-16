@@ -54,7 +54,7 @@ impl UserVirtual {
     /// Checks if the given address is in user space.
     #[must_use]
     pub const fn is_user(address: usize) -> bool {
-        matches!(Self::try_new(address), Ok(_))
+        Self::try_new(address).is_ok()
     }
 
     /// Checks if the given pointer is in user space. If check if all the addresses that
@@ -256,7 +256,7 @@ impl Step for UserVirtual {
         if !UserVirtual::is_user(start.0) || !UserVirtual::is_user(end.0) {
             panic!("Steps between non-canonical addresses");
         }
-        usize::try_from(steps).ok()
+        Some(steps)
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
@@ -320,7 +320,7 @@ impl From<UserVirtual> for u64 {
 
 impl From<UserVirtual> for usize {
     fn from(address: UserVirtual) -> Self {
-        address.0 as usize
+        address.0
     }
 }
 
@@ -328,7 +328,7 @@ impl TryFrom<Virtual> for UserVirtual {
     type Error = InvalidUserVirtual;
 
     fn try_from(address: Virtual) -> Result<Self, Self::Error> {
-        Self::try_new(address.0 as usize)
+        Self::try_new(address.0)
     }
 }
 

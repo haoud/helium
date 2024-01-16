@@ -197,7 +197,7 @@ impl Virtual {
     #[must_use]
     pub const fn page_index(self, level: usize) -> usize {
         assert!(level >= 1 && level <= 5);
-        self.0 as usize >> 12 >> ((level - 1) * 9) & 0x1FF
+        self.0 >> 12 >> ((level - 1) * 9) & 0x1FF
     }
 
     #[must_use]
@@ -244,7 +244,7 @@ impl Step for Virtual {
         if !Virtual::is_canonical(start.0) || !Virtual::is_canonical(end.0) {
             panic!("Steps between non-canonical addresses");
         }
-        usize::try_from(steps).ok()
+        Some(steps)
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
@@ -337,7 +337,7 @@ impl From<UserVirtual> for Virtual {
     fn from(address: UserVirtual) -> Self {
         // A user virtual address is guaranteed to be an valid address, so we
         // can safely convert it to a virtual address without checking.
-        Self { 0: address.0 }
+        Self(address.0)
     }
 }
 

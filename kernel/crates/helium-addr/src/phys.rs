@@ -85,7 +85,7 @@ impl Physical {
     /// Convert this physical address to an usize.
     #[must_use]
     pub const fn as_usize(&self) -> usize {
-        self.0 as usize
+        self.0
     }
 
     /// Convert this physical address to an usize.
@@ -174,7 +174,7 @@ impl Physical {
 
 impl Step for Physical {
     fn steps_between(start: &Self, end: &Self) -> Option<usize> {
-        end.0.checked_sub(start.0).map(|x| x as usize)
+        end.0.checked_sub(start.0)
     }
 
     fn forward_checked(start: Self, count: usize) -> Option<Self> {
@@ -261,7 +261,7 @@ impl From<Virtual> for Physical {
         if addr.0 < 0xFFFF_8000_0000_0000 || addr.0 > 0xFFFF_8FFF_FFFF_FFFF {
             panic!("Cannot convert the virtual address {addr} to physical address");
         }
-        Self::new(addr.0 as usize - 0xFFFF_8000_0000_0000)
+        Self::new(addr.0 - 0xFFFF_8000_0000_0000)
     }
 }
 
