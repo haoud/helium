@@ -10,6 +10,7 @@ die() {
 qemu-system-x86_64 -m 128                                   \
     -drive format=raw,media=cdrom,file=bin/helium.iso       \
     -device isa-debug-exit                                  \
+    -rtc base=localtime                                     \
     -no-reboot                                              \
     -nographic                                              \
     -cpu max                                                \

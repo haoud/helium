@@ -10,6 +10,7 @@ die() {
 
 qemu-system-x86_64 -daemonize -s -S -m 128                  \
     -drive format=raw,media=cdrom,file=bin/helium.iso       \
+    -rtc base=localtime                                     \
     -no-reboot                                              \
     -no-shutdown                                            \
     -serial file:serial.log                                 \
