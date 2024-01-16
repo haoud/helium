@@ -2,6 +2,7 @@ use self::units::Nanosecond;
 use crate::x86_64::pit;
 use core::sync::atomic::Ordering;
 
+pub mod date;
 pub mod timer;
 pub mod units;
 pub mod unix;

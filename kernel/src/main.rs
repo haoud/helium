@@ -79,6 +79,12 @@ pub unsafe extern "C" fn _start() -> ! {
     // needs the memory manager to be initialized first
     x86_64::setup();
 
+    // Initialize date and time
+    time::date::setup();
+
+    // Initialize dynamic timers
+    time::timer::setup();
+
     // Initialize the module system
     module::setup();
 
@@ -87,9 +93,6 @@ pub unsafe extern "C" fn _start() -> ! {
 
     // Initialize the virtual file system
     vfs::setup();
-
-    // Initialize dynamic timers
-    time::timer::setup();
 
     // Setup the userland environment
     user::setup();

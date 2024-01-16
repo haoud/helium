@@ -11,6 +11,7 @@ pub mod instruction;
 pub mod io;
 pub mod irq;
 pub mod lapic;
+pub mod cmos;
 pub mod msr;
 pub mod paging;
 pub mod percpu;
