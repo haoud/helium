@@ -26,7 +26,7 @@ jobs:
       id: restore-rust-artifacts
       uses: actions/cache/restore@v3
       with:
-        path: bin/src/rust-1.73.0
+        path: bin/src/rust-1.73.0-patched
         key: ${{ runner.os }}-rust-${{ hashFiles('patch/rust.diff') }}
 
     - name: Build rust compiler
@@ -40,7 +40,7 @@ jobs:
       id: save-rust-artifacts
       uses: actions/cache/save@v3
       with:
-        path: bin/src/rust-1.73.0
+        path: bin/src/rust-1.73.0-patched
         key: ${{ runner.os }}-rust-${{ hashFiles('patch/rust.diff') }}
 
     - name: Add x86_64-unknown-helium target
