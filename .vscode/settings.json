@@ -1,12 +1,11 @@
 {
     "rust-analyzer.cargo.target": "x86_64-unknown-none",
     "rust-analyzer.linkedProjects": [
-        "user/iron/Cargo.toml",
-        "user/init/Cargo.toml",
-
-        "kernel/Cargo.toml",
+        "kernel/crates/helium-macros/Cargo.toml",
+        "kernel/crates/helium-addr/Cargo.toml",
         "kernel/crates/helium-sync/Cargo.toml",
-        "kernel/crates/helium-lib/Cargo.toml"
+        "kernel/crates/helium-lib/Cargo.toml",
+        "kernel/Cargo.toml",
     ],
     "rust-analyzer.check.allTargets": false,
     "rust-analyzer.check.command": "clippy",
