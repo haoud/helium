@@ -29,14 +29,22 @@ jobs:
         path: bin/src/rust-1.73.0-patched
         key: ${{ runner.os }}-rust-${{ hashFiles('patch/rust.diff') }}
 
+    # Build rust compiler if cache miss
+    # After building, remove all unnecessary files to reduce the cache size
     - name: Build rust compiler
       if: steps.restore-rust-artifacts.outputs.cache-hit != 'true'
       run: |
         chmod +x ./scripts/*
         ./scripts/first_build.sh
+        rm -rf bin/src/rust-1.73.0/src
+        rm -rf bin/src/rust-1.73.0/tests
         rm -rf bin/src/rust-1.73.0/build
+        rm -rf bin/src/rust-1.73.0/target
+        rm -rf bin/src/rust-1.73.0/library
+        rm -rf bin/src/rust-1.73.0/compiler
 
     - name: Save rust compiler artifacts
+      if: steps.restore-rust-artifacts.outputs.cache-hit != 'true'
       id: save-rust-artifacts
       uses: actions/cache/save@v3
       with:
