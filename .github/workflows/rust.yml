@@ -21,8 +21,16 @@ jobs:
       with:
         packages: qemu-system-x86 libssl-dev ninja-build
         version: 1.0
+      
+    - name: Cache rust compiler artifacts
+      id: cache-rust
+      uses: actions/cache@v3
+      with:
+        path: bin/src/rust-1.73.0
+        key: ${{ runner.os }}-rust-${{ hashFiles('patch/rust.diff') }}
 
     - name: Build rust compiler
+      if: steps.cache-rust.outputs.cache-hit != 'true'
       run: chmod +x ./scripts/* && ./scripts/first_build.sh
 
     - name: Build kernel and userland
