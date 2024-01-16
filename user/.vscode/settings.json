@@ -1,0 +1,15 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "shell/Cargo.toml",
+        "init/Cargo.toml",
+    ],
+    "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.check.command": "clippy",
+    "editor.semanticTokenColorCustomizations": {
+        "enabled": true,
+    },
+    "editor.inlayHints.enabled": "offUnlessPressed",
+    "editor.rulers": [
+        100
+    ],
+}
