@@ -6,10 +6,6 @@ use crate::{
 use alloc::sync::Weak;
 use core::any::Any;
 
-/// The root inode of the filesystem. It is initialized when the filesystem
-/// is mounted, and is used by the VFS to access the filesystem.
-pub static ROOT: Once<Arc<Inode>> = Once::new();
-
 /// The identifier of an inode. It must be unique among all inodes of the
 /// filesystem and is used by the superblock to cache inodes and retrieve
 /// them later without having to search them in the filesystem.

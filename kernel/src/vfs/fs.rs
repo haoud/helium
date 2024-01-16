@@ -1,4 +1,4 @@
-use super::{inode, mount::Super};
+use super::{dentry, mount::Super};
 use crate::device::Device;
 use core::any::Any;
 
@@ -92,7 +92,7 @@ pub fn exists(name: &str) -> bool {
 }
 
 /// Mount the filesystem with the given name on the given device and initialize
-/// the root inode.
+/// the root dentry
 #[init]
 pub fn mount_root(name: &str, device: Device) {
     let fs = FILESYSTEMS
@@ -103,10 +103,8 @@ pub fn mount_root(name: &str, device: Device) {
         .clone();
     let superblock = fs.read_super(device).expect("Failed to read superblock");
 
-    // Initialize the root inode
-    inode::ROOT.call_once(|| {
-        superblock
-            .get_inode(superblock.root())
-            .expect("Failed to read root inode")
-    });
+    let inode = superblock
+        .get_inode(superblock.root())
+        .expect("Failed to read root inode");
+    dentry::setup(inode);
 }

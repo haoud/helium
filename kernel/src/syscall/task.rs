@@ -100,11 +100,7 @@ pub fn spawn(path: usize) -> Result<usize, SpawnError> {
 
     // Read all the elf file into memory
     let current_task = SCHEDULER.current_task();
-    let data = vfs::read_all(
-        &path,
-        &current_task.root().lock(),
-        &current_task.cwd().lock(),
-    )?;
+    let data = vfs::read_all(&path, &current_task.root(), &current_task.cwd())?;
 
     let task = task::elf::load(&data)?;
     let id = task.id();
@@ -156,7 +152,9 @@ impl From<vfs::ReadAllError> for SpawnError {
                     SpawnError::IoError
                 }
             },
-            vfs::ReadAllError::IoError | vfs::ReadAllError::PartialRead => SpawnError::IoError,
+            vfs::ReadAllError::OpenError
+            | vfs::ReadAllError::IoError
+            | vfs::ReadAllError::PartialRead => SpawnError::IoError,
             vfs::ReadAllError::NotAFile => SpawnError::NotAFile,
         }
     }

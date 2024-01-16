@@ -6,7 +6,7 @@ use crate::{
         scheduler::{Scheduler, SCHEDULER},
         string::SyscallString,
     },
-    vfs,
+    vfs::{self, dentry::Dentry},
 };
 
 /// Open a file, specified by `path` with the given `flags`.
@@ -30,15 +30,15 @@ pub fn open(path: usize, flags: usize) -> Result<usize, OpenError> {
         .fetch()
         .map_err(|_| OpenError::BadAddress)?;
 
-    let inode = match vfs::lookup(&path, &root.lock(), &cwd.lock()) {
-        Ok(inode) => {
+    let dentry = match vfs::lookup(&path, &root, &cwd) {
+        Ok(dentry) => {
             // If the file exists and the `MUST_CREATE` flag is set, we return an error,
             // because the user has specified that the file must be created during the
             // open call.
             if flags.contains(vfs::file::OpenFlags::MUST_CREATE) {
                 return Err(OpenError::AlreadyExists);
             }
-            inode
+            dentry
         }
         Err(e) => {
             // If the user has not specified the `CREATE` or `MUST_CREATE` flag, we return
@@ -57,25 +57,28 @@ pub fn open(path: usize, flags: usize) -> Result<usize, OpenError> {
                 // the `CREATE` flag is set, the kernel will attempt to create a file
                 // with the given name in the parent directory
                 vfs::LookupError::NotFound(parent, path) => {
+                    let mut locked_parent = parent.lock();
+
                     let name = path.as_name().ok_or(OpenError::NoSuchFile)?;
-                    let superblock = parent.superblock.upgrade().unwrap();
-                    let id = parent
+                    let inode = locked_parent.inode();
+                    let superblock = inode.superblock.upgrade().unwrap();
+
+                    let id = inode
                         .as_directory()
                         .ok_or(OpenError::NotADirectory)?
-                        .create(&parent, name.as_str())?;
-                    superblock.get_inode(id)?
+                        .create(&locked_parent.inode(), name.as_str())?;
+
+                    let inode = superblock.get_inode(id)?;
+                    let dentry = Arc::new(Spinlock::new(Dentry::new(name.clone(), inode)));
+                    locked_parent.connect_child(dentry.clone()).unwrap();
+                    dentry
                 }
                 _ => return Err(OpenError::from(e)),
             }
         }
     };
 
-    let file = vfs::file::OpenFile::new(vfs::file::OpenFileCreateInfo {
-        operation: inode.file_ops.clone(),
-        open_flags: flags,
-        data: Box::new(()),
-        inode,
-    });
+    let file = dentry.lock().open(flags)?;
 
     let id = current_task
         .files()
@@ -152,6 +155,12 @@ impl From<vfs::mount::ReadInodeError> for OpenError {
         match error {
             vfs::mount::ReadInodeError::DoesNotExist => Self::NoSuchFile,
         }
+    }
+}
+
+impl From<vfs::dentry::OpenError> for OpenError {
+    fn from(error: vfs::dentry::OpenError) -> Self {
+        match error {}
     }
 }
 

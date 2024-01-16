@@ -1,15 +1,12 @@
 use self::{
-    inode::Inode,
+    dentry::Dentry,
     mount::ReadInodeError,
     path::{InvalidPath, Path},
 };
-use crate::{
-    device::Device,
-    module,
-    vfs::{file::OpenFileCreateInfo, inode::ROOT},
-};
+use crate::{device::Device, module, vfs::dentry::ROOT};
 use alloc::vec;
 
+pub mod dentry;
 pub mod dirent;
 pub mod fd;
 pub mod file;
@@ -31,18 +28,19 @@ fn fill_ramdisk() {
     let shell_data = module::read("/boot/shell.elf").expect("Shell executable not found");
 
     let root = ROOT.get().unwrap();
-    root.as_directory()
+    let inode = root.lock().inode().clone();
+    root.lock()
+        .inode()
+        .as_directory()
         .unwrap()
-        .create(root, "shell.elf")
+        .create(&inode, "shell.elf")
         .expect("Failed to create shell.elf");
 
     let shell = lookup("/shell.elf", root, root).expect("Shell.elf created but not found");
-    let file = file::OpenFile::new(OpenFileCreateInfo {
-        operation: shell.file_ops.clone(),
-        inode: shell,
-        open_flags: file::OpenFlags::READ | file::OpenFlags::WRITE,
-        data: Box::new(()),
-    });
+    let file = shell
+        .lock()
+        .open(file::OpenFlags::WRITE)
+        .expect("Failed to open shell.elf");
 
     // Write the shell to the file
     let len = file
@@ -67,7 +65,11 @@ fn fill_ramdisk() {
 /// This function panics if an inode of one component of the path does not
 /// have a superblock associated with it. This should never happen, and is
 /// a serious bug if it does.
-pub fn lookup(path: &str, root: &Arc<Inode>, cwd: &Arc<Inode>) -> Result<Arc<Inode>, LookupError> {
+pub fn lookup(
+    path: &str,
+    root: &Arc<Spinlock<Dentry>>,
+    cwd: &Arc<Spinlock<Dentry>>,
+) -> Result<Arc<Spinlock<Dentry>>, LookupError> {
     let path = Path::new(path)?;
     let mut parent = if path.is_absolute() {
         Arc::clone(root)
@@ -76,19 +78,34 @@ pub fn lookup(path: &str, root: &Arc<Inode>, cwd: &Arc<Inode>) -> Result<Arc<Ino
     };
 
     for (i, name) in path.components.iter().enumerate() {
-        let superblock = parent.superblock.upgrade().unwrap();
+        let mut locked_parent = parent.lock();
+        let dentry = match locked_parent.lookup(name) {
+            Ok(dentry) => dentry,
+            Err(e) => match e {
+                dentry::LookupError::NotADirectory => return Err(LookupError::NotADirectory),
+                dentry::LookupError::NotFound => {
+                    let superblock = locked_parent.inode().superblock.upgrade().unwrap();
 
-        let id = (parent
-            .as_directory()
-            .ok_or(LookupError::NotADirectory)?
-            .lookup)(&parent, name.as_str())
-        .map_err(|_| {
-            let remaning = &path.components[i..path.components.len()];
-            LookupError::NotFound(parent, Path::from(remaning))
-        })?;
+                    let id = locked_parent
+                        .inode()
+                        .as_directory()
+                        .ok_or(LookupError::NotADirectory)?
+                        .lookup(locked_parent.inode(), name.as_str())
+                        .map_err(|_| {
+                            let remaning = &path.components[i..path.components.len()];
+                            LookupError::NotFound(parent.clone(), Path::from(remaning))
+                        })?;
 
-        let inode = superblock.get_inode(id)?;
-        parent = Arc::clone(&inode);
+                    // Create the dentry and connect it to its parent
+                    let inode = superblock.get_inode(id)?;
+                    let name = name.clone();
+                    locked_parent.create_and_connect_child(inode, name).unwrap()
+                }
+            },
+        };
+
+        core::mem::drop(locked_parent);
+        parent = dentry;
     }
 
     // We return the final inode and not its parent despite the variable name
@@ -104,16 +121,14 @@ pub fn lookup(path: &str, root: &Arc<Inode>, cwd: &Arc<Inode>) -> Result<Arc<Ino
 /// [`ReadAllError`] enum.
 pub fn read_all(
     path: &str,
-    root: &Arc<Inode>,
-    cwd: &Arc<Inode>,
+    root: &Arc<Spinlock<Dentry>>,
+    cwd: &Arc<Spinlock<Dentry>>,
 ) -> Result<Box<[u8]>, ReadAllError> {
-    let inode = lookup(path, root, cwd).map_err(ReadAllError::LookupError)?;
-    let file = file::OpenFile::new(OpenFileCreateInfo {
-        operation: inode.file_ops.clone(),
-        open_flags: file::OpenFlags::READ,
-        data: Box::new(()),
-        inode,
-    });
+    let dentry = lookup(path, root, cwd).map_err(ReadAllError::LookupError)?;
+    let file = dentry
+        .lock()
+        .open(file::OpenFlags::READ)
+        .map_err(|_| ReadAllError::OpenError)?;
 
     let len = file.inode.state.lock().size;
     let mut data = vec![0; len].into_boxed_slice();
@@ -135,6 +150,9 @@ pub enum ReadAllError {
     /// occurred while resolving the path.
     LookupError(LookupError),
 
+    /// An error occurred while opening the file.
+    OpenError,
+
     /// The path does not point to a file.
     NotAFile,
 
@@ -150,7 +168,7 @@ pub enum LookupError {
     /// The path could not be resolved entirely. This variant contains the
     /// last inode found before the path could not be resolved anymore, and
     /// the remaining path that could not be resolved.
-    NotFound(Arc<Inode>, Path),
+    NotFound(Arc<Spinlock<Dentry>>, Path),
 
     /// The path is invalid. This variant contains an error describing why the
     /// path is invalid.

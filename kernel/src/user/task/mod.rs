@@ -2,10 +2,13 @@ use super::{
     idle,
     scheduler::{Scheduler, SCHEDULER},
 };
-use crate::x86_64::thread::{KernelThreadFn, Thread};
 use crate::{
     user::vmm,
-    vfs::{self, fd::OpenedFiles, inode::Inode},
+    vfs::{self, fd::OpenedFiles},
+};
+use crate::{
+    vfs::dentry::Dentry,
+    x86_64::thread::{KernelThreadFn, Thread},
 };
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -153,11 +156,11 @@ pub struct Task {
 
     /// The root directory of the task. This is used by the VFS subsystem to know the
     /// root directory used by the task.
-    root: Spinlock<Arc<Inode>>,
+    root: Spinlock<Arc<Spinlock<Dentry>>>,
 
     /// The current working directory of the task. This is used by the VFS subsystem to
     /// know the current working directory of the task.
-    cwd: Spinlock<Arc<Inode>>,
+    cwd: Spinlock<Arc<Spinlock<Dentry>>>,
 }
 
 impl Task {
@@ -175,8 +178,8 @@ impl Task {
             thread: Spinlock::new(thread),
             priority: Spinlock::new(priority),
             files: Spinlock::new(OpenedFiles::empty()),
-            root: Spinlock::new(vfs::inode::ROOT.get().unwrap().clone()),
-            cwd: Spinlock::new(vfs::inode::ROOT.get().unwrap().clone()),
+            root: Spinlock::new(vfs::dentry::ROOT.get().unwrap().clone()),
+            cwd: Spinlock::new(vfs::dentry::ROOT.get().unwrap().clone()),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
@@ -197,8 +200,8 @@ impl Task {
             thread: Spinlock::new(thread),
             priority: Spinlock::new(Priority::Normal),
             files: Spinlock::new(OpenedFiles::empty()),
-            root: Spinlock::new(vfs::inode::ROOT.get().unwrap().clone()),
-            cwd: Spinlock::new(vfs::inode::ROOT.get().unwrap().clone()),
+            root: Spinlock::new(vfs::dentry::ROOT.get().unwrap().clone()),
+            cwd: Spinlock::new(vfs::dentry::ROOT.get().unwrap().clone()),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
@@ -255,14 +258,14 @@ impl Task {
 
     /// Get the root directory of the task.
     #[must_use]
-    pub fn root(&self) -> &Spinlock<Arc<Inode>> {
-        &self.root
+    pub fn root(&self) -> Arc<Spinlock<Dentry>> {
+        self.root.lock().clone()
     }
 
     /// Get the current working directory of the task.
     #[must_use]
-    pub fn cwd(&self) -> &Spinlock<Arc<Inode>> {
-        &self.cwd
+    pub fn cwd(&self) -> Arc<Spinlock<Dentry>> {
+        self.cwd.lock().clone()
     }
 
     /// Return the identifier of the task. The identifier of an task is unique and will
