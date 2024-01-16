@@ -9,6 +9,13 @@ use alloc::sync::Weak;
 /// The root dentry of the filesystem tree.
 pub static ROOT: Once<Arc<Spinlock<Dentry>>> = Once::new();
 
+/// A dentry is a directory entry. It is a node in the filesystem tree, and
+/// contains the name of the file, the inode associated with the file, and
+/// pointers to its parent and children.
+/// 
+/// A dentry object can only be referenced once in the dentry cache. However,
+/// the underlying inode can be referenced multiple times, for example if the
+/// file has multiple hard links.
 #[derive(Debug)]
 pub struct Dentry {
     /// The name of this dentry.
@@ -28,15 +35,6 @@ pub struct Dentry {
 }
 
 impl Dentry {
-    /// Create a new root dentry. This is similar to [`Self::new`], but sets the
-    /// parent of the dentry to itself instead of leaving it unset.
-    #[must_use]
-    pub fn root(name: Name, inode: Arc<Inode>) -> Arc<Spinlock<Self>> {
-        let dentry = Arc::new(Spinlock::new(Self::new(name, inode)));
-        dentry.lock().parent = Arc::downgrade(&dentry);
-        dentry
-    }
-
     /// Create a new dentry with the given name and inode. This dentry does not
     /// have a parent, and must be connected to a parent before being used.
     #[must_use]
@@ -47,6 +45,15 @@ impl Dentry {
             inode,
             name,
         }
+    }
+
+    /// Create a new root dentry. This is similar to [`Self::new`], but sets the
+    /// parent of the dentry to itself instead of leaving it unset.
+    #[must_use]
+    pub fn root(name: Name, inode: Arc<Inode>) -> Arc<Spinlock<Self>> {
+        let dentry = Arc::new(Spinlock::new(Self::new(name, inode)));
+        dentry.lock().parent = Arc::downgrade(&dentry);
+        dentry
     }
 
     /// Open the inode associated with this dentry.
@@ -227,23 +234,26 @@ impl Dentry {
         child: Arc<Spinlock<Dentry>>,
     ) -> Result<(), ConnectError> {
         let mut locked_dentry = dentry.lock();
-        let mut locked_child = child.lock();
-
         if locked_dentry.inode.kind != inode::Kind::Directory {
             return Err(ConnectError::NotADirectory);
         }
 
-        if locked_dentry
-            .children
-            .iter()
-            .any(|entry| entry.lock().name == child.lock().name)
         {
-            return Err(ConnectError::AlreadyExists);
+            let mut locked_child = child.lock();
+            if locked_child.parent.upgrade().is_some() {
+                return Err(ConnectError::AlreadyConnected);
+            }
+
+            if locked_dentry
+                .children
+                .iter()
+                .any(|entry| entry.lock().name == locked_child.name)
+            {
+                return Err(ConnectError::AlreadyExists);
+            }
+
+            locked_child.parent = Arc::downgrade(dentry);
         }
-
-        locked_child.parent = Arc::downgrade(dentry);
-
-        core::mem::drop(locked_child);
 
         locked_dentry.children.push(child);
         Ok(())
