@@ -6,8 +6,6 @@ extern crate alloc;
 fn main() {
     task::spawn("/shell.elf").expect("Failed to spawn shell");
 
-    return;
-
     let fd = vfs::open(
         "/test.txt",
         vfs::OpenFlags::READ | vfs::OpenFlags::WRITE | vfs::OpenFlags::MUST_CREATE,

@@ -1,23 +1,66 @@
-diff -Naur '--exclude=.git' bin/src/rust/compiler/rustc_target/src/spec/helium_base.rs bin/src/rust-patched/compiler/rustc_target/src/spec/helium_base.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/Cargo.lock bin/src/rust-1.73.0-patched/Cargo.lock
+--- bin/src/rust/Cargo.lock	2024-01-16 10:40:08.482913874 +0100
++++ bin/src/rust-1.73.0-patched/Cargo.lock	2024-01-14 19:08:40.819631312 +0100
+@@ -639,9 +639,9 @@
+ 
+ [[package]]
+ name = "compiler_builtins"
+-version = "0.1.100"
++version = "0.1.105"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "d6c0f24437059853f0fa64afc51f338f93647a3de4cf3358ba1bb4171a199775"
++checksum = "3686cc48897ce1950aa70fd595bd2dc9f767a3c4cca4cd17b2cb52a2d37e6eb4"
+ dependencies = [
+  "cc",
+  "rustc-std-workspace-core",
+@@ -4874,6 +4874,7 @@
+  "rand_xorshift",
+  "rustc-demangle",
+  "std_detect",
++ "syscall",
+  "unwind",
+  "wasi",
+ ]
+@@ -4996,6 +4997,15 @@
+ ]
+ 
+ [[package]]
++name = "syscall"
++version = "0.1.0"
++dependencies = [
++ "compiler_builtins",
++ "rustc-std-workspace-alloc",
++ "rustc-std-workspace-core",
++]
++
++[[package]]
+ name = "sysinfo"
+ version = "0.29.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/compiler/rustc_target/src/spec/helium_base.rs bin/src/rust-1.73.0-patched/compiler/rustc_target/src/spec/helium_base.rs
 --- bin/src/rust/compiler/rustc_target/src/spec/helium_base.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/compiler/rustc_target/src/spec/helium_base.rs	2024-01-13 22:42:02.722428122 +0100
-@@ -0,0 +1,12 @@
-+use crate::spec::{LinkerFlavor, LldFlavor, TargetOptions};
++++ bin/src/rust-1.73.0-patched/compiler/rustc_target/src/spec/helium_base.rs	2024-01-14 20:52:27.208601212 +0100
+@@ -0,0 +1,16 @@
++use crate::spec::*;
 + 
 +pub fn opts() -> TargetOptions {
 +    TargetOptions {
 +        os: "helium".into(),
 +        executables: true,
 +        linker: Some("ld.lld".into()),
-+        linker_flavor: LinkerFlavor::Lld(LldFlavor::Ld),
-+        stack_probes: StackProbeType::Inline,
++        linker_flavor: LinkerFlavor::Gnu(Cc::No, Lld::Yes),
++        position_independent_executables: false,
++        panic_strategy: PanicStrategy::Abort,
++        relocation_model: RelocModel::Static,
++        tls_model: TlsModel::LocalExec,
++        dynamic_linking: false,
 +        ..Default::default()
 +    }
 +}
 \ No newline at end of file
-diff -Naur '--exclude=.git' bin/src/rust/compiler/rustc_target/src/spec/mod.rs bin/src/rust-patched/compiler/rustc_target/src/spec/mod.rs
---- bin/src/rust/compiler/rustc_target/src/spec/mod.rs	2024-01-13 22:49:00.632309936 +0100
-+++ bin/src/rust-patched/compiler/rustc_target/src/spec/mod.rs	2024-01-13 22:46:00.492360162 +0100
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/compiler/rustc_target/src/spec/mod.rs bin/src/rust-1.73.0-patched/compiler/rustc_target/src/spec/mod.rs
+--- bin/src/rust/compiler/rustc_target/src/spec/mod.rs	2024-01-16 10:40:08.582913861 +0100
++++ bin/src/rust-1.73.0-patched/compiler/rustc_target/src/spec/mod.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -69,6 +69,7 @@
  mod fuchsia_base;
  mod haiku_base;
@@ -34,9 +77,9 @@ diff -Naur '--exclude=.git' bin/src/rust/compiler/rustc_target/src/spec/mod.rs b
      ("x86_64-unknown-linux-gnu", x86_64_unknown_linux_gnu),
      ("x86_64-unknown-linux-gnux32", x86_64_unknown_linux_gnux32),
      ("i686-unknown-linux-gnu", i686_unknown_linux_gnu),
-diff -Naur '--exclude=.git' bin/src/rust/compiler/rustc_target/src/spec/x86_64_unknown_helium.rs bin/src/rust-patched/compiler/rustc_target/src/spec/x86_64_unknown_helium.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/compiler/rustc_target/src/spec/x86_64_unknown_helium.rs bin/src/rust-1.73.0-patched/compiler/rustc_target/src/spec/x86_64_unknown_helium.rs
 --- bin/src/rust/compiler/rustc_target/src/spec/x86_64_unknown_helium.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/compiler/rustc_target/src/spec/x86_64_unknown_helium.rs	2024-01-13 22:44:38.882383698 +0100
++++ bin/src/rust-1.73.0-patched/compiler/rustc_target/src/spec/x86_64_unknown_helium.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,16 @@
 +use crate::spec::{Target, PanicStrategy};
 + 
@@ -55,14 +98,14 @@ diff -Naur '--exclude=.git' bin/src/rust/compiler/rustc_target/src/spec/x86_64_u
 +    }
 +}
 \ No newline at end of file
-diff -Naur '--exclude=.git' bin/src/rust/config.toml bin/src/rust-patched/config.toml
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/config.toml bin/src/rust-1.73.0-patched/config.toml
 --- bin/src/rust/config.toml	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/config.toml	2024-01-13 22:40:16.322458635 +0100
++++ bin/src/rust-1.73.0-patched/config.toml	2024-01-14 11:38:06.915585867 +0100
 @@ -0,0 +1,10 @@
 +# config.toml
 +profile = "user"
 +changelog-seen = 2
-+ 
++
 +[build]
 +host = ["x86_64-unknown-linux-gnu"]
 +target = ["x86_64-unknown-linux-gnu", "x86_64-unknown-helium"]
@@ -70,47 +113,57 @@ diff -Naur '--exclude=.git' bin/src/rust/config.toml bin/src/rust-patched/config
 +[rust]
 +incremental = true
 \ No newline at end of file
-diff -Naur '--exclude=.git' bin/src/rust/library/std/build.rs bin/src/rust-patched/library/std/build.rs
---- bin/src/rust/library/std/build.rs	2024-01-13 22:49:00.672309927 +0100
-+++ bin/src/rust-patched/library/std/build.rs	2024-01-13 22:46:38.272349627 +0100
-@@ -25,6 +25,7 @@
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/Cargo.toml bin/src/rust-1.73.0-patched/library/std/Cargo.toml
+--- bin/src/rust/library/std/Cargo.toml	2024-01-16 10:40:08.632913859 +0100
++++ bin/src/rust-1.73.0-patched/library/std/Cargo.toml	2024-01-15 21:48:22.103260787 +0100
+@@ -42,6 +42,9 @@
+ [target.x86_64-fortanix-unknown-sgx.dependencies]
+ fortanix-sgx-abi = { version = "0.5.0", features = ['rustc-dep-of-std'], public = true }
+ 
++[target.'cfg(target_os = "helium")'.dependencies]
++syscall = { path="../../../../../user/syscall", features = ['rustc-dep-of-std'], public = true }
++
+ [target.'cfg(target_os = "hermit")'.dependencies]
+ hermit-abi = { version = "0.3.2", features = ['rustc-dep-of-std'], public = true }
+ 
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/build.rs bin/src/rust-1.73.0-patched/library/std/build.rs
+--- bin/src/rust/library/std/build.rs	2024-01-16 10:40:08.632913859 +0100
++++ bin/src/rust-1.73.0-patched/library/std/build.rs	2024-01-14 11:23:31.055692689 +0100
+@@ -24,6 +24,7 @@
+         || target.contains("windows")
          || target.contains("fuchsia")
          || (target.contains("sgx") && target.contains("fortanix"))
-         || target.contains("hermit")
 +        || target.contains("helium")
+         || target.contains("hermit")
          || target.contains("l4re")
          || target.contains("redox")
-         || target.contains("haiku")
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/alloc.rs bin/src/rust-patched/library/std/src/sys/helium/alloc.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/alloc.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/alloc.rs
 --- bin/src/rust/library/std/src/sys/helium/alloc.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/alloc.rs	2024-01-13 22:46:56.042344682 +0100
-@@ -0,0 +1,23 @@
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/alloc.rs	2024-01-14 22:04:34.088081189 +0100
+@@ -0,0 +1,20 @@
 +use crate::alloc::{GlobalAlloc, Layout, System};
-+use crate::ptr::null_mut;
 +
 +#[stable(feature = "alloc_system_type", since = "1.28.0")]
 +unsafe impl GlobalAlloc for System {
 +    #[inline]
-+    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-+        null_mut()
++    #[allow(fuzzy_provenance_casts)]
++    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
++        unsafe {
++            syscall::mmu::map(0, layout.size(), syscall::mmu::PROT_READ | syscall::mmu::PROT_WRITE, 0).unwrap_or(0) as *mut u8
++        }
 +    }
 +
 +    #[inline]
-+    unsafe fn alloc_zeroed(&self, _layout: Layout) -> *mut u8 {
-+        null_mut()
++    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
++        unsafe {
++            _ = syscall::mmu::unmap(ptr as usize, layout.size());
++        }
 +    }
 +
-+    #[inline]
-+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
-+
-+    #[inline]
-+    unsafe fn realloc(&self, _ptr: *mut u8, _layout: Layout, _new_size: usize) -> *mut u8 {
-+        null_mut()
-+    }
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/args.rs bin/src/rust-patched/library/std/src/sys/helium/args.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/args.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/args.rs
 --- bin/src/rust/library/std/src/sys/helium/args.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/args.rs	2024-01-13 22:46:56.042344682 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/args.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,36 @@
 +use crate::ffi::OsString;
 +use crate::fmt;
@@ -148,10 +201,10 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/args.rs bin/
 +        None
 +    }
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/common.rs bin/src/rust-patched/library/std/src/sys/helium/common.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/common.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/common.rs
 --- bin/src/rust/library/std/src/sys/helium/common.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/common.rs	2024-01-13 22:46:56.042344682 +0100
-@@ -0,0 +1,36 @@
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/common.rs	2024-01-15 20:35:40.182999250 +0100
+@@ -0,0 +1,37 @@
 +use crate::io as std_io;
 +
 +pub mod memchr {
@@ -160,7 +213,8 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/common.rs bi
 +
 +// SAFETY: must be called only once during runtime initialization.
 +// NOTE: this is not guaranteed to run, for example when Rust code is called externally.
-+pub unsafe fn init(_argc: isize, _argv: *const *const u8, _sigpipe: u8) {}
++pub unsafe fn init(_argc: isize, _argv: *const *const u8, _sigpipe: u8) {
++}
 +
 +// SAFETY: must be called only once during runtime cleanup.
 +// NOTE: this is not guaranteed to run, for example when the program aborts.
@@ -182,15 +236,15 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/common.rs bi
 +}
 +
 +pub fn abort_internal() -> ! {
-+    core::intrinsics::abort();
++    syscall::task::exit(-1);
 +}
 +
 +pub fn hashmap_random_keys() -> (u64, u64) {
 +    (1, 2)
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/env.rs bin/src/rust-patched/library/std/src/sys/helium/env.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/env.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/env.rs
 --- bin/src/rust/library/std/src/sys/helium/env.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/env.rs	2024-01-13 22:46:56.042344682 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/env.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,9 @@
 +pub mod os {
 +    pub const FAMILY: &str = "";
@@ -201,9 +255,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/env.rs bin/s
 +    pub const EXE_SUFFIX: &str = "";
 +    pub const EXE_EXTENSION: &str = "";
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/fs.rs bin/src/rust-patched/library/std/src/sys/helium/fs.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/fs.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/fs.rs
 --- bin/src/rust/library/std/src/sys/helium/fs.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/fs.rs	2024-01-13 22:46:56.042344682 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/fs.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,324 @@
 +use crate::ffi::OsString;
 +use crate::fmt;
@@ -529,9 +583,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/fs.rs bin/sr
 +pub fn copy(_from: &Path, _to: &Path) -> io::Result<u64> {
 +    unsupported()
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/io.rs bin/src/rust-patched/library/std/src/sys/helium/io.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/io.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/io.rs
 --- bin/src/rust/library/std/src/sys/helium/io.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/io.rs	2024-01-13 22:46:56.042344682 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/io.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,51 @@
 +use crate::mem;
 +
@@ -584,9 +638,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/io.rs bin/sr
 +pub fn is_terminal<T>(_: &T) -> bool {
 +    false
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/locks/condvar.rs bin/src/rust-patched/library/std/src/sys/helium/locks/condvar.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/locks/condvar.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/locks/condvar.rs
 --- bin/src/rust/library/std/src/sys/helium/locks/condvar.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/locks/condvar.rs	2024-01-13 22:46:56.042344682 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/locks/condvar.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,26 @@
 +use crate::sys::locks::Mutex;
 +use crate::time::Duration;
@@ -614,9 +668,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/locks/condva
 +        panic!("condvar wait not supported");
 +    }
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/locks/mod.rs bin/src/rust-patched/library/std/src/sys/helium/locks/mod.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/locks/mod.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/locks/mod.rs
 --- bin/src/rust/library/std/src/sys/helium/locks/mod.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/locks/mod.rs	2024-01-13 22:46:56.042344682 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/locks/mod.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,6 @@
 +mod condvar;
 +mod mutex;
@@ -624,9 +678,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/locks/mod.rs
 +pub use condvar::Condvar;
 +pub use mutex::Mutex;
 +pub use rwlock::RwLock;
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/locks/mutex.rs bin/src/rust-patched/library/std/src/sys/helium/locks/mutex.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/locks/mutex.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/locks/mutex.rs
 --- bin/src/rust/library/std/src/sys/helium/locks/mutex.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/locks/mutex.rs	2024-01-13 22:46:56.042344682 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/locks/mutex.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,32 @@
 +use crate::cell::Cell;
 +
@@ -660,9 +714,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/locks/mutex.
 +        self.locked.replace(true) == false
 +    }
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/locks/rwlock.rs bin/src/rust-patched/library/std/src/sys/helium/locks/rwlock.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/locks/rwlock.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/locks/rwlock.rs
 --- bin/src/rust/library/std/src/sys/helium/locks/rwlock.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/locks/rwlock.rs	2024-01-13 22:46:56.042344682 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/locks/rwlock.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,65 @@
 +use crate::cell::Cell;
 +
@@ -729,10 +783,10 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/locks/rwlock
 +        assert_eq!(self.mode.replace(0), -1);
 +    }
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/mod.rs bin/src/rust-patched/library/std/src/sys/helium/mod.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/mod.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/mod.rs
 --- bin/src/rust/library/std/src/sys/helium/mod.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/mod.rs	2024-01-13 22:46:56.052344680 +0100
-@@ -0,0 +1,29 @@
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/mod.rs	2024-01-14 22:49:07.777758987 +0100
+@@ -0,0 +1,44 @@
 +#![deny(unsafe_op_in_unsafe_fn)]
 +
 +pub mod alloc;
@@ -762,9 +816,24 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/mod.rs bin/s
 +
 +mod common;
 +pub use common::*;
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/net.rs bin/src/rust-patched/library/std/src/sys/helium/net.rs
++
++#[no_mangle]
++unsafe extern "C" fn _start() -> ! {
++    extern "C" {
++        fn main(argc: usize, argv: *const *const u8, env: *const *const u8) -> i32;
++    }
++
++    let argc = 0;
++    let argv = [core::ptr::null()];
++    let env = [core::ptr::null()];
++
++    unsafe {
++        syscall::task::exit(main(argc, argv.as_ptr(), env.as_ptr()));
++    }
++}
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/net.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/net.rs
 --- bin/src/rust/library/std/src/sys/helium/net.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/net.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/net.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,370 @@
 +use crate::fmt;
 +use crate::io::{self, BorrowedCursor, IoSlice, IoSliceMut};
@@ -1136,9 +1205,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/net.rs bin/s
 +    #[derive(Copy, Clone)]
 +    pub struct sockaddr {}
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/once.rs bin/src/rust-patched/library/std/src/sys/helium/once.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/once.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/once.rs
 --- bin/src/rust/library/std/src/sys/helium/once.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/once.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/once.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,100 @@
 +use crate::cell::Cell;
 +use crate::sync as public;
@@ -1240,9 +1309,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/once.rs bin/
 +        self.set_state_to.set(State::Poisoned)
 +    }
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/os.rs bin/src/rust-patched/library/std/src/sys/helium/os.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/os.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/os.rs
 --- bin/src/rust/library/std/src/sys/helium/os.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/os.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/os.rs	2024-01-14 12:30:36.905207783 +0100
 @@ -0,0 +1,121 @@
 +use super::unsupported;
 +use crate::error::Error as StdError;
@@ -1365,9 +1434,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/os.rs bin/sr
 +pub fn getpid() -> u32 {
 +    panic!("no pids on this platform")
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/pipe.rs bin/src/rust-patched/library/std/src/sys/helium/pipe.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/pipe.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/pipe.rs
 --- bin/src/rust/library/std/src/sys/helium/pipe.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/pipe.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/pipe.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,45 @@
 +use crate::io::{self, BorrowedCursor, IoSlice, IoSliceMut};
 +
@@ -1414,9 +1483,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/pipe.rs bin/
 +pub fn read2(p1: AnonPipe, _v1: &mut Vec<u8>, _p2: AnonPipe, _v2: &mut Vec<u8>) -> io::Result<()> {
 +    match p1.0 {}
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/process.rs bin/src/rust-patched/library/std/src/sys/helium/process.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/process.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/process.rs
 --- bin/src/rust/library/std/src/sys/helium/process.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/process.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/process.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,219 @@
 +use crate::ffi::OsStr;
 +use crate::fmt;
@@ -1637,10 +1706,10 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/process.rs b
 +        f.debug_list().finish()
 +    }
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/stdio.rs bin/src/rust-patched/library/std/src/sys/helium/stdio.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/stdio.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/stdio.rs
 --- bin/src/rust/library/std/src/sys/helium/stdio.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/stdio.rs	2024-01-13 22:46:56.052344680 +0100
-@@ -0,0 +1,59 @@
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/stdio.rs	2024-01-14 19:45:03.529089638 +0100
+@@ -0,0 +1,61 @@
 +use crate::io;
 +
 +pub struct Stdin;
@@ -1654,8 +1723,8 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/stdio.rs bin
 +}
 +
 +impl io::Read for Stdin {
-+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-+        Ok(0)
++    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
++        Ok(syscall::serial::read(buf))
 +    }
 +}
 +
@@ -1667,6 +1736,7 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/stdio.rs bin
 +
 +impl io::Write for Stdout {
 +    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
++        syscall::serial::write(buf);
 +        Ok(buf.len())
 +    }
 +
@@ -1683,6 +1753,7 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/stdio.rs bin
 +
 +impl io::Write for Stderr {
 +    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
++        syscall::serial::write(buf);
 +        Ok(buf.len())
 +    }
 +
@@ -1700,9 +1771,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/stdio.rs bin
 +pub fn panic_output() -> Option<Vec<u8>> {
 +    None
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/thread.rs bin/src/rust-patched/library/std/src/sys/helium/thread.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/thread.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/thread.rs
 --- bin/src/rust/library/std/src/sys/helium/thread.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/thread.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/thread.rs	2024-01-14 22:50:46.807748676 +0100
 @@ -0,0 +1,46 @@
 +use super::unsupported;
 +use crate::ffi::CStr;
@@ -1750,9 +1821,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/thread.rs bi
 +        None
 +    }
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/thread_local_dtor.rs bin/src/rust-patched/library/std/src/sys/helium/thread_local_dtor.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/thread_local_dtor.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/thread_local_dtor.rs
 --- bin/src/rust/library/std/src/sys/helium/thread_local_dtor.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/thread_local_dtor.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/thread_local_dtor.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,10 @@
 +#![unstable(feature = "thread_local_internals", issue = "none")]
 +
@@ -1764,34 +1835,75 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/thread_local
 +    // ignore the arguments, but if such a function starts to exist it will
 +    // likely look like the OSX implementation in `unix/fast_thread_local.rs`
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/thread_local_key.rs bin/src/rust-patched/library/std/src/sys/helium/thread_local_key.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/thread_local_key.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/thread_local_key.rs
 --- bin/src/rust/library/std/src/sys/helium/thread_local_key.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/thread_local_key.rs	2024-01-13 22:46:56.052344680 +0100
-@@ -0,0 +1,21 @@
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/thread_local_key.rs	2024-01-15 22:13:08.503351079 +0100
+@@ -0,0 +1,62 @@
++use crate::sync::Mutex;
++
 +pub type Key = usize;
++
++const TLS_KEYS_COUNT: usize = 128; // Same as POSIX minimum
++
++#[allow(unused)]
++static TLS_DESTRUCTOR: Mutex<[usize; TLS_KEYS_COUNT]> = Mutex::new([0; TLS_KEYS_COUNT]);
++static TLS_KEYS: Mutex<[(bool, usize); TLS_KEYS_COUNT]> = Mutex::new([(false, 0); TLS_KEYS_COUNT]);
 +
 +#[inline]
 +pub unsafe fn create(_dtor: Option<unsafe extern "C" fn(*mut u8)>) -> Key {
-+    panic!("should not be used on this target");
++    let idx = TLS_KEYS
++        .lock()
++        .unwrap()
++        .iter_mut()
++        .enumerate()
++        .find_map(|(i, (used, _))| {
++            if !*used {
++                *used = true;
++                Some(i)
++            } else {
++                None
++            }
++         })
++        .unwrap_or_else(|| rtabort!("TLS limit exceeded"));
++
++    // TODO: set destructor
++    idx
 +}
 +
 +#[inline]
-+pub unsafe fn set(_key: Key, _value: *mut u8) {
-+    panic!("should not be used on this target");
++pub unsafe fn set(key: Key, value: *mut u8) {
++    TLS_KEYS
++        .lock()
++        .unwrap()
++        .get_mut(key)
++        .map(|(_, ptr)| *ptr = value as usize)
++        .unwrap_or_else(|| rtabort!("invalid TLS key"));
 +}
 +
 +#[inline]
-+pub unsafe fn get(_key: Key) -> *mut u8 {
-+    panic!("should not be used on this target");
++#[allow(fuzzy_provenance_casts)]
++pub unsafe fn get(key: Key) -> *mut u8 {
++    TLS_KEYS
++        .lock()
++        .unwrap()
++        .get(key)
++        .map(|(_, ptr)| *ptr as *mut u8)
++        .unwrap_or_else(|| rtabort!("invalid TLS key"))
 +}
 +
 +#[inline]
-+pub unsafe fn destroy(_key: Key) {
-+    panic!("should not be used on this target");
++pub unsafe fn destroy(key: Key) {
++    TLS_KEYS
++        .lock()
++        .unwrap()
++        .get_mut(key)
++        .map(|(used, _)| *used = false)
++        .unwrap_or_else(|| rtabort!("invalid TLS key"));
++    // TODO: Remove destructor
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/thread_parking.rs bin/src/rust-patched/library/std/src/sys/helium/thread_parking.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/thread_parking.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/thread_parking.rs
 --- bin/src/rust/library/std/src/sys/helium/thread_parking.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/thread_parking.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/thread_parking.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,11 @@
 +use crate::pin::Pin;
 +use crate::time::Duration;
@@ -1804,9 +1916,9 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/thread_parki
 +    pub unsafe fn park_timeout(self: Pin<&Self>, _dur: Duration) {}
 +    pub fn unpark(self: Pin<&Self>) {}
 +}
-diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/time.rs bin/src/rust-patched/library/std/src/sys/helium/time.rs
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/time.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/time.rs
 --- bin/src/rust/library/std/src/sys/helium/time.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-patched/library/std/src/sys/helium/time.rs	2024-01-13 22:46:56.052344680 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/time.rs	2024-01-13 23:23:04.731730973 +0100
 @@ -0,0 +1,45 @@
 +use crate::time::Duration;
 +
@@ -1853,3 +1965,87 @@ diff -Naur '--exclude=.git' bin/src/rust/library/std/src/sys/helium/time.rs bin/
 +        Some(SystemTime(self.0.checked_sub(*other)?))
 +    }
 +}
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/mod.rs bin/src/rust-1.73.0-patched/library/std/src/sys/mod.rs
+--- bin/src/rust/library/std/src/sys/mod.rs	2024-01-16 10:40:08.642913855 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/mod.rs	2024-01-14 11:27:52.755660184 +0100
+@@ -35,6 +35,9 @@
+     } else if #[cfg(target_os = "solid_asp3")] {
+         mod solid;
+         pub use self::solid::*;
++    } else if #[cfg(target_os = "helium")] {
++        mod helium;
++        pub use self::helium::*;
+     } else if #[cfg(target_os = "hermit")] {
+         mod hermit;
+         pub use self::hermit::*;
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys_common/mod.rs bin/src/rust-1.73.0-patched/library/std/src/sys_common/mod.rs
+--- bin/src/rust/library/std/src/sys_common/mod.rs	2024-01-16 10:40:08.652913857 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys_common/mod.rs	2024-01-13 23:52:44.631224029 +0100
+@@ -44,6 +44,7 @@
+ 
+ cfg_if::cfg_if! {
+     if #[cfg(any(target_os = "l4re",
++                 target_os = "helium",
+                  feature = "restricted-std",
+                  all(target_family = "wasm", not(target_os = "emscripten")),
+                  all(target_vendor = "fortanix", target_env = "sgx")))] {
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/src/bootstrap/lib.rs bin/src/rust-1.73.0-patched/src/bootstrap/lib.rs
+--- bin/src/rust/src/bootstrap/lib.rs	2024-01-16 10:40:08.662913853 +0100
++++ bin/src/rust-1.73.0-patched/src/bootstrap/lib.rs	2024-01-14 11:37:58.995586714 +0100
+@@ -159,6 +159,10 @@
+     // Needed to avoid the need to copy windows.lib into the sysroot.
+     (Some(Mode::Rustc), "windows_raw_dylib", None),
+     (Some(Mode::ToolRustc), "windows_raw_dylib", None),
++
++    // Add this to avoid the "unexpected cfg condition value" error when
++    // using `#[cfg(target_os = "helium")]` in the standard library.
++    (Some(Mode::Std), "target_os", Some(&["helium", "NEW_TARGET_OS"])),
+ ];
+ 
+ /// A structure representing a Rust compiler.
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/src/llvm-project/llvm/include/llvm/TargetParser/Triple.h bin/src/rust-1.73.0-patched/src/llvm-project/llvm/include/llvm/TargetParser/Triple.h
+--- bin/src/rust/src/llvm-project/llvm/include/llvm/TargetParser/Triple.h	2024-01-16 10:41:38.892907761 +0100
++++ bin/src/rust-1.73.0-patched/src/llvm-project/llvm/include/llvm/TargetParser/Triple.h	2024-01-14 11:26:06.885673006 +0100
+@@ -219,6 +219,7 @@
+     Mesa3D,
+     Contiki,
+     AMDPAL,     // AMD PAL Runtime
++    Helium,     // Helium rust kernel
+     HermitCore, // HermitCore Unikernel/Multikernel
+     Hurd,       // GNU/Hurd
+     WASI,       // Experimental WebAssembly OS
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/src/llvm-project/llvm/lib/TargetParser/Triple.cpp bin/src/rust-1.73.0-patched/src/llvm-project/llvm/lib/TargetParser/Triple.cpp
+--- bin/src/rust/src/llvm-project/llvm/lib/TargetParser/Triple.cpp	2024-01-16 10:41:39.192907747 +0100
++++ bin/src/rust-1.73.0-patched/src/llvm-project/llvm/lib/TargetParser/Triple.cpp	2024-01-14 11:25:08.695680065 +0100
+@@ -220,6 +220,7 @@
+   case FreeBSD: return "freebsd";
+   case Fuchsia: return "fuchsia";
+   case Haiku: return "haiku";
++  case Helium: return "helium";
+   case HermitCore: return "hermit";
+   case Hurd: return "hurd";
+   case IOS: return "ios";
+@@ -610,6 +611,7 @@
+     .StartsWith("mesa3d", Triple::Mesa3D)
+     .StartsWith("contiki", Triple::Contiki)
+     .StartsWith("amdpal", Triple::AMDPAL)
++    .StartsWith("helium", Triple::Helium)
+     .StartsWith("hermit", Triple::HermitCore)
+     .StartsWith("hurd", Triple::Hurd)
+     .StartsWith("wasi", Triple::WASI)
+diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/src/llvm-project/llvm/unittests/TargetParser/TripleTest.cpp bin/src/rust-1.73.0-patched/src/llvm-project/llvm/unittests/TargetParser/TripleTest.cpp
+--- bin/src/rust/src/llvm-project/llvm/unittests/TargetParser/TripleTest.cpp	2024-01-16 10:41:41.082907663 +0100
++++ bin/src/rust-1.73.0-patched/src/llvm-project/llvm/unittests/TargetParser/TripleTest.cpp	2024-01-14 11:25:24.505678304 +0100
+@@ -343,6 +343,12 @@
+   EXPECT_EQ(Triple::Fuchsia, T.getOS());
+   EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+ 
++  T = Triple("x86_64-unknown-helium");
++  EXPECT_EQ(Triple::x86_64, T.getArch());
++  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
++  EXPECT_EQ(Triple::Helium, T.getOS());
++  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
++
+   T = Triple("x86_64-unknown-hermit");
+   EXPECT_EQ(Triple::x86_64, T.getArch());
+   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
