@@ -29,8 +29,8 @@ fn fill_ramdisk() {
 
     let root = ROOT.get().unwrap();
     let inode = root.lock().inode().clone();
-    root.lock()
-        .inode()
+
+    inode
         .as_directory()
         .unwrap()
         .create(&inode, "shell.elf")
@@ -48,6 +48,7 @@ fn fill_ramdisk() {
         .unwrap()
         .write(&file, shell_data, file::Offset(0))
         .expect("Failed to write to shell.elf");
+
     assert!(
         len == shell_data.len(),
         "Wrote {len} bytes instead of {}",
@@ -77,34 +78,29 @@ pub fn lookup(
         Arc::clone(cwd)
     };
 
+    // We iterate over each component of the path and fetch the inode associated
+    // with it. If the inode is not found, we return the last inode found and
+    // the remaining path that could not be resolved.
+    // We also handle the special cases of "." and "..": "." is ignored because
+    // it is the current directory, and ".." is resolved to the parent of the
+    // current directory during the iteration.
     for (i, name) in path.components.iter().enumerate() {
-        let mut locked_parent = parent.lock();
-        let dentry = match locked_parent.lookup(name) {
-            Ok(dentry) => dentry,
-            Err(e) => match e {
-                dentry::LookupError::NotADirectory => return Err(LookupError::NotADirectory),
-                dentry::LookupError::NotFound => {
-                    let superblock = locked_parent.inode().superblock.upgrade().unwrap();
-
-                    let id = locked_parent
-                        .inode()
-                        .as_directory()
-                        .ok_or(LookupError::NotADirectory)?
-                        .lookup(locked_parent.inode(), name.as_str())
-                        .map_err(|_| {
-                            let remaning = &path.components[i..path.components.len()];
-                            LookupError::NotFound(parent.clone(), Path::from(remaning))
-                        })?;
-
-                    // Create the dentry and connect it to its parent
-                    let inode = superblock.get_inode(id)?;
-                    let name = name.clone();
-                    locked_parent.create_and_connect_child(inode, name).unwrap()
+        let dentry = match name.as_str() {
+            "." => parent,
+            ".." => parent
+                .lock()
+                .parent()
+                .expect("Dentry without alive parent found"),
+            _ => Dentry::fetch(&parent, name).map_err(|e| match e {
+                dentry::FetchError::NotFound => {
+                    let remaining = Path::from(path.components[i..].to_vec());
+                    LookupError::NotFound(Arc::clone(&parent), remaining)
                 }
-            },
+                dentry::FetchError::NotADirectory => LookupError::NotADirectory,
+                dentry::FetchError::IoError => LookupError::IoError,
+            })?,
         };
 
-        core::mem::drop(locked_parent);
         parent = dentry;
     }
 

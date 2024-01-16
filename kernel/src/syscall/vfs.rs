@@ -1,5 +1,3 @@
-use alloc::vec;
-
 use crate::{
     user::{
         self,
@@ -8,6 +6,7 @@ use crate::{
     },
     vfs::{self, dentry::Dentry},
 };
+use alloc::vec;
 
 /// Open a file, specified by `path` with the given `flags`.
 ///
@@ -41,45 +40,30 @@ pub fn open(path: usize, flags: usize) -> Result<usize, OpenError> {
             dentry
         }
         Err(e) => {
-            // If the user has not specified the `CREATE` or `MUST_CREATE` flag, we return
-            // an error if the file does not exist.
-            if !flags.contains(vfs::file::OpenFlags::CREATE)
-                && !flags.contains(vfs::file::OpenFlags::MUST_CREATE)
-            {
-                return Err(OpenError::NoSuchFile);
-            }
-
-            match e {
-                // The path could not be resolved entirely. This variant contains the
-                // last inode that could be resolved and the path that could not be
-                // resolved.
-                // If only the last component of the path could not be resolved and
-                // the `CREATE` flag is set, the kernel will attempt to create a file
-                // with the given name in the parent directory
-                vfs::LookupError::NotFound(parent, path) => {
-                    let mut locked_parent = parent.lock();
-
-                    let name = path.as_name().ok_or(OpenError::NoSuchFile)?;
-                    let inode = locked_parent.inode();
-                    let superblock = inode.superblock.upgrade().unwrap();
-
-                    let id = inode
-                        .as_directory()
-                        .ok_or(OpenError::NotADirectory)?
-                        .create(&locked_parent.inode(), name.as_str())?;
-
-                    let inode = superblock.get_inode(id)?;
-                    let dentry = Arc::new(Spinlock::new(Dentry::new(name.clone(), inode)));
-                    locked_parent.connect_child(dentry.clone()).unwrap();
-                    dentry
+            // The path could not be resolved entirely. This variant contains the
+            // last inode that could be resolved and the path that could not be
+            // resolved.
+            // If only the last component of the path could not be resolved and
+            // the `CREATE` flag is set, the kernel will attempt to create a file
+            // with the given name in the parent directory
+            if let vfs::LookupError::NotFound(parent, path) = e {
+                // If the user has not specified the `CREATE` or `MUST_CREATE` flag,
+                // we return an error if the file does not exist.
+                if !flags.contains(vfs::file::OpenFlags::CREATE)
+                    && !flags.contains(vfs::file::OpenFlags::MUST_CREATE)
+                {
+                    return Err(OpenError::NoSuchFile);
                 }
-                _ => return Err(OpenError::from(e)),
+
+                let name = path.as_name().ok_or(OpenError::NoSuchFile)?.clone();
+                Dentry::create_and_fetch_file(parent, name)?
+            } else {
+                return Err(OpenError::from(e));
             }
         }
     };
 
     let file = dentry.lock().open(flags)?;
-
     let id = current_task
         .files()
         .lock()
@@ -142,18 +126,12 @@ impl From<vfs::LookupError> for OpenError {
     }
 }
 
-impl From<vfs::inode::CreateError> for OpenError {
-    fn from(error: vfs::inode::CreateError) -> Self {
+impl From<vfs::dentry::CreateFetchError> for OpenError {
+    fn from(error: vfs::dentry::CreateFetchError) -> Self {
         match error {
-            vfs::inode::CreateError::AlreadyExists => Self::AlreadyExists,
-        }
-    }
-}
-
-impl From<vfs::mount::ReadInodeError> for OpenError {
-    fn from(error: vfs::mount::ReadInodeError) -> Self {
-        match error {
-            vfs::mount::ReadInodeError::DoesNotExist => Self::NoSuchFile,
+            vfs::dentry::CreateFetchError::NotADirectory => OpenError::NotADirectory,
+            vfs::dentry::CreateFetchError::AlreadyExists => OpenError::AlreadyExists,
+            vfs::dentry::CreateFetchError::IoError => OpenError::IoError,
         }
     }
 }
