@@ -19,10 +19,13 @@ jobs:
 
     - uses: awalsh128/cache-apt-pkgs-action@latest
       with:
-        packages: qemu-system-x86
+        packages: qemu-system-x86 libssl-dev ninja-build
         version: 1.0
 
-    - name: Build
+    - name: Build rust compiler
+      run: chmod +x ./scripts/* && ./scripts/first_build.sh
+
+    - name: Build kernel and userland
       run: make build
 
     - name: Virtualized integration tests
