@@ -3,7 +3,7 @@ use crate::user::scheduler::{Scheduler, SCHEDULER};
 use alloc::collections::VecDeque;
 
 pub struct WaitQueue {
-    tasks: VecDeque<Arc<Task>>,
+    tasks: Spinlock<VecDeque<Arc<Task>>>,
 }
 
 impl WaitQueue {
@@ -11,51 +11,39 @@ impl WaitQueue {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            tasks: VecDeque::new(),
+            tasks: Spinlock::new(VecDeque::new()),
         }
     }
 
     /// Add the current task to the wait queue and block it, pausing its execution
     /// and allowing other tasks to run. The task will not be resumed until another
     /// task sets its state to `State::Ready`.
-    pub fn sleep(&mut self) {
+    pub fn sleep(&self) {
         let current = SCHEDULER.current_task();
         let id = current.id();
 
-        self.tasks.push_back(current);
+        self.tasks.lock().push_back(current);
         sleep();
 
         // If we get here, we have been woken up by another task. We must make sure that the
         // task is not in the wait queue anymore because it may have been woken up by another
         // method that the `wake_up_someone` method, for example, when receiving a signal.
-        self.tasks.retain(|task| task.id() != id);
+        self.tasks.lock().retain(|task| task.id() != id);
     }
 
     /// Wake up a blocked task in the wait queue. If there is no blocked task in the
     /// wait queue, this function does nothing.
-    pub fn wake_up_someone(&mut self) -> Option<Arc<Task>> {
+    pub fn wake_up_someone(&self) -> Option<Arc<Task>> {
         // Pop tasks until we find one that is blocked or until the wait queue is empty.
         // We need to check if the task is blocked because it may have been woken up by another
         // method that the `wake_up_someone` method, for example, when receiving a signal.
-        while let Some(task) = self.tasks.pop_front() {
+        while let Some(task) = self.tasks.lock().pop_front() {
             if task.state() == State::Blocked {
                 task.change_state(State::Ready);
                 return Some(task);
             }
         }
         None
-    }
-
-    /// Check if the wait queue is empty.
-    #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.tasks.is_empty()
-    }
-
-    /// Get the number of tasks in the wait queue.
-    #[must_use]
-    pub fn len(&self) -> usize {
-        self.tasks.len()
     }
 }
 
