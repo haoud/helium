@@ -7,7 +7,7 @@ use super::{
 use alloc::sync::Weak;
 
 /// The root dentry of the filesystem tree.
-pub static ROOT: Once<Arc<Spinlock<Dentry>>> = Once::new();
+pub static ROOT: Once<Arc<Dentry>> = Once::new();
 
 /// A dentry is a directory entry. It is a node in the filesystem tree, and
 /// contains the name of the file, the inode associated with the file, and
@@ -18,20 +18,11 @@ pub static ROOT: Once<Arc<Spinlock<Dentry>>> = Once::new();
 /// file has multiple hard links.
 #[derive(Debug)]
 pub struct Dentry {
-    /// The name of this dentry.
-    name: Name,
-
     /// The inode associated with this dentry. An same inode may be associated
     /// with multiple dentries (hard links).
     inode: Arc<Inode>,
 
-    /// The parent dentry of this dentry. Every dentry has a parent, even the
-    /// root dentry, which has itself as its parent.
-    parent: Weak<Spinlock<Dentry>>,
-
-    /// The children of this dentry. This is a list of all dentries that have
-    /// this dentry as their parent.
-    children: Vec<Arc<Spinlock<Dentry>>>,
+    tree: Spinlock<DentryTree>,
 }
 
 impl Dentry {
@@ -40,19 +31,21 @@ impl Dentry {
     #[must_use]
     pub fn new(name: Name, inode: Arc<Inode>) -> Self {
         Self {
-            children: Vec::new(),
-            parent: Weak::default(),
             inode,
-            name,
+            tree: Spinlock::new(DentryTree {
+                name,
+                parent: Weak::default(),
+                children: Vec::new(),
+            }),
         }
     }
 
     /// Create a new root dentry. This is similar to [`Self::new`], but sets the
     /// parent of the dentry to itself instead of leaving it unset.
     #[must_use]
-    pub fn root(name: Name, inode: Arc<Inode>) -> Arc<Spinlock<Self>> {
-        let dentry = Arc::new(Spinlock::new(Self::new(name, inode)));
-        dentry.lock().parent = Arc::downgrade(&dentry);
+    pub fn root(name: Name, inode: Arc<Inode>) -> Arc<Self> {
+        let dentry = Arc::new(Self::new(name, inode));
+        dentry.tree.lock().parent = Arc::downgrade(&dentry);
         dentry
     }
 
@@ -73,10 +66,16 @@ impl Dentry {
         }))
     }
 
+    /// Get the tree info of this dentry.
+    #[must_use]
+    pub fn tree(&self) -> &Spinlock<DentryTree> {
+        &self.tree
+    }
+
     /// Get the parent of this dentry.
     #[must_use]
-    pub fn parent(&self) -> Option<Arc<Spinlock<Dentry>>> {
-        self.parent.upgrade()
+    pub fn parent(&self) -> Option<Arc<Dentry>> {
+        self.tree.lock().parent.upgrade()
     }
 
     /// Get the inode associated with this dentry.
@@ -87,8 +86,8 @@ impl Dentry {
 
     /// Get the name of this dentry.
     #[must_use]
-    pub fn name(&self) -> &Name {
-        &self.name
+    pub fn name(&self) -> Name {
+        self.tree.lock().name.clone()
     }
 
     /// Fetch a child of this dentry by name. It will first try to find the child
@@ -108,43 +107,44 @@ impl Dentry {
     /// Panics if the inode cannot be read because the filesystem is corrupted, if the
     /// inode does not have a superblock or if the dentry could not be connected to its
     /// parent. The last two cases should never happen and are serious kernel bugs.
-    pub fn fetch(
-        dentry: &Arc<Spinlock<Self>>,
-        name: &Name,
-    ) -> Result<Arc<Spinlock<Self>>, FetchError> {
-        let locked_dentry = dentry.lock();
-        match locked_dentry.lookup(name) {
-            Ok(dentry) => return Ok(dentry),
-            Err(e) => match e {
-                LookupError::NotADirectory => return Err(FetchError::NotADirectory),
-                LookupError::NotFound => {}
-            },
+    pub fn fetch(dentry: &Arc<Self>, name: &Name) -> Result<Arc<Self>, FetchError> {
+        loop {
+            match dentry.lookup(name) {
+                Ok(dentry) => return Ok(dentry),
+                Err(e) => match e {
+                    LookupError::NotADirectory => return Err(FetchError::NotADirectory),
+                    LookupError::NotFound => {}
+                },
+            }
+
+            let superblock = dentry
+                .inode
+                .superblock
+                .upgrade()
+                .expect("Inode without superblock");
+
+            let id = dentry
+                .inode
+                .as_directory()
+                .ok_or(FetchError::NotADirectory)?
+                .lookup(&dentry.inode, name.as_str())
+                .map_err(|e| match e {
+                    inode::LookupError::NoSuchEntry => FetchError::NotFound,
+                })?;
+
+            let inode = superblock.get_inode(id)?;
+            let name = name.clone();
+
+            // If an entry with the same name was created in the meantime, we
+            // try to fetch it again.
+            match Self::create_and_connect_child(dentry, inode, name) {
+                Err(ConnectError::AlreadyConnected | ConnectError::NotADirectory) => {
+                    unreachable!()
+                }
+                Err(ConnectError::AlreadyExists) => continue,
+                Ok(dentry) => return Ok(dentry),
+            }
         }
-
-        let superblock = locked_dentry
-            .inode
-            .superblock
-            .upgrade()
-            .expect("Inode without superblock");
-
-        let id = locked_dentry
-            .inode
-            .as_directory()
-            .ok_or(FetchError::NotADirectory)?
-            .lookup(&locked_dentry.inode, name.as_str())
-            .map_err(|e| match e {
-                inode::LookupError::NoSuchEntry => FetchError::NotFound,
-            })?;
-
-        core::mem::drop(locked_dentry);
-
-        // Create the dentry, connect it to its parent and return the dentry.
-        // We assume that the `create_and_connect_child` function will never
-        // fail because we just checked that the child does not exist and
-        // we have held the lock on the parent dentry since then.
-        let inode = superblock.get_inode(id)?;
-        let name = name.clone();
-        Ok(Self::create_and_connect_child(dentry, inode, name).unwrap())
     }
 
     /// Create a new file in this dentry with the given name, load it into the
@@ -160,12 +160,11 @@ impl Dentry {
     /// if this function fails to connect the created dentry to this dentry. This should
     /// never happen and is a serious kernel bug.
     pub fn create_and_fetch_file(
-        dentry: Arc<Spinlock<Self>>,
+        dentry: Arc<Self>,
         name: Name,
-    ) -> Result<Arc<Spinlock<Self>>, CreateFetchError> {
+    ) -> Result<Arc<Self>, CreateFetchError> {
         // Search for the file in the dentry cache and in the underlying filesystem.
         // If a file with the same name already exists, return an error.
-        let locked_dentry = dentry.lock();
         match Self::fetch(&dentry, &name) {
             Err(FetchError::NotFound) => {}
             Err(FetchError::NotADirectory) => return Err(CreateFetchError::NotADirectory),
@@ -173,25 +172,28 @@ impl Dentry {
             Ok(_) => return Err(CreateFetchError::AlreadyExists),
         }
 
-        let superblock = locked_dentry
+        let superblock = dentry
             .inode
             .superblock
             .upgrade()
             .expect("Inode without superblock");
 
-        let id = locked_dentry
+        let id = dentry
             .inode
             .as_directory()
             .ok_or(CreateFetchError::NotADirectory)?
-            .create(&locked_dentry.inode, name.as_str())?;
-
-        core::mem::drop(locked_dentry);
+            .create(&dentry.inode, name.as_str())?;
 
         let inode = superblock.get_inode(id)?;
-        let child = Arc::new(Spinlock::new(Dentry::new(name, inode)));
+        let child = Arc::new(Dentry::new(name, inode));
 
-        Self::connect_child(&dentry, child).unwrap();
-        Ok(dentry)
+        // If an entry with the same name was created in the meantime, we
+        // simply return an error.
+        match Self::connect_child(&dentry, child) {
+            Err(ConnectError::AlreadyConnected | ConnectError::NotADirectory) => unreachable!(),
+            Err(ConnectError::AlreadyExists) => Err(CreateFetchError::AlreadyExists),
+            Ok(_) => Ok(dentry),
+        }
     }
 
     /// Find a child of this dentry by name.
@@ -200,6 +202,7 @@ impl Dentry {
     /// in the cache, it MUST be looked up in the filesystem tree to ensure that the entry really
     /// does not exist. If the child is found in the cache, the inode should be inserted into the
     /// cache to speed up future lookups.
+    /// If you want the behavior described above, use [`Self::fetch`] instead.
     ///
     /// # Errors
     ///  - `LookupError::NotADirectory`: The inode associated with this dentry
@@ -210,14 +213,16 @@ impl Dentry {
     /// Panics if this entry does not have a parent. This should never happen
     /// because every dentry must have a parent, even the root dentry, and is
     /// a serious kernel bug.
-    pub fn lookup(&self, name: &Name) -> Result<Arc<Spinlock<Dentry>>, LookupError> {
+    pub fn lookup(&self, name: &Name) -> Result<Arc<Dentry>, LookupError> {
         if self.inode.kind != inode::Kind::Directory {
             return Err(LookupError::NotADirectory);
         }
 
-        self.children
+        self.tree
+            .lock()
+            .children
             .iter()
-            .find(|child| child.lock().name == *name)
+            .find(|child| child.tree.lock().name == *name)
             .cloned()
             .ok_or(LookupError::NotFound)
     }
@@ -229,33 +234,30 @@ impl Dentry {
     ///  is not a directory, and therefore cannot have children.
     /// - `ConnectError::AlreadyExists`: The parent already has a child with the
     /// same name.
-    pub fn connect_child(
-        dentry: &Arc<Spinlock<Dentry>>,
-        child: Arc<Spinlock<Dentry>>,
-    ) -> Result<(), ConnectError> {
-        let mut locked_dentry = dentry.lock();
-        if locked_dentry.inode.kind != inode::Kind::Directory {
+    pub fn connect_child(dentry: &Arc<Dentry>, child: Arc<Dentry>) -> Result<(), ConnectError> {
+        if dentry.inode.kind != inode::Kind::Directory {
             return Err(ConnectError::NotADirectory);
         }
 
+        let mut dentry_tree = dentry.tree.lock();
         {
-            let mut locked_child = child.lock();
-            if locked_child.parent.upgrade().is_some() {
+            let mut child_tree = child.tree.lock();
+            if child_tree.parent.upgrade().is_some() {
                 return Err(ConnectError::AlreadyConnected);
             }
 
-            if locked_dentry
+            if child_tree
                 .children
                 .iter()
-                .any(|entry| entry.lock().name == locked_child.name)
+                .any(|entry| entry.tree.lock().name == dentry_tree.name)
             {
                 return Err(ConnectError::AlreadyExists);
             }
 
-            locked_child.parent = Arc::downgrade(dentry);
+            child_tree.parent = Arc::downgrade(dentry);
         }
 
-        locked_dentry.children.push(child);
+        dentry_tree.children.push(child);
         Ok(())
     }
 
@@ -267,11 +269,11 @@ impl Dentry {
     /// See [`Self::connect_child`] for the list of errors that can be returned
     /// by this function.
     pub fn create_and_connect_child(
-        dentry: &Arc<Spinlock<Dentry>>,
+        dentry: &Arc<Dentry>,
         inode: Arc<Inode>,
         name: Name,
-    ) -> Result<Arc<Spinlock<Dentry>>, ConnectError> {
-        let child = Arc::new(Spinlock::new(Self::new(name, inode)));
+    ) -> Result<Arc<Dentry>, ConnectError> {
+        let child = Arc::new(Self::new(name, inode));
         Self::connect_child(dentry, child.clone())?;
         Ok(child)
     }
@@ -297,26 +299,44 @@ impl Dentry {
     ///  - The dentry does not have an alive parent
     ///
     /// All these cases should never happen and are serious kernel bugs.
-    pub fn disconnect_child(
-        &mut self,
-        name: &Name,
-    ) -> Result<Arc<Spinlock<Self>>, DisconnectError> {
-        let index = self
+    pub fn disconnect_child(&mut self, name: &Name) -> Result<Arc<Self>, DisconnectError> {
+        let mut tree = self.tree.lock();
+        let index = tree
             .children
             .iter()
-            .position(|child| child.lock().name == *name)
+            .position(|child| child.tree.lock().name == *name)
             .ok_or(DisconnectError::NotFound)?;
 
         {
-            let mut child = self.children[index].lock();
-            if !child.children.is_empty() {
+            let mut child_tree = tree.children[index].tree.lock();
+            if !child_tree.children.is_empty() {
                 return Err(DisconnectError::Busy);
             }
-            child.parent = Weak::default();
+            child_tree.parent = Weak::default();
         }
 
-        Ok(self.children.swap_remove(index))
+        Ok(tree.children.swap_remove(index))
     }
+}
+
+/// Represents a dentry in the filesystem tree. This structure is used to
+/// contains fields that can be modified by the filesystem driver, like the
+/// children list or the dentr name. The [`Dentry`] structure contains fields
+/// that are never modified, like the inode associated with the dentry. This
+/// allows to lock only the fields that are modified by the filesystem driver,
+/// and to have a lockless access to the other fields.
+#[derive(Debug)]
+pub struct DentryTree {
+    /// The name of this dentry.
+    name: Name,
+
+    /// The parent dentry of this dentry. Every dentry has a parent, even the
+    /// root dentry, which has itself as its parent.
+    parent: Weak<Dentry>,
+
+    /// The children of this dentry. This is a list of all dentries that have
+    /// this dentry as their parent.
+    children: Vec<Arc<Dentry>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -15,22 +15,22 @@ pub mod writer;
 /// read from the read end of the pipe. A pipe is a first-in-first-out (FIFO)
 /// data structure, meaning that the first byte written to the pipe is the
 /// first byte that can be read from the pipe.
-/// 
+///
 /// A pipe is implemented as a circular buffer that stores the data written
 /// to the pipe. The read end of the pipe reads data from the buffer and the
 /// write end of the pipe writes data to the buffer. If the buffer is full,
 /// the write end of the pipe will block until there is space in the buffer.
 /// If the buffer is empty, the read end of the pipe will block until there
 /// is data in the buffer.
-/// 
+///
 /// Writing or reading from a pipe is atomic only if the size of the data
 /// being written or read is less than or equal to [`Pipe::BUFFER_SIZE`],
 /// and if the data can be written or read in a single operation. If the
 /// data is larger than [`Pipe::BUFFER_SIZE`] or if the data cannot be
 /// written or read in a single operation, the operation is not atomic.
 pub struct Pipe {
-    /// The buffer that stores the data in the pipe. 
-    buffer: Mutex<Box<CircularBuffer<{Pipe::BUFFER_SIZE}, u8>>>,
+    /// The buffer that stores the data in the pipe.
+    buffer: Mutex<Box<CircularBuffer<{ Pipe::BUFFER_SIZE }, u8>>>,
 
     /// A list of readers that are blocked on an empty pipe.
     waiting_readers: WaitQueue,
@@ -139,17 +139,17 @@ fn create_pair() -> (Arc<file::File>, Arc<file::File>) {
 
 /// Writes data to a pipe. If the pipe is full, the current thread will be put
 /// to sleep until there is space in the pipe.
-/// 
+///
 /// Since a pipe behaves like a character device, the offset is ignored.
-/// 
+///
 /// # Errors
 /// - `WriteError::BrokenPipe`: The pipe is full and there are no readers,
 ///  meaning that the pipe will never be read from again and the writer should
 /// stop writing.
-/// 
+///
 /// Partial writes can occur if the pipe is broken, but some data was written
 /// before the pipe was permanently full.
-/// 
+///
 /// # Panics
 /// Panics if the file is not a pipe writer.
 fn write(file: &file::File, buf: &[u8], _offset: file::Offset) -> Result<usize, file::WriteError> {
@@ -182,17 +182,17 @@ fn write(file: &file::File, buf: &[u8], _offset: file::Offset) -> Result<usize, 
 /// Reads data from a pipe. If the pipe is empty, the current thread will be
 /// put to sleep until there is data in the pipe. Once the data is read, it
 /// is removed from the pipe.
-/// 
+///
 /// Since a pipe behaves like a character device, the offset is ignored.
-/// 
+///
 /// # Errors
 /// - `ReadError::BrokenPipe`: The pipe is empty and there are no writers,
 /// meaning that the pipe will never be written to again and the reader should
 /// stop reading.
-/// 
+///
 /// Partial reads can occur if the pipe is broken, but some data was read
 /// before the pipe was permanently empty.
-/// 
+///
 /// # Panics.
 /// Panics if the file is not a pipe reader
 fn read(

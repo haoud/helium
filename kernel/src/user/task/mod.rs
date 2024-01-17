@@ -157,11 +157,11 @@ pub struct Task {
 
     /// The root directory of the task. This is used by the VFS subsystem to know the
     /// root directory used by the task.
-    root: Spinlock<Arc<Spinlock<Dentry>>>,
+    root: Spinlock<Arc<Dentry>>,
 
     /// The current working directory of the task. This is used by the VFS subsystem to
     /// know the current working directory of the task.
-    cwd: Spinlock<Arc<Spinlock<Dentry>>>,
+    cwd: Spinlock<Arc<Dentry>>,
 }
 
 impl Task {
@@ -259,13 +259,13 @@ impl Task {
 
     /// Get the root directory of the task.
     #[must_use]
-    pub fn root(&self) -> Arc<Spinlock<Dentry>> {
+    pub fn root(&self) -> Arc<Dentry> {
         self.root.lock().clone()
     }
 
     /// Get the current working directory of the task.
     #[must_use]
-    pub fn cwd(&self) -> Arc<Spinlock<Dentry>> {
+    pub fn cwd(&self) -> Arc<Dentry> {
         self.cwd.lock().clone()
     }
 

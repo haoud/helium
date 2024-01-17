@@ -63,7 +63,7 @@ pub fn open(path: usize, flags: usize) -> Result<usize, OpenError> {
         }
     };
 
-    let file = dentry.lock().open(flags)?;
+    let file = dentry.open(flags)?;
     let id = current_task
         .files()
         .lock()

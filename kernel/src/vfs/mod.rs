@@ -29,7 +29,7 @@ fn fill_ramdisk() {
     let shell_data = module::read("/boot/shell.elf").expect("Shell executable not found");
 
     let root = ROOT.get().unwrap();
-    let inode = root.lock().inode().clone();
+    let inode = root.inode().clone();
 
     inode
         .as_directory()
@@ -39,7 +39,6 @@ fn fill_ramdisk() {
 
     let shell = lookup("/shell.elf", root, root).expect("Shell.elf created but not found");
     let file = shell
-        .lock()
         .open(file::OpenFlags::WRITE)
         .expect("Failed to open shell.elf");
 
@@ -69,9 +68,9 @@ fn fill_ramdisk() {
 /// a serious bug if it does.
 pub fn lookup(
     path: &str,
-    root: &Arc<Spinlock<Dentry>>,
-    cwd: &Arc<Spinlock<Dentry>>,
-) -> Result<Arc<Spinlock<Dentry>>, LookupError> {
+    root: &Arc<Dentry>,
+    cwd: &Arc<Dentry>,
+) -> Result<Arc<Dentry>, LookupError> {
     let path = Path::new(path)?;
     let mut parent = if path.is_absolute() {
         Arc::clone(root)
@@ -88,10 +87,7 @@ pub fn lookup(
     for (i, name) in path.components.iter().enumerate() {
         let dentry = match name.as_str() {
             "." => parent,
-            ".." => parent
-                .lock()
-                .parent()
-                .expect("Dentry without alive parent found"),
+            ".." => parent.parent().expect("Dentry without alive parent found"),
             _ => Dentry::fetch(&parent, name).map_err(|e| match e {
                 dentry::FetchError::NotFound => {
                     let remaining = Path::from(path.components[i..].to_vec());
@@ -116,14 +112,17 @@ pub fn lookup(
 /// # Errors
 /// This function can fails in many ways, and each of them is described by the
 /// [`ReadAllError`] enum.
+///
+/// # Panics
+/// This function panics if the opened file does not have an inode associated
+/// with it. This should never happen, and is a serious bug if it does.
 pub fn read_all(
     path: &str,
-    root: &Arc<Spinlock<Dentry>>,
-    cwd: &Arc<Spinlock<Dentry>>,
+    root: &Arc<Dentry>,
+    cwd: &Arc<Dentry>,
 ) -> Result<Box<[u8]>, ReadAllError> {
     let dentry = lookup(path, root, cwd).map_err(ReadAllError::LookupError)?;
     let file = dentry
-        .lock()
         .open(file::OpenFlags::READ)
         .map_err(|_| ReadAllError::OpenError)?;
 
@@ -172,7 +171,7 @@ pub enum LookupError {
     /// The path could not be resolved entirely. This variant contains the
     /// last inode found before the path could not be resolved anymore, and
     /// the remaining path that could not be resolved.
-    NotFound(Arc<Spinlock<Dentry>>, Path),
+    NotFound(Arc<Dentry>, Path),
 
     /// The path is invalid. This variant contains an error describing why the
     /// path is invalid.
