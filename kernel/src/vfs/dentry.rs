@@ -1,5 +1,5 @@
 use super::{
-    file::{self, File, OpenFileCreateInfo, OpenFlags},
+    file::{self, File, FileCreateInfo, OpenFlags},
     inode::{self, Inode},
     mount,
     name::Name,
@@ -65,9 +65,9 @@ impl Dentry {
     /// Currently, this function does not return any error. However, this may change
     /// in the future.
     pub fn open(&self, flags: OpenFlags) -> Result<File, OpenError> {
-        Ok(file::File::new(OpenFileCreateInfo {
+        Ok(file::File::new(FileCreateInfo {
             operation: self.inode.file_ops.clone(),
-            inode: self.inode.clone(),
+            inode: Some(self.inode.clone()),
             open_flags: flags,
             data: Box::new(()),
         }))

@@ -252,8 +252,13 @@ pub enum ReadError {
     /// The file is not a file
     NotAFile,
 
-    /// The file was not opened with the `Read` flag
+    /// The file was not opened with the `Read` flag or the read operation is not
+    /// supported for this file
     NotReadable,
+
+    /// The pipe is broken: there is no process with the write end of the pipe open
+    /// anymore
+    BrokenPipe,
 
     /// An unknown error occurred
     UnknownError,
@@ -269,7 +274,10 @@ impl From<user::buffer::BufferError> for ReadError {
 
 impl From<vfs::file::ReadError> for ReadError {
     fn from(error: vfs::file::ReadError) -> Self {
-        match error {}
+        match error {
+            vfs::file::ReadError::NotImplemented => Self::NotReadable,
+            vfs::file::ReadError::BrokenPipe => Self::BrokenPipe,
+        }
     }
 }
 
@@ -340,8 +348,13 @@ pub enum WriteError {
     /// The file is not a file
     NotAFile,
 
-    /// The file was not opened with the `WRITE` flag
+    /// The file was not opened with the `WRITE` flag or the write operation is not
+    /// supported for this file
     NotWritable,
+
+    /// The pipe is broken: there is no process with the read end of the pipe open
+    /// anymore
+    BrokenPipe,
 
     /// An unknown error occurred
     UnknownError,
@@ -357,7 +370,10 @@ impl From<user::buffer::BufferError> for WriteError {
 
 impl From<vfs::file::WriteError> for WriteError {
     fn from(error: vfs::file::WriteError) -> Self {
-        match error {}
+        match error {
+            vfs::file::WriteError::NotImplemented => Self::NotWritable,
+            vfs::file::WriteError::BrokenPipe => Self::BrokenPipe,
+        }
     }
 }
 
@@ -425,6 +441,7 @@ pub enum SeekError {
 impl From<vfs::file::SeekError> for SeekError {
     fn from(error: vfs::file::SeekError) -> Self {
         match error {
+            vfs::file::SeekError::NotSeekable => Self::NotSeekable,
             vfs::file::SeekError::Overflow => Self::Overflow,
         }
     }

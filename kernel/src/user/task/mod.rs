@@ -13,6 +13,7 @@ use crate::{
 use core::sync::atomic::{AtomicU64, Ordering};
 
 pub mod elf;
+pub mod mutex;
 pub mod preempt;
 pub mod queue;
 

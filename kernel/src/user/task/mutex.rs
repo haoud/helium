@@ -22,7 +22,7 @@ impl<T> Mutex<T> {
     /// Lock the mutex. If the mutex is already locked, the current thread
     /// will be blocked until the mutex is unlocked and then it will lock
     /// the mutex and return a guard.
-    /// 
+    ///
     /// The wait queue used use a FIFO policy to wake up threads. However,
     /// it is not guaranteed that the thread that has been waiting the longest
     /// will acquire the lock first. It is possible that a thread that has

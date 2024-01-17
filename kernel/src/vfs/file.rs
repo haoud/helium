@@ -4,7 +4,7 @@ use core::any::Any;
 #[derive(Debug)]
 pub struct File {
     /// The inode opened by this file.
-    pub inode: Arc<Inode>,
+    pub inode: Option<Arc<Inode>>,
 
     /// The operation table for this file.
     pub operation: Operation,
@@ -23,7 +23,7 @@ pub struct File {
 
 impl File {
     #[must_use]
-    pub fn new(info: OpenFileCreateInfo) -> Self {
+    pub fn new(info: FileCreateInfo) -> Self {
         let state = OpenFileState { offset: Offset(0) };
         Self {
             inode: info.inode,
@@ -52,8 +52,8 @@ impl File {
 }
 
 #[derive(Debug)]
-pub struct OpenFileCreateInfo {
-    pub inode: Arc<Inode>,
+pub struct FileCreateInfo {
+    pub inode: Option<Arc<Inode>>,
     pub operation: Operation,
     pub open_flags: OpenFlags,
     pub data: Box<dyn Any + Send + Sync>,
@@ -198,12 +198,7 @@ impl FileOperation {
     /// # Errors
     /// If the buffer could not be read from the file, an error is returned,
     /// described by the [`ReadError`] enum.
-    pub fn read(
-        &self,
-        file: &File,
-        buf: &mut [u8],
-        offset: Offset,
-    ) -> Result<usize, ReadError> {
+    pub fn read(&self, file: &File, buf: &mut [u8], offset: Offset) -> Result<usize, ReadError> {
         (self.read)(file, buf, offset)
     }
 
@@ -211,12 +206,7 @@ impl FileOperation {
     ///
     /// # Errors
     /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
-    pub fn seek(
-        &self,
-        file: &File,
-        offset: isize,
-        whence: Whence,
-    ) -> Result<Offset, SeekError> {
+    pub fn seek(&self, file: &File, offset: isize, whence: Whence) -> Result<Offset, SeekError> {
         (self.seek)(file, offset, whence)
     }
 }
@@ -230,15 +220,33 @@ pub enum ReaddirError {
 
 /// The error returned when reading from a file fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ReadError {}
+pub enum ReadError {
+    /// The read operation is not implemented for this file.
+    NotImplemented,
+
+    /// The pipe is empty and there are no writers, meaning that the file
+    /// will never be written to again and the reader should stop reading.
+    BrokenPipe,
+}
 
 /// The error returned when writing to a file fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum WriteError {}
+pub enum WriteError {
+    /// The write operation is not implemented for this file.
+    NotImplemented,
+
+    /// The pipe is full and there are no readers, meaning that the file
+    /// will never be read from again and the writer should stop writing.
+    BrokenPipe,
+}
 
 /// The error returned when seeking into a file fails.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SeekError {
     /// Overflowing when computing the new offset.
     Overflow,
+
+    /// The opened file is not seekable. This can happen if the
+    /// opened file is a pipe or a character device, for example.
+    NotSeekable,
 }

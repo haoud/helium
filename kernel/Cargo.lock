@@ -45,6 +45,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
+name = "circular-buffer"
+version = "0.1.6"
+source = "git+https://github.com/haoud/rust-circular-buffer.git#e59f2ede7e6e9478e8474b498d10d4d242f7c9da"
+
+[[package]]
 name = "elf"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -91,6 +96,7 @@ dependencies = [
  "bitfield",
  "bitflags",
  "cfg-if",
+ "circular-buffer",
  "elf",
  "hashbrown",
  "helium-addr",

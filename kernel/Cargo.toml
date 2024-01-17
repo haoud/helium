@@ -21,6 +21,13 @@ limine = "0.1.12"
 cfg-if = "1.0.0"
 log = "0.4.17"
 
+# Temporary, will be removed once the PR subitted to use `alloc`
+# instead of `std` will be merged.
+[dependencies.circular-buffer]
+git = "https://github.com/haoud/rust-circular-buffer.git"
+default-features = false
+features = ["alloc"]
+
 [features]
 default = []
 test = ["qemu"]

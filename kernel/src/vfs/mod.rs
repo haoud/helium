@@ -15,6 +15,7 @@ pub mod inode;
 pub mod mount;
 pub mod name;
 pub mod path;
+pub mod pipe;
 
 /// Setup the virtual filesystem
 #[init]
@@ -126,7 +127,14 @@ pub fn read_all(
         .open(file::OpenFlags::READ)
         .map_err(|_| ReadAllError::OpenError)?;
 
-    let len = file.inode.state.lock().size;
+    let len = file
+        .inode
+        .as_ref()
+        .expect("Regular open file without inode")
+        .state
+        .lock()
+        .size;
+
     let mut data = vec![0; len].into_boxed_slice();
     let readed = file
         .as_file()

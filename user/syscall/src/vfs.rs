@@ -109,6 +109,9 @@ pub enum ReadError {
     /// The file was not opened with the `Read` flag
     NotReadable,
 
+    /// The pipe is broken: there are no writers and the pipe is empty
+    BrokenPipe,
+
     /// An unknown error occurred
     UnknownError,
 }
@@ -140,6 +143,9 @@ pub enum WriteError {
 
     /// The file was not opened with the `WRITE` flag
     NotWritable,
+
+    /// The pipe is broken: there are no readers and the pipe is full
+    BrokenPipe,
 
     /// An unknown error occurred
     UnknownError,

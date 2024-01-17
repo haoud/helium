@@ -60,11 +60,6 @@ impl Date {
 pub fn setup() {
     STARTUP_DATE.call_once(read_slow);
     STARTUP_TIME.call_once(|| STARTUP_DATE.get().unwrap().to_unix_time());
-    log::debug!("Startup date: {:#?}", STARTUP_DATE.get().unwrap());
-    log::debug!(
-        "Startup date (Unix time): {:#?}",
-        STARTUP_DATE.get().unwrap().to_unix_time()
-    );
 }
 
 /// Reads the date from the CMOS. This function is "slow" because it reads multiple
