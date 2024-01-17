@@ -31,6 +31,7 @@ impl From<inode::Kind> for Kind {
             inode::Kind::BlockDevice(_) => Self::BlockDevice,
             inode::Kind::CharDevice(_) => Self::CharDevice,
             inode::Kind::Directory => Self::Directory,
+            inode::Kind::Pipe => panic!("Pipe cannot be a directory entry"),
             inode::Kind::File => Self::File,
         }
     }

@@ -460,7 +460,7 @@ fn rename(inode: &vfs::inode::Inode, old: &str, new: &str) -> Result<(), vfs::in
 /// If there is no more entries in the directory, `ReaddirError::EndOfDirectory`
 /// is returned.
 fn readdir(
-    file: &vfs::file::OpenFile,
+    file: &vfs::file::File,
     offset: vfs::file::Offset,
 ) -> Result<vfs::dirent::DirectoryEntry, vfs::file::ReaddirError> {
     let file_data = file
@@ -478,7 +478,7 @@ fn readdir(
 
 #[allow(clippy::unnecessary_wraps)]
 fn write(
-    file: &vfs::file::OpenFile,
+    file: &vfs::file::File,
     buf: &[u8],
     offset: vfs::file::Offset,
 ) -> Result<usize, vfs::file::WriteError> {
@@ -505,7 +505,7 @@ fn write(
 
 #[allow(clippy::unnecessary_wraps)]
 fn read(
-    file: &vfs::file::OpenFile,
+    file: &vfs::file::File,
     buf: &mut [u8],
     offset: vfs::file::Offset,
 ) -> Result<usize, vfs::file::ReadError> {
@@ -533,7 +533,7 @@ fn read(
 /// # Errors
 /// If an overflow occurs, `SeekError::Overflow` is returned.
 fn seek(
-    file: &vfs::file::OpenFile,
+    file: &vfs::file::File,
     offset: isize,
     whence: vfs::file::Whence,
 ) -> Result<vfs::file::Offset, vfs::file::SeekError> {

@@ -1,4 +1,4 @@
-use super::file::OpenFile;
+use super::file::File;
 
 /// A file descriptor. This is an identifier for an opened file, unique to the
 /// process. Currently, it is just an index in the table of opened files.
@@ -11,7 +11,7 @@ pub struct Descriptor(pub usize);
 /// The descriptor of a file is its index in this table.
 #[derive(Default, Debug, Clone)]
 pub struct OpenedFiles {
-    files: [Option<Arc<OpenFile>>; 32],
+    files: [Option<Arc<File>>; 32],
 }
 
 impl OpenedFiles {
@@ -24,7 +24,7 @@ impl OpenedFiles {
     /// Insert the given file into the table. Returns the descriptor of the
     /// inserted file if there is space left, `None` otherwise.
     #[must_use]
-    pub fn insert(&mut self, file: Arc<OpenFile>) -> Option<Descriptor> {
+    pub fn insert(&mut self, file: Arc<File>) -> Option<Descriptor> {
         for (i, slot) in self.files.iter_mut().enumerate() {
             if slot.is_none() {
                 *slot = Some(file);
@@ -36,14 +36,14 @@ impl OpenedFiles {
 
     /// Remove the file corresponding to the given descriptor. Returns the file
     /// if the descriptor is valid, `None` otherwise.
-    pub fn remove(&mut self, fd: Descriptor) -> Option<Arc<OpenFile>> {
+    pub fn remove(&mut self, fd: Descriptor) -> Option<Arc<File>> {
         self.files[fd.0].take()
     }
 
     /// Get the file corresponding to the given descriptor. Returns the file if
     /// the descriptor is valid, `None` otherwise.
     #[must_use]
-    pub fn get(&self, fd: Descriptor) -> Option<&Arc<OpenFile>> {
+    pub fn get(&self, fd: Descriptor) -> Option<&Arc<File>> {
         self.files[fd.0].as_ref()
     }
 }

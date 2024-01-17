@@ -2,7 +2,7 @@ use super::{dirent::DirectoryEntry, inode::Inode};
 use core::any::Any;
 
 #[derive(Debug)]
-pub struct OpenFile {
+pub struct File {
     /// The inode opened by this file.
     pub inode: Arc<Inode>,
 
@@ -21,7 +21,7 @@ pub struct OpenFile {
     pub data: Box<dyn Any + Send + Sync>,
 }
 
-impl OpenFile {
+impl File {
     #[must_use]
     pub fn new(info: OpenFileCreateInfo) -> Self {
         let state = OpenFileState { offset: Offset(0) };
@@ -141,7 +141,7 @@ pub struct DirectoryOperation {
     /// # Errors
     /// If the directory entry could not be read, an error is returned, described
     /// by the [`ReaddirError`] enum.
-    pub readdir: fn(file: &OpenFile, offset: Offset) -> Result<DirectoryEntry, ReaddirError>,
+    pub readdir: fn(file: &File, offset: Offset) -> Result<DirectoryEntry, ReaddirError>,
 }
 
 impl DirectoryOperation {
@@ -150,7 +150,7 @@ impl DirectoryOperation {
     /// # Errors
     /// If the directory entry could not be read, an error is returned, described
     /// by the [`ReaddirError`] enum.
-    pub fn readdir(&self, file: &OpenFile, offset: Offset) -> Result<DirectoryEntry, ReaddirError> {
+    pub fn readdir(&self, file: &File, offset: Offset) -> Result<DirectoryEntry, ReaddirError> {
         (self.readdir)(file, offset)
     }
 }
@@ -164,7 +164,7 @@ pub struct FileOperation {
     /// # Errors
     /// If the buffer could not be written to the file, an error is returned,
     /// described by the [`WriteError`] enum.
-    pub write: fn(file: &OpenFile, buf: &[u8], offset: Offset) -> Result<usize, WriteError>,
+    pub write: fn(file: &File, buf: &[u8], offset: Offset) -> Result<usize, WriteError>,
 
     /// Reads from the file at the given offset into the given buffer, and returns the
     /// offset after the last byte read.
@@ -172,13 +172,13 @@ pub struct FileOperation {
     /// # Errors
     /// If the buffer could not be read from the file, an error is returned,
     /// described by the [`ReadError`] enum.
-    pub read: fn(file: &OpenFile, buf: &mut [u8], offset: Offset) -> Result<usize, ReadError>,
+    pub read: fn(file: &File, buf: &mut [u8], offset: Offset) -> Result<usize, ReadError>,
 
     /// Seeks into the file and returns the new offset.
     ///
     /// # Errors
     /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
-    pub seek: fn(file: &OpenFile, offset: isize, whence: Whence) -> Result<Offset, SeekError>,
+    pub seek: fn(file: &File, offset: isize, whence: Whence) -> Result<Offset, SeekError>,
 }
 
 impl FileOperation {
@@ -188,7 +188,7 @@ impl FileOperation {
     /// # Errors
     /// If the buffer could not be written to the file, an error is returned,
     /// described by the [`WriteError`] enum.
-    pub fn write(&self, file: &OpenFile, buf: &[u8], offset: Offset) -> Result<usize, WriteError> {
+    pub fn write(&self, file: &File, buf: &[u8], offset: Offset) -> Result<usize, WriteError> {
         (self.write)(file, buf, offset)
     }
 
@@ -200,7 +200,7 @@ impl FileOperation {
     /// described by the [`ReadError`] enum.
     pub fn read(
         &self,
-        file: &OpenFile,
+        file: &File,
         buf: &mut [u8],
         offset: Offset,
     ) -> Result<usize, ReadError> {
@@ -213,7 +213,7 @@ impl FileOperation {
     /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
     pub fn seek(
         &self,
-        file: &OpenFile,
+        file: &File,
         offset: isize,
         whence: Whence,
     ) -> Result<Offset, SeekError> {

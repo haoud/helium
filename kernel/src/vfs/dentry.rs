@@ -1,5 +1,5 @@
 use super::{
-    file::{self, OpenFile, OpenFileCreateInfo, OpenFlags},
+    file::{self, File, OpenFileCreateInfo, OpenFlags},
     inode::{self, Inode},
     mount,
     name::Name,
@@ -12,7 +12,7 @@ pub static ROOT: Once<Arc<Spinlock<Dentry>>> = Once::new();
 /// A dentry is a directory entry. It is a node in the filesystem tree, and
 /// contains the name of the file, the inode associated with the file, and
 /// pointers to its parent and children.
-/// 
+///
 /// A dentry object can only be referenced once in the dentry cache. However,
 /// the underlying inode can be referenced multiple times, for example if the
 /// file has multiple hard links.
@@ -64,8 +64,8 @@ impl Dentry {
     /// # Errors
     /// Currently, this function does not return any error. However, this may change
     /// in the future.
-    pub fn open(&self, flags: OpenFlags) -> Result<OpenFile, OpenError> {
-        Ok(file::OpenFile::new(OpenFileCreateInfo {
+    pub fn open(&self, flags: OpenFlags) -> Result<File, OpenError> {
+        Ok(file::File::new(OpenFileCreateInfo {
             operation: self.inode.file_ops.clone(),
             inode: self.inode.clone(),
             open_flags: flags,

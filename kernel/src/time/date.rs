@@ -1,5 +1,5 @@
+use super::{units::Second, unix::UnixTime};
 use crate::x86_64;
-use super::{unix::UnixTime, units::Second};
 
 /// The date at which the kernel was started.
 static STARTUP_DATE: Once<Date> = Once::new();
@@ -8,20 +8,7 @@ static STARTUP_DATE: Once<Date> = Once::new();
 static STARTUP_TIME: Once<UnixTime> = Once::new();
 
 /// Number of days elased since the beginning of the year, excluding the current month.
-const ELAPSED_DAYS_MONTHS: [usize; 12] = [
-    0,
-    31,
-    59,
-    90,
-    120,
-    151,
-    181,
-    212,
-    243,
-    273,
-    304,
-    334,
-];
+const ELAPSED_DAYS_MONTHS: [usize; 12] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Date {
@@ -51,7 +38,7 @@ impl Date {
 
         // Take into account leap years since 1970.
         seconds += (u64::from(self.year) - 1968) / 4 * 60 * 60 * 24;
-        
+
         // If the current year is a leap year and the current month is January or February, we
         // need to remove one day from the total number of seconds.
         if self.year % 4 == 0 && self.month <= 2 {
@@ -65,7 +52,7 @@ impl Date {
 /// Initializes the startup date. The kernel assume that the date is configured
 /// to the local time zone. However, most of the time, the date is configured to
 /// the UTC time zone, and the kernel will display the wrong time.
-/// 
+///
 /// Only Windows still configure the date to the local time zone by default for
 /// backward compatibility reasons. I decided to use local time zone for simplicity
 /// reasons, we are not the same (insert breaking bad meme here).
@@ -74,7 +61,10 @@ pub fn setup() {
     STARTUP_DATE.call_once(read_slow);
     STARTUP_TIME.call_once(|| STARTUP_DATE.get().unwrap().to_unix_time());
     log::debug!("Startup date: {:#?}", STARTUP_DATE.get().unwrap());
-    log::debug!("Startup date (Unix time): {:#?}", STARTUP_DATE.get().unwrap().to_unix_time());
+    log::debug!(
+        "Startup date (Unix time): {:#?}",
+        STARTUP_DATE.get().unwrap().to_unix_time()
+    );
 }
 
 /// Reads the date from the CMOS. This function is "slow" because it reads multiple
@@ -94,7 +84,7 @@ pub fn read_slow() -> Date {
 }
 
 /// Returns the date at which the kernel was started.
-/// 
+///
 /// # Panics
 /// Panics if the startup date has not been initialized. This
 /// happens if the [`setup`] function has not been called before
@@ -105,7 +95,7 @@ pub fn startup_date() -> Date {
 }
 
 /// Returns the Unix time at which the kernel was started.
-/// 
+///
 /// # Panics
 /// Panics if the startup time has not been initialized. This
 /// happens if the [`setup`] function has not been called before

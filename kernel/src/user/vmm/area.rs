@@ -1,5 +1,5 @@
 use crate::{
-    vfs::file::OpenFile,
+    vfs::file::File,
     x86_64::paging::table::{PageEntryFlags, PageFaultErrorCode},
 };
 use addr::user::UserVirtual;
@@ -95,7 +95,7 @@ pub enum Type {
     /// the content of the file is copied into the area and can be copied
     /// back to the file when the area is unmapped if some flags are set
     /// during the mapping.
-    File(Arc<OpenFile>),
+    File(Arc<File>),
 }
 
 bitflags! {

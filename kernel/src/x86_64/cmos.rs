@@ -37,13 +37,11 @@ pub fn read(reg: Register) -> u8 {
 }
 
 /// Writes the given value to the given CMOS register.
-pub fn write(reg: Register, value: u8) {
+pub fn write(_reg: Register, _value: u8) {
     unimplemented!("Write to CMOS may be dangerous and is not implemented");
 }
 
 #[must_use]
 fn mni_bit() -> u8 {
-    unsafe {
-        IO_ADDRESS.read() & 0x80
-    }
+    unsafe { IO_ADDRESS.read() & 0x80 }
 }

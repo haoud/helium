@@ -2,6 +2,7 @@ use self::paging::tlb;
 use crate::user::scheduler;
 
 pub mod apic;
+pub mod cmos;
 pub mod cpu;
 pub mod exception;
 pub mod fpu;
@@ -11,7 +12,6 @@ pub mod instruction;
 pub mod io;
 pub mod irq;
 pub mod lapic;
-pub mod cmos;
 pub mod msr;
 pub mod paging;
 pub mod percpu;

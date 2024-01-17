@@ -158,6 +158,7 @@ pub enum Kind {
     BlockDevice(device::Identifier),
     CharDevice(device::Identifier),
     Directory,
+    Pipe,
     File,
 }
 

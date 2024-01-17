@@ -1,4 +1,8 @@
-use super::{units::Second, date::{self, Date}, uptime_fast};
+use super::{
+    date::{self, Date},
+    units::Second,
+    uptime_fast,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UnixTime(pub Second);
@@ -21,6 +25,6 @@ impl From<Date> for UnixTime {
 
 impl From<UnixTime> for u64 {
     fn from(val: UnixTime) -> Self {
-        val.0.0
+        val.0 .0
     }
 }
