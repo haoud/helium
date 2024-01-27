@@ -609,3 +609,112 @@ impl From<ChangeCwdError> for isize {
         -(error as isize)
     }
 }
+
+/// Repositions the file offset of the open file description associated with the file
+/// descriptor `fd` to the argument `offset` according to the directive `whence` as
+/// follows:
+///  - `Whence::Current`: The offset is set to its current location plus `offset` bytes.
+///  - `Whence::End`: The offset is set to the size of the file plus `offset` bytes.
+///  - `Whence::Set`: The offset is set to `offset` bytes.
+///
+/// # Errors
+/// See [`SeekError`] for more details.
+pub fn mkdir(path: usize) -> Result<usize, MkdirError> {
+    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(MkdirError::BadAddress)?;
+    let path = user::String::from_raw_ptr(&ptr)
+        .ok_or(MkdirError::BadAddress)?
+        .fetch()?;
+
+    let current_task = SCHEDULER.current_task();
+    let root = current_task.root();
+    let cwd = current_task.cwd();
+
+    match vfs::lookup(&path, &root, &cwd) {
+        Err(vfs::LookupError::NotFound(parent, remaning)) => {
+            let name = remaning.as_name().ok_or(MkdirError::NoSuchEntry)?.clone();
+
+            parent
+                .inode()
+                .as_directory()
+                .ok_or(MkdirError::NotADirectory)?
+                .mkdir(parent.inode(), name.as_str())?;
+        }
+        Ok(_) => return Err(MkdirError::AlreadyExists),
+        Err(e) => {
+            return Err(MkdirError::from(e));
+        }
+    }
+
+    Ok(0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum MkdirError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// The directory already exists
+    AlreadyExists,
+
+    /// The path does not point to a directory
+    NotADirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<vfs::LookupError> for MkdirError {
+    fn from(error: vfs::LookupError) -> Self {
+        match error {
+            vfs::LookupError::NotADirectory => MkdirError::NotADirectory,
+            vfs::LookupError::NotFound(_, _) => MkdirError::NoSuchEntry,
+            vfs::LookupError::InvalidPath(_) => MkdirError::InvalidPath,
+            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+                MkdirError::UnknownError
+            }
+        }
+    }
+}
+
+impl From<user::string::FetchError> for MkdirError {
+    fn from(e: user::string::FetchError) -> Self {
+        match e {
+            user::string::FetchError::InvalidMemory => MkdirError::BadAddress,
+            user::string::FetchError::StringTooLong => MkdirError::PathTooLong,
+            user::string::FetchError::StringNotUtf8 => MkdirError::InvalidUtf8,
+        }
+    }
+}
+
+impl From<vfs::inode::MkdirError> for MkdirError {
+    fn from(error: vfs::inode::MkdirError) -> Self {
+        match error {
+            vfs::inode::MkdirError::AlreadyExists => MkdirError::AlreadyExists,
+        }
+    }
+}
+
+impl From<MkdirError> for isize {
+    fn from(error: MkdirError) -> Self {
+        -(error as isize)
+    }
+}

@@ -1,6 +1,12 @@
-use crate::{time::{self, units::{Nanosecond, Second}}, user};
+use crate::{
+    time::{
+        self,
+        units::{Nanosecond, Second},
+    },
+    user,
+};
 
-/// 
+///
 #[repr(C)]
 pub struct Timestamp {
     pub seconds: u64,
@@ -8,7 +14,7 @@ pub struct Timestamp {
 }
 
 /// Get the clock monotonic time. This is the time since the kernel booted.
-/// 
+///
 /// # Errors
 /// See [`GetTimeError`] for details.
 pub fn get_time(buffer: usize) -> Result<usize, GetTimeError> {

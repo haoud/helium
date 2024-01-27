@@ -1,11 +1,11 @@
 #![no_std]
 
+pub mod clock;
 pub mod mmu;
 pub mod serial;
 pub mod task;
 pub mod vfs;
 pub mod video;
-pub mod clock;
 
 /// A string that is stored in the userland address space. It is a structure that are created by
 /// the rust syscall library and passed to the kernel, so the kernel can then fetch the string from
@@ -75,6 +75,7 @@ pub enum Syscall {
     VfsGetCwd = 15,
     VfsChangeCwd = 16,
     ClockGetTime = 17,
+    VfsMkdir = 18,
 }
 
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {

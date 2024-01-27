@@ -263,6 +263,50 @@ impl From<Errno> for ChangeCwdError {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum MkdirError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// The directory already exists
+    AlreadyExists,
+
+    /// The path does not point to a directory
+    NotADirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<Errno> for MkdirError {
+    fn from(error: Errno) -> Self {
+        if error.code() > -(Self::UnknownError as isize) {
+            unsafe { core::mem::transmute(error) }
+        } else {
+            Self::UnknownError
+        }
+    }
+}
+
 /// Open a file and return a file descriptor that can be used to refer to it.
 ///
 /// # Errors
@@ -404,6 +448,25 @@ pub fn change_cwd(path: &str) -> Result<(), ChangeCwdError> {
 
     match syscall_return(ret) {
         Err(errno) => Err(ChangeCwdError::from(errno)),
+        Ok(_) => Ok(()),
+    }
+}
+
+pub fn mkdir(path: &str) -> Result<(), MkdirError> {
+    let str = SyscallString::from(path);
+    let ret;
+
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") Syscall::VfsMkdir as u64,
+            in("rsi") &str as *const _ as u64,
+            lateout("rax") ret,
+        );
+    }
+
+    match syscall_return(ret) {
+        Err(errno) => Err(MkdirError::from(errno)),
         Ok(_) => Ok(()),
     }
 }
