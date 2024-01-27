@@ -26,8 +26,9 @@ pub fn map(addr: usize, len: usize, access: usize, flags: usize) -> Result<usize
     let end = UserVirtual::try_new(addr + len)?;
     let start = UserVirtual::try_new(addr)?;
 
+    #[cfg(feature = "trace-syscalls")]
     log::trace!(
-        "mmap: addr={:#x}, len={:#x}, access={:?}, flags={:?}",
+        "mmap: addr = {:#x}, len = {:#x}, access = {:?}, flags = {:?}",
         addr,
         len,
         access,
@@ -51,11 +52,13 @@ pub fn map(addr: usize, len: usize, access: usize, flags: usize) -> Result<usize
         .lock()
         .mmap(area)?;
 
+    #[cfg(feature = "trace-syscalls")]
     log::trace!(
         "mmap: mapped {:#x} bytes at {:#x}",
         len,
         range.start.as_usize()
     );
+
     Ok(range.start.as_usize())
 }
 
@@ -109,6 +112,9 @@ pub fn unmap(base: usize, len: usize) -> Result<usize, UnmapError> {
     let end = UserVirtual::try_new(base + len)?;
     let start = UserVirtual::try_new(base)?;
 
+    #[cfg(feature = "trace-syscalls")]
+    log::trace!("munmap: addr = {:#x}, len = {:#x}", base, len);
+
     SCHEDULER
         .current_task()
         .thread()
@@ -117,6 +123,9 @@ pub fn unmap(base: usize, len: usize) -> Result<usize, UnmapError> {
         .unwrap()
         .lock()
         .munmap(start..end)?;
+
+    #[cfg(feature = "trace-syscalls")]
+    log::trace!("munmap: unmapped {:#x} bytes at {:#x}", len, base);
 
     Ok(0)
 }

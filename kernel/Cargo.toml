@@ -10,7 +10,6 @@ sync = { path = "crates/helium-sync", package = "helium-sync" }
 addr = { path = "crates/helium-addr", package = "helium-addr" }
 lib = { path = "crates/helium-lib", package = "helium-lib" }
 elf = { version = "0.7.2", default-features = false }
-scopeguard = { version = "1.2.0", default-features = false }
 
 linked_list_allocator = "0.10.5"
 typed-builder = "0.18.0"
@@ -29,7 +28,8 @@ default-features = false
 features = ["alloc"]
 
 [features]
-default = []
+default = ["trace-syscalls"]
+trace-syscalls = []
 test = ["qemu"]
 qemu = []
 
@@ -38,6 +38,6 @@ debug-assertions = false
 overflow-checks = false
 incremental = false
 codegen-units = 1
-opt-level = 2
+opt-level = 3
 debug = false
 lto = true

@@ -106,7 +106,6 @@ dependencies = [
  "limine",
  "linked_list_allocator",
  "log",
- "scopeguard",
  "typed-builder",
 ]
 

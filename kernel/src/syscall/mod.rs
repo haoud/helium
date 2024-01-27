@@ -67,35 +67,33 @@ pub trait Errno {
 #[allow(unused_variables)]
 #[allow(clippy::cast_possible_wrap)]
 fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize {
-    log::trace!(
-        "syscall: id={:#x}, a={:#x}, b={:#x}, c={:#x}, d={:#x}, e={:#x}",
-        id,
-        a,
-        b,
-        c,
-        d,
-        e
-    );
     let result: Result<usize, isize> = match Syscall::from(id) {
         Some(Syscall::TaskExit) => task::exit(a),
         Some(Syscall::TaskId) => task::id(),
         Some(Syscall::TaskSleep) => task::sleep(a),
         Some(Syscall::TaskYield) => task::yields(),
-        Some(Syscall::TaskSpawn) => task::spawn(a).map_err(bitfield::Into::into),
-        Some(Syscall::SerialRead) => serial::read(a, b).map_err(bitfield::Into::into),
-        Some(Syscall::SerialWrite) => serial::write(a, b).map_err(bitfield::Into::into),
-        Some(Syscall::MmuMap) => mmu::map(a, b, c, d).map_err(bitfield::Into::into),
-        Some(Syscall::MmuUnmap) => mmu::unmap(a, b).map_err(bitfield::Into::into),
-        Some(Syscall::VideoFramebufferInfo) => {
-            video::framebuffer_info(a).map_err(bitfield::Into::into)
-        }
-        Some(Syscall::VfsOpen) => vfs::open(a, b).map_err(bitfield::Into::into),
-        Some(Syscall::VfsClose) => vfs::close(a).map_err(bitfield::Into::into),
-        Some(Syscall::VfsRead) => vfs::read(a, b, c).map_err(bitfield::Into::into),
-        Some(Syscall::VfsWrite) => vfs::write(a, b, c).map_err(bitfield::Into::into),
-        Some(Syscall::VfsSeek) => vfs::seek(a, b, c).map_err(bitfield::Into::into),
+        Some(Syscall::TaskSpawn) => task::spawn(a).map_err(Into::into),
+        Some(Syscall::SerialRead) => serial::read(a, b).map_err(Into::into),
+        Some(Syscall::SerialWrite) => serial::write(a, b).map_err(Into::into),
+        Some(Syscall::MmuMap) => mmu::map(a, b, c, d).map_err(Into::into),
+        Some(Syscall::MmuUnmap) => mmu::unmap(a, b).map_err(Into::into),
+        Some(Syscall::VideoFramebufferInfo) => video::framebuffer_info(a).map_err(Into::into),
+        Some(Syscall::VfsOpen) => vfs::open(a, b).map_err(Into::into),
+        Some(Syscall::VfsClose) => vfs::close(a).map_err(Into::into),
+        Some(Syscall::VfsRead) => vfs::read(a, b, c).map_err(Into::into),
+        Some(Syscall::VfsWrite) => vfs::write(a, b, c).map_err(Into::into),
+        Some(Syscall::VfsSeek) => vfs::seek(a, b, c).map_err(Into::into),
         None => Err(-1), // NoSuchSyscall,
     };
+
+    #[cfg(feature = "trace-syscalls")]
+    {
+        if let Ok(value) = result {
+            log::debug!("syscall {} successed -> {}", id, value);
+        } else if let Err(error) = result {
+            log::debug!("syscall {} failed -> {}", id, error);
+        }
+    }
 
     match result {
         Err(error) => error,
