@@ -467,11 +467,19 @@ pub fn get_cwd(buf: usize, len: usize) -> Result<usize, GetCwdError> {
 
     // Write the path components to the buffer in reverse order
     // (from the last component to the first)
-    let mut path = core::iter::successors(Some(cwd), |dentry| dentry.parent())
+    let path = core::iter::successors(Some(cwd), |dentry| dentry.parent())
         .take_while(|dentry| !Arc::ptr_eq(dentry, &root))
         .map(|dentry| dentry.name().into_inner())
         .collect::<Vec<_>>();
-    path.push(String::new());
+
+    // Handle the case where the current working directory is the root directory
+    if path.is_empty() {
+        if len >= 1 {
+            _ = buffer.write_buffered("/".as_bytes());
+            return Ok(1);
+        }
+        return Err(GetCwdError::BufferTooSmall);
+    }
 
     // Verify that the buffer is large enough to hold the path
     let path_len = path.iter().fold(0, |acc, name| acc + name.len() + 1);
