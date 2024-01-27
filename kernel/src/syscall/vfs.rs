@@ -452,3 +452,68 @@ impl From<SeekError> for isize {
         -(error as isize)
     }
 }
+
+/// Get the current working directory of the current process. The path is written to
+/// the buffer `buf` and the length of the path is returned.
+///
+/// # Errors
+/// - [`GetCwdError::BadAddress`]: The buffer passed as an argument is invalid
+/// - [`GetCwdError::BufferTooSmall`]: The buffer is too small to hold the path
+pub fn get_cwd(buf: usize, len: usize) -> Result<usize, GetCwdError> {
+    let mut buffer = user::buffer::UserStandardBuffer::new(buf, len)?;
+    let current_task = SCHEDULER.current_task();
+    let root = current_task.root();
+    let cwd = current_task.cwd();
+
+    // Write the path components to the buffer in reverse order
+    // (from the last component to the first)
+    let mut path = core::iter::successors(Some(cwd), |dentry| dentry.parent())
+        .take_while(|dentry| !Arc::ptr_eq(dentry, &root))
+        .map(|dentry| dentry.name().into_inner())
+        .collect::<Vec<_>>();
+    path.push(String::new());
+
+    // Verify that the buffer is large enough to hold the path
+    let path_len = path.iter().fold(0, |acc, name| acc + name.len() + 1);
+    if path_len > len {
+        return Err(GetCwdError::BufferTooSmall);
+    }
+
+    // Write the path components to the buffer in the correct order
+    for name in path.iter().rev() {
+        _ = buffer.write_buffered("/".as_bytes());
+        _ = buffer.write_buffered(name.as_str().as_bytes());
+    }
+
+    Ok(path_len)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum GetCwdError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The buffer passed as an argument is invalid
+    BadAddress,
+
+    // The buffer is too small to hold the path
+    BufferTooSmall,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<user::buffer::BufferError> for GetCwdError {
+    fn from(error: user::buffer::BufferError) -> Self {
+        match error {
+            user::buffer::BufferError::NotInUserSpace => Self::BadAddress,
+        }
+    }
+}
+
+impl From<GetCwdError> for isize {
+    fn from(error: GetCwdError) -> Self {
+        -(error as isize)
+    }
+}

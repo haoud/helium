@@ -31,6 +31,20 @@ fn fill_ramdisk() {
     let root = ROOT.get().unwrap();
     let inode = root.inode().clone();
 
+    // Create the /bin directory
+    inode
+        .as_directory()
+        .unwrap()
+        .create(&inode, "bin")
+        .expect("Failed to create /bin");
+
+    // Create the /usr directory
+    inode
+        .as_directory()
+        .unwrap()
+        .create(&inode, "usr")
+        .expect("Failed to create /usr");
+
     inode
         .as_directory()
         .unwrap()

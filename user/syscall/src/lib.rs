@@ -71,6 +71,7 @@ pub enum Syscall {
     VfsRead = 12,
     VfsWrite = 13,
     VfsSeek = 14,
+    VfsGetCwd = 15,
 }
 
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {

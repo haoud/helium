@@ -232,6 +232,11 @@ impl Task {
         *self.state.lock() = state;
     }
 
+    /// Set the current working directory of the task.
+    pub fn set_cwd(&self, cwd: Arc<Dentry>) {
+        *self.cwd.lock() = cwd;
+    }
+
     /// Return a reference to the thread of the task. The thread is wrapped in a spinlock
     /// and must be locked before use.
     #[must_use]

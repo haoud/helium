@@ -196,6 +196,32 @@ impl From<Errno> for SeekError {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum GetCwdError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The buffer passed as an argument is invalid
+    BadAddress,
+
+    // The buffer is too small to hold the path
+    BufferTooSmall,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<Errno> for GetCwdError {
+    fn from(error: Errno) -> Self {
+        if error.code() > -(Self::UnknownError as isize) {
+            unsafe { core::mem::transmute(error) }
+        } else {
+            Self::UnknownError
+        }
+    }
+}
+
 /// Open a file and return a file descriptor that can be used to refer to it.
 ///
 /// # Errors
@@ -299,6 +325,25 @@ pub fn seek(fd: &FileDescriptor, whence: Whence) -> Result<usize, SeekError> {
 
     match syscall_return(ret) {
         Err(errno) => Err(SeekError::from(errno)),
+        Ok(ret) => Ok(ret),
+    }
+}
+
+pub fn get_cwd(buffer: &mut [u8]) -> Result<usize, GetCwdError> {
+    let ret;
+
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") Syscall::VfsGetCwd as u64,
+            in("rsi") buffer.as_mut_ptr() as u64,
+            in("rdx") buffer.len() as u64,
+            lateout("rax") ret,
+        );
+    }
+
+    match syscall_return(ret) {
+        Err(errno) => Err(GetCwdError::from(errno)),
         Ok(ret) => Ok(ret),
     }
 }

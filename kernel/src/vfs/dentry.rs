@@ -66,6 +66,25 @@ impl Dentry {
         }))
     }
 
+    /// Check if this dentry is the root dentry, i.e if its parent is itself.
+    ///
+    /// # Panics
+    /// Panics if the dentry does not have a parent. This should never happen
+    /// because every dentry must have a parent, even the root dentry, and is
+    /// a serious kernel bug.
+    #[must_use]
+    pub fn is_root(self: &Arc<Self>) -> bool {
+        Arc::ptr_eq(
+            self,
+            &self
+                .tree
+                .lock()
+                .parent
+                .upgrade()
+                .expect("Dentry without parent"),
+        )
+    }
+
     /// Get the tree info of this dentry.
     #[must_use]
     pub fn tree(&self) -> &Spinlock<DentryTree> {

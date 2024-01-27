@@ -35,6 +35,12 @@ impl Name {
         Ok(())
     }
 
+    /// Returns the name as a string, consuming the name.
+    #[must_use]
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+
     /// Returns the name as a string.
     #[must_use]
     pub fn as_str(&self) -> &str {
