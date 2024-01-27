@@ -230,7 +230,7 @@ impl Thread {
 
         // Compute the start and end address of the user stack
         let stack_start = UserVirtual::new((rsp - size).align_down(PAGE_SIZE));
-        let stack_end = UserVirtual::new(rsp.align_down(PAGE_SIZE));
+        let stack_end = UserVirtual::new(rsp.align_up(PAGE_SIZE));
 
         // Map the user stack at the given address with the given size
         let area = Area::builder()

@@ -23,6 +23,7 @@ pub mod queue;
 /// this is not a problem for now.
 pub const STACK_BASE: usize = 0x0000_7FFF_FFFF_0000;
 pub const STACK_SIZE: usize = 64 * 1024;
+pub const STACK_RSP: usize = STACK_BASE - 8;
 
 /// A counter used to generate unique identifiers for tasks
 static COUNTER: AtomicU64 = AtomicU64::new(1);
@@ -194,7 +195,7 @@ impl Task {
     /// This function will panic the VFS subsystem is not initialized.
     #[must_use]
     pub fn user(mm: Arc<Spinlock<vmm::Manager>>, entry: usize) -> Arc<Task> {
-        let thread = Thread::new(mm, entry, STACK_BASE, STACK_SIZE);
+        let thread = Thread::new(mm, entry, STACK_RSP, STACK_SIZE);
         let task = Arc::new(Self {
             id: Identifier::generate(),
             state: Spinlock::new(State::Created),
