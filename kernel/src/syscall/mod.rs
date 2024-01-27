@@ -3,6 +3,7 @@ pub mod serial;
 pub mod task;
 pub mod vfs;
 pub mod video;
+pub mod clock;
 
 /// The type of the return value of a syscall. All syscalls must return a value that fits
 /// in an usize. However, some values are reserved for indicating an error: values between
@@ -30,6 +31,7 @@ pub enum Syscall {
     VfsSeek = 14,
     VfsGetCwd = 15,
     VfsChangeCwd = 16,
+    ClockGetTime = 17,
 }
 
 impl Syscall {
@@ -55,6 +57,7 @@ impl Syscall {
             14 => Some(Self::VfsSeek),
             15 => Some(Self::VfsGetCwd),
             16 => Some(Self::VfsChangeCwd),
+            17 => Some(Self::ClockGetTime),
             _ => None,
         }
     }
@@ -89,6 +92,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::VfsSeek) => vfs::seek(a, b, c).map_err(Into::into),
         Some(Syscall::VfsGetCwd) => vfs::get_cwd(a, b).map_err(Into::into),
         Some(Syscall::VfsChangeCwd) => vfs::change_cwd(a).map_err(Into::into),
+        Some(Syscall::ClockGetTime) => clock::get_time(a).map_err(Into::into),
         None => Err(-1), // NoSuchSyscall,
     };
 
