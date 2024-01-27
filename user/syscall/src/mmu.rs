@@ -79,7 +79,6 @@ pub unsafe fn map(base: usize, len: usize, access: usize, flags: usize) -> Resul
         in("r8") flags,
         lateout("rax") ret,
     );
-
     match syscall_return(ret) {
         Err(errno) => unsafe { Err(core::mem::transmute(errno)) },
         Ok(ret) => Ok(ret),

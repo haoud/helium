@@ -111,7 +111,7 @@ impl KernelStack {
     }
 
     fn write_initial_user_trampoline(&mut self, entry: usize, stack: usize) {
-        let cs = usize::from(Selector::USER_CODE.0);
+        let cs = usize::from(Selector::USER_CODE64.0);
         let ss = usize::from(Selector::USER_DATA.0);
         self.write_initial_trampoline(entry, stack, cs, ss);
     }

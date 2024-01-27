@@ -50,7 +50,7 @@ syscall_enter:
     mov rdi, rax
     mov rcx, r10
     call syscall_handler
-    
+   
     # Restore the user's syscall arguments
     pop rdi
     pop rsi

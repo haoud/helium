@@ -138,7 +138,6 @@ where
 #[irq_handler]
 unsafe fn irq_handler(state: &mut InterruptFrame) {
     let irq = (state.code & 0xFF) as u8;
-
     pic::send_eoi(irq);
     match irq {
         PIT_IRQ => {

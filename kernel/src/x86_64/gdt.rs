@@ -6,7 +6,7 @@ use super::{cpu::Privilege, instruction, tss::TaskStateSegment, MAX_CPUS};
 /// The Global Descriptor Table. The size of the GDT is fixed and is equal to 6 + 2 * `MAX_CPU`.
 /// The first 5 entries are reserved for the NULL descriptor, the kernel code, the kernel data, the
 /// user code and the user data, and the remaining entries are used for the TSS of each CPU.
-pub static GDT: Spinlock<Table<{ 6 + MAX_CPUS * 2 }>> = Spinlock::new(Table::empty());
+pub static GDT: Spinlock<Table<{ 8 + MAX_CPUS * 2 }>> = Spinlock::new(Table::empty());
 
 /// A structure that represents a GDT table and its register. The table is an array of entries,
 /// with a compile-time fixed size (maximum 8192 entries).
@@ -114,9 +114,10 @@ pub enum Descriptor {
 impl Descriptor {
     pub const NULL: Self = Self::Segment(0);
     pub const KERNEL_CODE64: Self = Self::Segment(0x00af_9b00_0000_ffff);
-    pub const KERNEL_DATA: Self = Self::Segment(0x00cf_9300_0000_ffff);
-    pub const USER_DATA: Self = Self::Segment(0x00cf_f300_0000_ffff);
+    pub const KERNEL_DATA64: Self = Self::Segment(0x00af_9300_0000_ffff);
+    pub const USER_CODE32: Self = Self::Segment(0x008f_fb00_0000_ffff);
     pub const USER_CODE64: Self = Self::Segment(0x00af_fb00_0000_ffff);
+    pub const USER_DATA64: Self = Self::Segment(0x00af_f300_0000_ffff);
 
     /// Create a new TSS descriptor.
     #[must_use]
@@ -174,8 +175,9 @@ impl Selector {
     pub const NULL: Selector = Selector::new(0, Privilege::KERNEL);
     pub const KERNEL_CODE: Selector = Selector::new(1, Privilege::KERNEL);
     pub const KERNEL_DATA: Selector = Selector::new(2, Privilege::KERNEL);
-    pub const USER_DATA: Selector = Selector::new(3, Privilege::USER);
-    pub const USER_CODE: Selector = Selector::new(4, Privilege::USER);
+    pub const USER_CODE32: Selector = Selector::new(3, Privilege::USER);
+    pub const USER_DATA: Selector = Selector::new(4, Privilege::USER);
+    pub const USER_CODE64: Selector = Selector::new(5, Privilege::USER);
 
     /// Create a new segment selector. The index is the index of the segment in the GDT, and the
     /// privilege is the privilege level used for this segment.
@@ -200,9 +202,11 @@ impl Selector {
 pub unsafe fn setup() {
     GDT.lock().set_descriptor(0, &Descriptor::NULL);
     GDT.lock().set_descriptor(1, &Descriptor::KERNEL_CODE64);
-    GDT.lock().set_descriptor(2, &Descriptor::KERNEL_DATA);
-    GDT.lock().set_descriptor(3, &Descriptor::USER_DATA);
-    GDT.lock().set_descriptor(4, &Descriptor::USER_CODE64);
+    GDT.lock().set_descriptor(2, &Descriptor::KERNEL_DATA64);
+    GDT.lock().set_descriptor(3, &Descriptor::USER_CODE32);
+    GDT.lock().set_descriptor(4, &Descriptor::USER_DATA64);
+    GDT.lock().set_descriptor(5, &Descriptor::USER_CODE64);
+
     load();
 }
 
