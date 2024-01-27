@@ -29,6 +29,7 @@ pub enum Syscall {
     VfsWrite = 13,
     VfsSeek = 14,
     VfsGetCwd = 15,
+    VfsChangeCwd = 16,
 }
 
 impl Syscall {
@@ -53,6 +54,7 @@ impl Syscall {
             13 => Some(Self::VfsWrite),
             14 => Some(Self::VfsSeek),
             15 => Some(Self::VfsGetCwd),
+            16 => Some(Self::VfsChangeCwd),
             _ => None,
         }
     }
@@ -86,6 +88,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::VfsWrite) => vfs::write(a, b, c).map_err(Into::into),
         Some(Syscall::VfsSeek) => vfs::seek(a, b, c).map_err(Into::into),
         Some(Syscall::VfsGetCwd) => vfs::get_cwd(a, b).map_err(Into::into),
+        Some(Syscall::VfsChangeCwd) => vfs::change_cwd(a).map_err(Into::into),
         None => Err(-1), // NoSuchSyscall,
     };
 

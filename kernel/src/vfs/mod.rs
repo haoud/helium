@@ -35,14 +35,14 @@ fn fill_ramdisk() {
     inode
         .as_directory()
         .unwrap()
-        .create(&inode, "bin")
+        .mkdir(&inode, "bin")
         .expect("Failed to create /bin");
 
     // Create the /usr directory
     inode
         .as_directory()
         .unwrap()
-        .create(&inode, "usr")
+        .mkdir(&inode, "usr")
         .expect("Failed to create /usr");
 
     inode

@@ -517,3 +517,87 @@ impl From<GetCwdError> for isize {
         -(error as isize)
     }
 }
+
+/// Change the current working directory of the current process to the directory. The
+/// directory is specified by its path.
+///
+/// # Errors
+/// See [`ChangeCwdError`] for more details.
+pub fn change_cwd(path: usize) -> Result<usize, ChangeCwdError> {
+    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(ChangeCwdError::BadAddress)?;
+    let path = user::String::from_raw_ptr(&ptr)
+        .ok_or(ChangeCwdError::BadAddress)?
+        .fetch()?;
+
+    let current_task = SCHEDULER.current_task();
+    let root = current_task.root();
+    let cwd = current_task.cwd();
+
+    let dentry = vfs::lookup(&path, &root, &cwd)?;
+    if dentry.inode().kind != vfs::inode::Kind::Directory {
+        return Err(ChangeCwdError::NotADirectory);
+    }
+
+    current_task.set_cwd(dentry);
+    Ok(0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum ChangeCwdError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument is invalid
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// The path does not point to a directory
+    NotADirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<vfs::LookupError> for ChangeCwdError {
+    fn from(error: vfs::LookupError) -> Self {
+        match error {
+            vfs::LookupError::NotADirectory => ChangeCwdError::NotADirectory,
+            vfs::LookupError::NotFound(_, _) => ChangeCwdError::NoSuchEntry,
+            vfs::LookupError::InvalidPath(_) => ChangeCwdError::InvalidPath,
+            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+                ChangeCwdError::UnknownError
+            }
+        }
+    }
+}
+
+impl From<user::string::FetchError> for ChangeCwdError {
+    fn from(e: user::string::FetchError) -> Self {
+        match e {
+            user::string::FetchError::InvalidMemory => ChangeCwdError::BadAddress,
+            user::string::FetchError::StringTooLong => ChangeCwdError::PathTooLong,
+            user::string::FetchError::StringNotUtf8 => ChangeCwdError::InvalidUtf8,
+        }
+    }
+}
+
+impl From<ChangeCwdError> for isize {
+    fn from(error: ChangeCwdError) -> Self {
+        -(error as isize)
+    }
+}
