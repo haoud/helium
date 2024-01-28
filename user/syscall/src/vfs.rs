@@ -374,9 +374,6 @@ pub enum RmdirError {
     /// The path does not exist
     NoSuchEntry,
 
-    /// The directory already exists
-    AlreadyExists,
-
     /// The path does not point to a directory
     NotADirectory,
 
@@ -508,6 +505,50 @@ pub enum ReaddirError {
 }
 
 impl From<Errno> for ReaddirError {
+    fn from(error: Errno) -> Self {
+        if error.code() > -(Self::UnknownError as isize) {
+            unsafe { core::mem::transmute(error) }
+        } else {
+            Self::UnknownError
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum UnlinkError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is used as a directory, but is not a directory
+    ComponentNotADirectory,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// The path does not point to a directory
+    IsADirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<Errno> for UnlinkError {
     fn from(error: Errno) -> Self {
         if error.code() > -(Self::UnknownError as isize) {
             unsafe { core::mem::transmute(error) }
@@ -782,5 +823,24 @@ pub fn readdir(fd: &FileDescriptor) -> Result<Dirent, ReaddirError> {
     match syscall_return(ret) {
         Err(errno) => Err(ReaddirError::from(errno)),
         Ok(_) => Ok(dirent),
+    }
+}
+
+pub fn unlink(path: &str) -> Result<(), UnlinkError> {
+    let str = SyscallString::from(path);
+    let ret;
+
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") Syscall::VfsUnlink as u64,
+            in("rsi") &str as *const _ as u64,
+            lateout("rax") ret,
+        );
+    }
+
+    match syscall_return(ret) {
+        Err(errno) => Err(UnlinkError::from(errno)),
+        Ok(_) => Ok(()),
     }
 }

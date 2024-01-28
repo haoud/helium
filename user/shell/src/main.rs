@@ -50,8 +50,8 @@ fn main() {
         Ok(_) => println!("rmdir succeeded"),
     }
 
-    //println!("Removing /test/test.txt");
-    //syscall::vfs::unlink("/test/test.txt").expect("unlink failed");
+    println!("Removing /test/test.txt");
+    syscall::vfs::unlink("/test/test.txt").expect("unlink failed");
 
     println!("Trying to removing /test again");
     match syscall::vfs::rmdir("/test") {

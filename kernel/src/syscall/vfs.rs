@@ -776,9 +776,6 @@ pub enum RmdirError {
     /// The path does not exist
     NoSuchEntry,
 
-    /// The directory already exists
-    AlreadyExists,
-
     /// The path does not point to a directory
     NotADirectory,
 
@@ -835,6 +832,119 @@ impl From<RmdirError> for isize {
     fn from(error: RmdirError) -> Self {
         -(error as isize)
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum UnlinkError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is used as a directory, but is not a directory
+    ComponentNotADirectory,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// The path does not point to a directory
+    IsADirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<vfs::LookupError> for UnlinkError {
+    fn from(error: vfs::LookupError) -> Self {
+        match error {
+            vfs::LookupError::NotADirectory => UnlinkError::ComponentNotADirectory,
+            vfs::LookupError::NotFound(_, _) => UnlinkError::NoSuchEntry,
+            vfs::LookupError::InvalidPath(_) => UnlinkError::InvalidPath,
+            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+                UnlinkError::UnknownError
+            }
+        }
+    }
+}
+
+impl From<user::string::FetchError> for UnlinkError {
+    fn from(e: user::string::FetchError) -> Self {
+        match e {
+            user::string::FetchError::InvalidMemory => UnlinkError::BadAddress,
+            user::string::FetchError::StringTooLong => UnlinkError::PathTooLong,
+            user::string::FetchError::StringNotUtf8 => UnlinkError::InvalidUtf8,
+        }
+    }
+}
+
+impl From<vfs::inode::UnlinkError> for UnlinkError {
+    fn from(error: vfs::inode::UnlinkError) -> Self {
+        match error {
+            vfs::inode::UnlinkError::ReservedEntry => UnlinkError::UnknownError,
+            vfs::inode::UnlinkError::IsADirectory => UnlinkError::IsADirectory,
+            vfs::inode::UnlinkError::NoSuchEntry => UnlinkError::NoSuchEntry,
+        }
+    }
+}
+
+impl From<vfs::dentry::DisconnectError> for UnlinkError {
+    fn from(error: vfs::dentry::DisconnectError) -> Self {
+        match error {
+            vfs::dentry::DisconnectError::NotFound => UnlinkError::NoSuchEntry,
+            vfs::dentry::DisconnectError::Busy => UnlinkError::UnknownError,
+        }
+    }
+}
+
+impl From<UnlinkError> for isize {
+    fn from(error: UnlinkError) -> Self {
+        -(error as isize)
+    }
+}
+
+/// Unlink a entry from the filesystem that is not a directory.
+/// 
+/// # Errors
+/// See [`UnlinkError`] for more details.
+/// 
+/// # Panics
+/// This function panics if the entry has no parent. This should never happen, and is a
+/// serious bug in the kernel if it does.
+pub fn unlink(path: usize) -> Result<usize, UnlinkError> {
+    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(UnlinkError::BadAddress)?;
+    let path = user::String::from_raw_ptr(&ptr)
+        .ok_or(UnlinkError::BadAddress)?
+        .fetch()?;
+
+    let current_task = SCHEDULER.current_task();
+    let root = current_task.root();
+    let cwd = current_task.cwd();
+
+    let dentry = vfs::lookup(&path, &root, &cwd)?;
+    let parent = dentry.parent().unwrap();
+
+    parent
+        .inode()
+        .as_directory()
+        .ok_or(UnlinkError::ComponentNotADirectory)?
+        .unlink(parent.inode(), dentry.name().as_str())?;
+
+    parent.disconnect_child(&dentry.name())?;
+    Ok(0)
 }
 
 /// Truncate a file to the given length.

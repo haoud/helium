@@ -384,6 +384,7 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
         .get(&locked_dir.entries[index].inode)
         .expect("Dead inode in directory")
         .clone();
+
     let directory_data = inode
         .data
         .downcast_ref::<Spinlock<InodeDirectory>>()

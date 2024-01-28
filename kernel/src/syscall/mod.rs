@@ -34,9 +34,10 @@ pub enum Syscall {
     ClockGetTime = 17,
     VfsMkdir = 18,
     VfsRmdir = 19,
-    VfsTruncate = 20,
-    VfsStat = 21,
-    VfsReaddir = 22,
+    VfsUnlink = 20,
+    VfsTruncate = 21,
+    VfsStat = 22,
+    VfsReaddir = 23,
 }
 
 impl Syscall {
@@ -65,9 +66,10 @@ impl Syscall {
             17 => Some(Self::ClockGetTime),
             18 => Some(Self::VfsMkdir),
             19 => Some(Self::VfsRmdir),
-            20 => Some(Self::VfsTruncate),
-            21 => Some(Self::VfsStat),
-            22 => Some(Self::VfsReaddir),
+            20 => Some(Self::VfsUnlink),
+            21 => Some(Self::VfsTruncate),
+            22 => Some(Self::VfsStat),
+            23 => Some(Self::VfsReaddir),
             _ => None,
         }
     }
@@ -105,6 +107,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::ClockGetTime) => clock::get_time(a).map_err(Into::into),
         Some(Syscall::VfsMkdir) => vfs::mkdir(a).map_err(Into::into),
         Some(Syscall::VfsRmdir) => vfs::rmdir(a).map_err(Into::into),
+        Some(Syscall::VfsUnlink) => vfs::unlink(a).map_err(Into::into),
         Some(Syscall::VfsTruncate) => vfs::truncate(a, b).map_err(Into::into),
         Some(Syscall::VfsStat) => vfs::stat(a, b).map_err(Into::into),
         Some(Syscall::VfsReaddir) => vfs::readdir(a, b).map_err(Into::into),

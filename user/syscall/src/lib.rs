@@ -77,9 +77,10 @@ pub enum Syscall {
     ClockGetTime = 17,
     VfsMkdir = 18,
     VfsRmdir = 19,
-    VfsTruncate = 20,
-    VfsStat = 21,
-    VfsReaddir = 22,
+    VfsUnlink = 20,
+    VfsTruncate = 21,
+    VfsStat = 22,
+    VfsReaddir = 23,
 }
 
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {
