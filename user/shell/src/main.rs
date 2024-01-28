@@ -42,8 +42,7 @@ fn main() {
     syscall::vfs::mkdir("/test").expect("mkdir failed");
 
     println!("Adding /test/test.txt");
-    syscall::vfs::open("/test/test.txt", syscall::vfs::O_CREATE, 0)
-        .expect("open failed");
+    syscall::vfs::open("/test/test.txt", syscall::vfs::O_CREATE, 0).expect("open failed");
 
     println!("Trying to removing /test");
     match syscall::vfs::rmdir("/test") {

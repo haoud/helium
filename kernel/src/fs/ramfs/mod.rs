@@ -1,5 +1,4 @@
 use crate::vfs::{self, dirent::DirectoryEntry};
-use alloc::vec;
 use core::sync::atomic::{AtomicU64, Ordering};
 use hashbrown::HashMap;
 
@@ -48,35 +47,6 @@ impl InodeDirectory {
     pub fn empty() -> Self {
         Self {
             entries: Vec::new(),
-        }
-    }
-
-    /// Create a new directory inode with default entries (`.`, which refers to
-    /// the inode itself, and `..`, which refers to the parent inode).
-    ///
-    /// # Panics
-    /// Panics if the inode is not a directory or if the inode already has entries.
-    #[must_use]
-    pub fn new(this: &vfs::inode::Inode, parent: vfs::inode::Identifier) -> Self {
-        assert!(this.kind == vfs::inode::Kind::Directory);
-        assert!(this.state.lock().links == 0);
-
-        this.state.lock().links = 1;
-        Self {
-            entries: vec![
-                vfs::dirent::DirectoryEntry {
-                    inode: this.id,
-                    kind: vfs::dirent::Kind::Directory,
-                    name: String::from("."),
-                    offset: 1,
-                },
-                DirectoryEntry {
-                    inode: parent,
-                    kind: vfs::dirent::Kind::Directory,
-                    name: String::from(".."),
-                    offset: 1,
-                },
-            ],
         }
     }
 

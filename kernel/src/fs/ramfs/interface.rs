@@ -61,7 +61,7 @@ fn read_super(
     }));
 
     // Create the root inode and add it to the ramfs super
-    let mut root = vfs::inode::Inode::new(
+    let root = vfs::inode::Inode::new(
         Arc::downgrade(&vfs_superblock),
         vfs::inode::InodeCreateInfo {
             id: generate_inode_id(),
@@ -76,13 +76,12 @@ fn read_super(
                 links: 0,
                 size: 0,
             },
-            data: Box::new(()),
+            data: Box::new(Spinlock::new(InodeDirectory::empty())),
         },
     );
 
     // Create the root directory data (the `.` and `..` entries) and add it to
     // the root inode before returning the superblock.
-    root.data = Box::new(Spinlock::new(InodeDirectory::new(&root, root_id)));
     vfs_superblock
         .data()
         .downcast_ref::<Spinlock<Superblock>>()
@@ -315,7 +314,7 @@ fn mkdir(
 
     // Allocate a new identifier for the directy and create the inode.
     let directory_id = ramfs::generate_inode_id();
-    let mut directory_inode = vfs::inode::Inode::new(
+    let directory_inode = vfs::inode::Inode::new(
         Weak::clone(&inode.superblock),
         vfs::inode::InodeCreateInfo {
             id: directory_id,
@@ -330,18 +329,12 @@ fn mkdir(
                 links: 0,
                 size: 0,
             },
-            data: Box::new(()),
+            data: Box::new(Spinlock::new(InodeDirectory::empty())),
         },
     );
 
-    // Create the directory data (the `.` and `..` entries)
-    directory_inode.data = Box::new(Spinlock::new(InodeDirectory::new(
-        &directory_inode,
-        inode.id,
-    )));
-    let directory_inode = Arc::new(directory_inode);
-
     // Add the inode to the superblock inodes list.
+    let directory_inode = Arc::new(directory_inode);
     ramfs_super
         .lock()
         .inodes
@@ -370,13 +363,6 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
 
-    // Check if the caller tries to remove the `.` or `..` entries. If so, return
-    // an error by indicating that the entry does not exist (reserved by the
-    // filesystem implementation).
-    if name == "." || name == ".." {
-        return Err(vfs::inode::RmdirError::NoSuchEntry);
-    }
-
     // Find and remove the entry from the directory. If the entry is not
     // found, it return an error.
     let mut locked_dir = ramfs_inode.lock();
@@ -392,11 +378,10 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
     }
 
     // Fetch the inode and verify that the directory is empty.
-    let entry = locked_dir.entries.remove(index);
     let inode = ramfs_super
         .lock()
         .inodes
-        .get(&entry.inode)
+        .get(&locked_dir.entries[index].inode)
         .expect("Dead inode in directory")
         .clone();
     let directory_data = inode
@@ -404,12 +389,13 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
 
-    if directory_data.lock().entries.len() > 2 {
+    if !directory_data.lock().entries.is_empty() {
         return Err(vfs::inode::RmdirError::NotEmpty);
     }
 
     // Decrement the links counter of the inode. If the counter reaches 0, the
     // inode is removed from the superblock.
+    let entry = locked_dir.entries.remove(index);
     if inode.state.lock().unlinked() == 0 {
         ramfs_super.lock().inodes.remove(&entry.inode);
     }

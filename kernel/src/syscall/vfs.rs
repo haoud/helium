@@ -720,10 +720,10 @@ impl From<MkdirError> for isize {
 }
 
 /// Remove an empty directory.
-/// 
+///
 /// # Errors
 /// See [`RmdirError`] for more details.
-/// 
+///
 /// # Panics
 /// This function panics if the directory has no parent. This should never happen, and is a
 /// serious bug in the kernel if it does.
