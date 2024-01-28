@@ -85,6 +85,17 @@ impl Dentry {
         )
     }
 
+    /// Mark the inode associated with this dentry as dirty. This will cause the
+    /// inode to be written to the disk later, during a sync operation.
+    /// This function should be called every time the inode is modified.
+    ///
+    /// # Panics
+    /// Panics if the inode does not have a superblock. This should never happen
+    /// and is a serious kernel bug.
+    pub fn dirtying_inode(&self) {
+        self.inode.mark_dirty();
+    }
+
     /// Get the tree info of this dentry.
     #[must_use]
     pub fn tree(&self) -> &Spinlock<DentryTree> {

@@ -331,6 +331,12 @@ pub fn write(fd: usize, buf: usize, len: usize) -> Result<usize, WriteError> {
         written += bytes_written;
     }
 
+    // If the file is associated with an inode, mark it as dirty since the inode
+    // may has been modified
+    if let Some(inode) = &file.inode {
+        inode.mark_dirty();
+    }
+    
     state.offset = offset;
     Ok(written)
 }
@@ -640,6 +646,8 @@ pub fn mkdir(path: usize) -> Result<usize, MkdirError> {
                 .as_directory()
                 .ok_or(MkdirError::NotADirectory)?
                 .mkdir(parent.inode(), name.as_str())?;
+            
+            parent.inode().mark_dirty();
         }
         Ok(_) => return Err(MkdirError::AlreadyExists),
         Err(e) => {
@@ -749,6 +757,8 @@ pub fn rmdir(path: usize) -> Result<usize, RmdirError> {
         .rmdir(parent.inode(), dentry.name().as_str())?;
 
     parent.disconnect_child(&dentry.name())?;
+    parent.dirtying_inode();
+    dentry.dirtying_inode();
     Ok(0)
 }
 
@@ -917,10 +927,10 @@ impl From<UnlinkError> for isize {
 }
 
 /// Unlink a entry from the filesystem that is not a directory.
-/// 
+///
 /// # Errors
 /// See [`UnlinkError`] for more details.
-/// 
+///
 /// # Panics
 /// This function panics if the entry has no parent. This should never happen, and is a
 /// serious bug in the kernel if it does.
@@ -944,6 +954,8 @@ pub fn unlink(path: usize) -> Result<usize, UnlinkError> {
         .unlink(parent.inode(), dentry.name().as_str())?;
 
     parent.disconnect_child(&dentry.name())?;
+    parent.dirtying_inode();
+    dentry.dirtying_inode();
     Ok(0)
 }
 

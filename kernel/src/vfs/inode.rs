@@ -71,6 +71,21 @@ impl Inode {
         }
     }
 
+    /// Marks this inode as dirty, meaning that it has been modified and must
+    /// be synchronized with the underlying device, and add the inode to the
+    /// list of dirty inodes of the superblock.
+    /// 
+    /// # Panics
+    /// This function panics if the inode is not associated with a superblock. This
+    /// should never happen because the inode is always associated with a superblock
+    /// when it is created.
+    pub fn mark_dirty(self: &Arc<Self>) {
+        self.superblock
+            .upgrade()
+            .unwrap()
+            .make_inode_dirty(Arc::clone(self));
+    }
+
     /// Returns the operation table for this inode if it is a directory inode,
     /// or `None` if it not a directory inode.
     #[must_use]
