@@ -33,6 +33,7 @@ pub enum Syscall {
     VfsChangeCwd = 16,
     ClockGetTime = 17,
     VfsMkdir = 18,
+    VfsRmdir = 19,
 }
 
 impl Syscall {
@@ -60,6 +61,7 @@ impl Syscall {
             16 => Some(Self::VfsChangeCwd),
             17 => Some(Self::ClockGetTime),
             18 => Some(Self::VfsMkdir),
+            19 => Some(Self::VfsRmdir),
             _ => None,
         }
     }
@@ -96,15 +98,16 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::VfsChangeCwd) => vfs::change_cwd(a).map_err(Into::into),
         Some(Syscall::ClockGetTime) => clock::get_time(a).map_err(Into::into),
         Some(Syscall::VfsMkdir) => vfs::mkdir(a).map_err(Into::into),
+        Some(Syscall::VfsRmdir) => vfs::rmdir(a).map_err(Into::into),
         None => Err(-1), // NoSuchSyscall,
     };
 
     #[cfg(feature = "trace-syscalls")]
     {
         if let Ok(value) = result {
-            log::debug!("syscall {} successed -> {}", id, value);
+            log::trace!("syscall {} successed -> {}", id, value);
         } else if let Err(error) = result {
-            log::debug!("syscall {} failed -> {}", id, error);
+            log::trace!("syscall {} failed -> {}", id, error);
         }
     }
 

@@ -15,18 +15,48 @@ fn main() {
     let mut end: u64;
     let mut total: u64 = 0;
 
-    for _ in 0..1_000_000 {
+    for _ in 0..1_000 {
         start = unsafe { core::arch::x86_64::_rdtsc() };
         syscall::task::id();
         end = unsafe { core::arch::x86_64::_rdtsc() };
         total += end - start;
     }
 
-    println!("Average get_pid syscall time: {} cycles", total / 1_000_000);
+    println!("Average get_pid syscall time: {} cycles", total / 1_000);
 
-    /// Convert cycles to nanoseconds, assuming a 4.2 GHz CPU
+    // Convert cycles to nanoseconds, assuming a 4.2 GHz CPU
     println!(
         "Average get_pid syscall time: {} ns",
-        (total / 1_000_000) * 1000 / 4200
+        (total / 1_000) * 1000 / 4200
     );
+
+    syscall::vfs::rmdir("/test").expect("rmdir failed");
+    println!("Successfully removed /test, trying to remove it again");
+
+    match syscall::vfs::rmdir("/test") {
+        Err(err) => println!("rmdir failed with error: {:?}", err),
+        Ok(_) => println!("rmdir succeeded"),
+    }
+
+    println!("Creating /test again");
+    syscall::vfs::mkdir("/test").expect("mkdir failed");
+
+    println!("Adding /test/test.txt");
+    syscall::vfs::open("/test/test.txt", syscall::vfs::O_CREATE, 0)
+        .expect("open failed");
+
+    println!("Trying to removing /test");
+    match syscall::vfs::rmdir("/test") {
+        Err(err) => println!("rmdir failed with error: {:?}", err),
+        Ok(_) => println!("rmdir succeeded"),
+    }
+
+    //println!("Removing /test/test.txt");
+    //syscall::vfs::unlink("/test/test.txt").expect("unlink failed");
+
+    println!("Trying to removing /test again");
+    match syscall::vfs::rmdir("/test") {
+        Err(err) => println!("rmdir failed with error: {:?}", err),
+        Ok(_) => println!("rmdir succeeded"),
+    }
 }

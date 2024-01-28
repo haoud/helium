@@ -718,3 +718,119 @@ impl From<MkdirError> for isize {
         -(error as isize)
     }
 }
+
+/// Remove an empty directory.
+/// 
+/// # Errors
+/// See [`RmdirError`] for more details.
+/// 
+/// # Panics
+/// This function panics if the directory has no parent. This should never happen, and is a
+/// serious bug in the kernel if it does.
+pub fn rmdir(path: usize) -> Result<usize, RmdirError> {
+    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(RmdirError::BadAddress)?;
+    let path = user::String::from_raw_ptr(&ptr)
+        .ok_or(RmdirError::BadAddress)?
+        .fetch()?;
+
+    let current_task = SCHEDULER.current_task();
+    let root = current_task.root();
+    let cwd = current_task.cwd();
+
+    let dentry = vfs::lookup(&path, &root, &cwd)?;
+    let parent = dentry.parent().unwrap();
+
+    parent
+        .inode()
+        .as_directory()
+        .ok_or(RmdirError::NotADirectory)?
+        .rmdir(parent.inode(), dentry.name().as_str())?;
+
+    parent.disconnect_child(&dentry.name())?;
+    Ok(0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum RmdirError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// The directory already exists
+    AlreadyExists,
+
+    /// The path does not point to a directory
+    NotADirectory,
+
+    /// The directory is not empty
+    NotEmpty,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<vfs::LookupError> for RmdirError {
+    fn from(error: vfs::LookupError) -> Self {
+        match error {
+            vfs::LookupError::NotADirectory => RmdirError::NotADirectory,
+            vfs::LookupError::NotFound(_, _) => RmdirError::NoSuchEntry,
+            vfs::LookupError::InvalidPath(_) => RmdirError::InvalidPath,
+            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+                RmdirError::UnknownError
+            }
+        }
+    }
+}
+
+impl From<user::string::FetchError> for RmdirError {
+    fn from(e: user::string::FetchError) -> Self {
+        match e {
+            user::string::FetchError::InvalidMemory => RmdirError::BadAddress,
+            user::string::FetchError::StringTooLong => RmdirError::PathTooLong,
+            user::string::FetchError::StringNotUtf8 => RmdirError::InvalidUtf8,
+        }
+    }
+}
+
+impl From<vfs::inode::RmdirError> for RmdirError {
+    fn from(error: vfs::inode::RmdirError) -> Self {
+        match error {
+            vfs::inode::RmdirError::NotADirectory => RmdirError::NotADirectory,
+            vfs::inode::RmdirError::NoSuchEntry => RmdirError::NoSuchEntry,
+            vfs::inode::RmdirError::NotEmpty => RmdirError::NotEmpty,
+        }
+    }
+}
+
+impl From<vfs::dentry::DisconnectError> for RmdirError {
+    fn from(error: vfs::dentry::DisconnectError) -> Self {
+        match error {
+            vfs::dentry::DisconnectError::NotFound => RmdirError::NoSuchEntry,
+            vfs::dentry::DisconnectError::Busy => RmdirError::NotEmpty,
+        }
+    }
+}
+
+impl From<RmdirError> for isize {
+    fn from(error: RmdirError) -> Self {
+        -(error as isize)
+    }
+}

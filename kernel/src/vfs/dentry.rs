@@ -318,7 +318,7 @@ impl Dentry {
     ///  - The dentry does not have an alive parent
     ///
     /// All these cases should never happen and are serious kernel bugs.
-    pub fn disconnect_child(&mut self, name: &Name) -> Result<Arc<Self>, DisconnectError> {
+    pub fn disconnect_child(&self, name: &Name) -> Result<Arc<Self>, DisconnectError> {
         let mut tree = self.tree.lock();
         let index = tree
             .children
@@ -335,6 +335,12 @@ impl Dentry {
         }
 
         Ok(tree.children.swap_remove(index))
+    }
+}
+
+impl Drop for Dentry {
+    fn drop(&mut self) {
+        log::debug!("Dentry dropped: {:?}", self.name());
     }
 }
 
