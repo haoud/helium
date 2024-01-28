@@ -2,7 +2,7 @@ use crate::{
     time::{timer::Timer, units::Nanosecond, uptime_fast},
     user::{
         self,
-        scheduler::{self, Scheduler, SCHEDULER},
+        scheduler::{self, round_robin::CURRENT_TASK, Scheduler, SCHEDULER},
         string::SyscallString,
         task,
     },
@@ -37,7 +37,7 @@ pub fn exit(code: usize) -> ! {
 /// never happen and is a bug).
 #[allow(clippy::cast_possible_truncation)]
 pub fn id() -> Result<usize, isize> {
-    Ok(SCHEDULER.current_task().id().0 as usize)
+    Ok(CURRENT_TASK.local().borrow().as_ref().unwrap().id().0 as usize)
 }
 
 /// Put the current task to sleep for at least the given number of nanoseconds. The task

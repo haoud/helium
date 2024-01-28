@@ -42,20 +42,36 @@ pub fn disable() {
 
 /// Disable preemption during the execution of the given closure. This function is useful to avoid
 /// race conditions when multiple threads are accessing the same data. This function is implemented
-/// by disabling interrupts and preemption before executing the closure, and then restoring the
-/// previous state after the closure has finished.
+/// preemption before executing the closure, and then restoring the previous state after the closure
+/// has finished.
 ///
 /// # Important
 /// Even if preemption is disabled, interrupts are still enabled. This means that the closure can
 /// still be interrupted by an IRQ handler. If you want to disable interrupts too, then you should
+/// use the `atomic` function instead.
 pub fn without<F, R>(f: F) -> R
 where
     F: FnOnce() -> R,
 {
-    x86_64::irq::without(|| {
+    {
         disable();
         let ret = f();
         enable();
         ret
-    })
+    }
+}
+
+/// Disable preemption and interrupts during the execution of the given closure. This function is
+/// useful
+///
+/// Important
+/// Since this function disable interrupts and preemption, it should be used with caution. If the
+/// closure takes too much time to execute, it could cause the system to miss interrupts and
+/// increase the latency of the system. This function should only be used with caution, and only
+/// when it is really needed for short periods of time.
+pub fn atomic<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    x86_64::irq::without(|| without(f))
 }
