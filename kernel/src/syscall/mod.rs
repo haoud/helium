@@ -34,6 +34,7 @@ pub enum Syscall {
     ClockGetTime = 17,
     VfsMkdir = 18,
     VfsRmdir = 19,
+    VfsTruncate = 20,
 }
 
 impl Syscall {
@@ -62,6 +63,7 @@ impl Syscall {
             17 => Some(Self::ClockGetTime),
             18 => Some(Self::VfsMkdir),
             19 => Some(Self::VfsRmdir),
+            20 => Some(Self::VfsTruncate),
             _ => None,
         }
     }
@@ -99,6 +101,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::ClockGetTime) => clock::get_time(a).map_err(Into::into),
         Some(Syscall::VfsMkdir) => vfs::mkdir(a).map_err(Into::into),
         Some(Syscall::VfsRmdir) => vfs::rmdir(a).map_err(Into::into),
+        Some(Syscall::VfsTruncate) => vfs::truncate(a, b).map_err(Into::into),
         None => Err(-1), // NoSuchSyscall,
     };
 

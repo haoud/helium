@@ -354,6 +354,56 @@ impl From<Errno> for RmdirError {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum TruncateError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// The directory already exists
+    AlreadyExists,
+
+    /// A component of the path prefix is not a directory
+    NotADirectory,
+
+    /// The path does not point to a file
+    NotAFile,
+
+    /// The directory is not empty
+    NotEmpty,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<Errno> for TruncateError {
+    fn from(error: Errno) -> Self {
+        if error.code() > -(Self::UnknownError as isize) {
+            unsafe { core::mem::transmute(error) }
+        } else {
+            Self::UnknownError
+        }
+    }
+}
+
 /// Open a file and return a file descriptor that can be used to refer to it.
 ///
 /// # Errors
@@ -533,6 +583,27 @@ pub fn rmdir(path: &str) -> Result<(), RmdirError> {
 
     match syscall_return(ret) {
         Err(errno) => Err(RmdirError::from(errno)),
+        Ok(_) => Ok(()),
+    }
+}
+
+
+pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
+    let str = SyscallString::from(path);
+    let ret;
+
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") Syscall::VfsTruncate as u64,
+            in("rsi") &str as *const _ as u64,
+            in("rdx") lenght as u64,
+            lateout("rax") ret,
+        );
+    }
+
+    match syscall_return(ret) {
+        Err(errno) => Err(TruncateError::from(errno)),
         Ok(_) => Ok(()),
     }
 }

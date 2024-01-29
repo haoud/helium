@@ -834,3 +834,102 @@ impl From<RmdirError> for isize {
         -(error as isize)
     }
 }
+
+pub fn truncate(path: usize, len: usize) -> Result<usize, TruncateError> {
+    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(TruncateError::BadAddress)?;
+    let path = user::String::from_raw_ptr(&ptr)
+        .ok_or(TruncateError::BadAddress)?
+        .fetch()?;
+
+    let current_task = SCHEDULER.current_task();
+    let root = current_task.root();
+    let cwd = current_task.cwd();
+
+    let dentry = vfs::lookup(&path, &root, &cwd)?;
+
+    dentry
+        .inode()
+        .as_file()
+        .ok_or(TruncateError::NotAFile)?
+        .truncate(dentry.inode(), len)?;
+
+    //dentry.dirtying_inode();
+    Ok(0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum TruncateError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// The directory already exists
+    AlreadyExists,
+
+    /// A component of the path prefix is not a directory
+    NotADirectory,
+
+    /// The path does not point to a file
+    NotAFile,
+
+    /// The directory is not empty
+    NotEmpty,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<vfs::LookupError> for TruncateError {
+    fn from(error: vfs::LookupError) -> Self {
+        match error {
+            vfs::LookupError::NotADirectory => TruncateError::NotADirectory,
+            vfs::LookupError::NotFound(_, _) => TruncateError::NoSuchEntry,
+            vfs::LookupError::InvalidPath(_) => TruncateError::InvalidPath,
+            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+                TruncateError::UnknownError
+            }
+        }
+    }
+}
+
+impl From<user::string::FetchError> for TruncateError {
+    fn from(e: user::string::FetchError) -> Self {
+        match e {
+            user::string::FetchError::InvalidMemory => TruncateError::BadAddress,
+            user::string::FetchError::StringTooLong => TruncateError::PathTooLong,
+            user::string::FetchError::StringNotUtf8 => TruncateError::InvalidUtf8,
+        }
+    }
+}
+
+impl From<vfs::inode::TruncateError> for TruncateError {
+    fn from(error: vfs::inode::TruncateError) -> Self {
+        match error {
+            
+        }
+    }
+}
+
+impl From<TruncateError> for isize {
+    fn from(error: TruncateError) -> Self {
+        -(error as isize)
+    }
+}
