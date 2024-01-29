@@ -835,6 +835,10 @@ impl From<RmdirError> for isize {
     }
 }
 
+/// Truncate a file to the given length.
+/// 
+/// # Errors
+/// See [`TruncateError`] for more details.
 pub fn truncate(path: usize, len: usize) -> Result<usize, TruncateError> {
     let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(TruncateError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
@@ -881,17 +885,11 @@ pub enum TruncateError {
     /// The path does not exist
     NoSuchEntry,
 
-    /// The directory already exists
-    AlreadyExists,
-
     /// A component of the path prefix is not a directory
     NotADirectory,
 
     /// The path does not point to a file
     NotAFile,
-
-    /// The directory is not empty
-    NotEmpty,
 
     /// An unknown error occurred
     UnknownError,

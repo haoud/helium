@@ -378,17 +378,11 @@ pub enum TruncateError {
     /// The path does not exist
     NoSuchEntry,
 
-    /// The directory already exists
-    AlreadyExists,
-
     /// A component of the path prefix is not a directory
     NotADirectory,
 
     /// The path does not point to a file
     NotAFile,
-
-    /// The directory is not empty
-    NotEmpty,
 
     /// An unknown error occurred
     UnknownError,
