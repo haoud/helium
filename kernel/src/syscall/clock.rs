@@ -8,7 +8,7 @@ use crate::{
 
 ///
 #[repr(C)]
-pub struct Timestamp {
+pub struct Timespec {
     pub seconds: u64,
     pub nanoseconds: u64,
 }
@@ -18,13 +18,13 @@ pub struct Timestamp {
 /// # Errors
 /// See [`GetTimeError`] for details.
 pub fn get_time(buffer: usize) -> Result<usize, GetTimeError> {
-    let ptr = user::Pointer::new(buffer as *mut Timestamp).ok_or(GetTimeError::BadAddress)?;
+    let ptr = user::Pointer::new(buffer as *mut Timespec).ok_or(GetTimeError::BadAddress)?;
 
     let time = time::uptime();
     let second = Second::from(time);
     let nano = time - Nanosecond::from(second);
 
-    let time = Timestamp {
+    let time = Timespec {
         seconds: second.0,
         nanoseconds: nano.0,
     };

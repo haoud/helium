@@ -8,6 +8,8 @@ use crate::{
 };
 use alloc::vec;
 
+use super::clock::Timespec;
+
 /// Open a file, specified by `path` with the given `flags`.
 ///
 /// # Errors
@@ -930,4 +932,31 @@ impl From<TruncateError> for isize {
     fn from(error: TruncateError) -> Self {
         -(error as isize)
     }
+}
+
+#[repr(C)]
+pub struct Stat {
+    /// Device ID of device containing file
+    dev: u64,
+
+    /// Inode number
+    ino: u64,
+
+    /// Size of the file in bytes
+    size: u64,
+
+    /// File type
+    kind: u64,
+
+    /// Number of hard links
+    nlink: u64,
+    
+    /// Unix timestamp of the last access
+    atime: Timespec,
+
+    /// Unix timestamp of the last modification
+    mtime: Timespec,
+
+    /// Unix timestamp of the last status change
+    ctime: Timespec,
 }

@@ -162,6 +162,18 @@ pub enum Kind {
     File,
 }
 
+impl From<Kind> for u64 {
+    fn from(value: Kind) -> Self {
+        match value {
+            Kind::BlockDevice(_) => 0,
+            Kind::CharDevice(_) => 1,
+            Kind::Directory => 2,
+            Kind::Pipe => 3,
+            Kind::File => 4,
+        }
+    }
+}
+
 /// The creation information for an inode. For more informations about the
 /// fields, see the documentation of the [`Inode`] structure.
 pub struct InodeCreateInfo {

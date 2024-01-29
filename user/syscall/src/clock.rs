@@ -1,7 +1,7 @@
 use super::{syscall_return, Errno, Syscall};
 
 #[repr(C)]
-pub struct Timestamp {
+pub struct Timespec {
     pub seconds: u64,
     pub nanoseconds: u64,
 }
@@ -29,8 +29,8 @@ impl From<Errno> for GetTimeError {
     }
 }
 
-pub fn get_time() -> Result<Timestamp, GetTimeError> {
-    let mut timestamp = Timestamp {
+pub fn get_time() -> Result<Timespec, GetTimeError> {
+    let mut timespec = Timespec {
         seconds: 0,
         nanoseconds: 0,
     };
@@ -41,7 +41,7 @@ pub fn get_time() -> Result<Timestamp, GetTimeError> {
         core::arch::asm!(
             "syscall",
             in("rax") Syscall::ClockGetTime as u64,
-            in("rsi") &mut timestamp as *mut Timestamp as u64,
+            in("rsi") &mut timespec as *mut Timespec as u64,
             lateout("rax") ret,
         );
     }
@@ -50,6 +50,6 @@ pub fn get_time() -> Result<Timestamp, GetTimeError> {
     // If the error code is unknown, return an UnknownError.
     match syscall_return(ret) {
         Err(errno) => Err(GetTimeError::from(errno)),
-        Ok(_) => Ok(timestamp),
+        Ok(_) => Ok(timespec),
     }
 }
