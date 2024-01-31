@@ -78,6 +78,7 @@ pub enum Syscall {
     VfsMkdir = 18,
     VfsRmdir = 19,
     VfsTruncate = 20,
+    VfsStat = 21,
 }
 
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {

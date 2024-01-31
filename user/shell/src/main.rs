@@ -58,4 +58,9 @@ fn main() {
         Err(err) => println!("rmdir failed with error: {:?}", err),
         Ok(_) => println!("rmdir succeeded"),
     }
+
+    println!("stat directory /test");
+    let stat = syscall::vfs::stat("/test").expect("stat failed");
+    println!("stat inode: {}", stat.ino);
+    println!("stat size: {}", stat.size);    
 }

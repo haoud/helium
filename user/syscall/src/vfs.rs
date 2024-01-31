@@ -1,4 +1,4 @@
-use super::{syscall_return, Errno, Syscall, SyscallString};
+use super::{clock, syscall_return, Errno, Syscall, SyscallString};
 
 pub const O_READ: usize = 1 << 0;
 pub const O_WRITE: usize = 1 << 1;
@@ -15,6 +15,33 @@ pub enum Whence {
     Current(isize),
     Start(isize),
     End(isize),
+}
+
+#[repr(C)]
+pub struct Stat {
+    /// Device ID of device containing file
+    pub dev: u64,
+
+    /// Inode number
+    pub ino: u64,
+
+    /// Size of the file in bytes
+    pub size: u64,
+
+    /// File type
+    pub kind: u64,
+
+    /// Number of hard links
+    pub nlink: u64,
+    
+    /// Unix timestamp of the last access
+    pub atime: clock::Timespec,
+
+    /// Unix timestamp of the last modification
+    pub mtime: clock::Timespec,
+
+    /// Unix timestamp of the last status change
+    pub ctime: clock::Timespec,
 }
 
 /// Errors that can occur during the `open` syscall.
@@ -398,6 +425,47 @@ impl From<Errno> for TruncateError {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum StatError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// A component of the path prefix is not a directory
+    NotADirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<Errno> for StatError {
+    fn from(error: Errno) -> Self {
+        if error.code() > -(Self::UnknownError as isize) {
+            unsafe { core::mem::transmute(error) }
+        } else {
+            Self::UnknownError
+        }
+    }
+}
+
 /// Open a file and return a file descriptor that can be used to refer to it.
 ///
 /// # Errors
@@ -581,7 +649,6 @@ pub fn rmdir(path: &str) -> Result<(), RmdirError> {
     }
 }
 
-
 pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
     let str = SyscallString::from(path);
     let ret;
@@ -599,5 +666,45 @@ pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
     match syscall_return(ret) {
         Err(errno) => Err(TruncateError::from(errno)),
         Ok(_) => Ok(()),
+    }
+}
+
+pub fn stat(path: &str) -> Result<Stat, TruncateError> {
+    let str = SyscallString::from(path);
+    let stat = Stat {
+        dev: 0,
+        ino: 0,
+        size: 0,
+        kind: 0,
+        nlink: 0,
+        atime: clock::Timespec {
+            seconds: 0,
+            nanoseconds: 0,
+        },
+        mtime: clock::Timespec {
+            seconds: 0,
+            nanoseconds: 0,
+        },
+        ctime: clock::Timespec {
+            seconds: 0,
+            nanoseconds: 0,
+        },
+    };
+    
+    let ret;
+
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") Syscall::VfsStat as u64,
+            in("rsi") &str as *const _ as u64,
+            in("rdx") &stat as *const _ as u64,
+            lateout("rax") ret,
+        );
+    }
+
+    match syscall_return(ret) {
+        Err(errno) => Err(TruncateError::from(errno)),
+        Ok(_) => Ok(stat),
     }
 }

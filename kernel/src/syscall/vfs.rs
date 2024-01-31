@@ -937,26 +937,119 @@ impl From<TruncateError> for isize {
 #[repr(C)]
 pub struct Stat {
     /// Device ID of device containing file
-    dev: u64,
+    pub dev: u64,
 
     /// Inode number
-    ino: u64,
+    pub ino: u64,
 
     /// Size of the file in bytes
-    size: u64,
+    pub size: u64,
 
     /// File type
-    kind: u64,
+    pub kind: u64,
 
     /// Number of hard links
-    nlink: u64,
+    pub nlink: u64,
     
     /// Unix timestamp of the last access
-    atime: Timespec,
+    pub atime: Timespec,
 
     /// Unix timestamp of the last modification
-    mtime: Timespec,
+    pub mtime: Timespec,
 
     /// Unix timestamp of the last status change
-    ctime: Timespec,
+    pub ctime: Timespec,
+}
+
+pub fn stat(path: usize, stat: usize) -> Result<usize, StatError> {
+    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(StatError::BadAddress)?;
+    let path = user::String::from_raw_ptr(&ptr)
+        .ok_or(StatError::BadAddress)?
+        .fetch()?;
+
+    let ptr = user::Pointer::<Stat>::from_usize(stat).ok_or(StatError::BadAddress)?;
+
+    let current_task = SCHEDULER.current_task();
+    let root = current_task.root();
+    let cwd = current_task.cwd();
+
+    let dentry = vfs::lookup(&path, &root, &cwd)?;
+
+    let inode = dentry.inode();
+    let state = inode.state.lock();
+    let stat = Stat {
+        dev: 0,     // TODO
+        kind: 0,    // TODO
+        ino: inode.id.0,
+        size: state.size as u64,
+        nlink: state.links,
+        atime: Timespec { seconds: state.access_time.0.0, nanoseconds: 0 },
+        ctime: Timespec { seconds: state.access_time.0.0, nanoseconds: 0 },
+        mtime: Timespec { seconds: state.access_time.0.0, nanoseconds: 0 },
+    };
+
+    unsafe {
+        user::Object::write(&ptr, &stat);
+    }
+    Ok(0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum StatError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The path is not a valid UTF-8 string
+    InvalidUtf8,
+
+    /// The path is invalid
+    InvalidPath,
+
+    /// The path is too long
+    PathTooLong,
+
+    /// A component of the path is too long
+    ComponentTooLong,
+
+    /// The path does not exist
+    NoSuchEntry,
+
+    /// A component of the path prefix is not a directory
+    NotADirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<vfs::LookupError> for StatError {
+    fn from(error: vfs::LookupError) -> Self {
+        match error {
+            vfs::LookupError::NotADirectory => StatError::NotADirectory,
+            vfs::LookupError::NotFound(_, _) => StatError::NoSuchEntry,
+            vfs::LookupError::InvalidPath(_) => StatError::InvalidPath,
+            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+                StatError::UnknownError
+            }
+        }
+    }
+}
+
+impl From<user::string::FetchError> for StatError {
+    fn from(e: user::string::FetchError) -> Self {
+        match e {
+            user::string::FetchError::InvalidMemory => StatError::BadAddress,
+            user::string::FetchError::StringTooLong => StatError::PathTooLong,
+            user::string::FetchError::StringNotUtf8 => StatError::InvalidUtf8,
+        }
+    }
+}
+
+impl From<StatError> for isize {
+    fn from(error: StatError) -> Self {
+        -(error as isize)
+    }
 }
