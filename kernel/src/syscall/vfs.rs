@@ -960,7 +960,7 @@ pub struct Stat {
 }
 
 /// Get information about a file.
-/// 
+///
 /// # Errors
 /// See [`StatError`] for more details.
 pub fn stat(path: usize, stat: usize) -> Result<usize, StatError> {
@@ -1091,10 +1091,9 @@ impl Dirent {
     }
 }
 
-
 /// Read a directory entry from the directory descriptor `fd` into the
 /// buffer `dirent` from the current position of the directory.
-/// 
+///
 /// # Errors
 /// See [`ReaddirError`] for more details.
 pub fn readdir(fd: usize, dirent: usize) -> Result<usize, ReaddirError> {
@@ -1119,15 +1118,18 @@ pub fn readdir(fd: usize, dirent: usize) -> Result<usize, ReaddirError> {
         .readdir(&file, file.state.lock().offset)?;
 
     file.state.lock().offset.0 += 1;
-    
+
     unsafe {
         #[allow(clippy::cast_possible_truncation)]
-        user::Object::write(&ptr, &Dirent {
-            ino: dirent.inode.0,
-            kind: Dirent::convert_inode_type(dirent.kind),
-            name_len: dirent.name.len() as u16,
-            name: dirent.name.as_bytes().try_into().unwrap_or([0; 255]),
-        });
+        user::Object::write(
+            &ptr,
+            &Dirent {
+                ino: dirent.inode.0,
+                kind: Dirent::convert_inode_type(dirent.kind),
+                name_len: dirent.name.len() as u16,
+                name: dirent.name.as_bytes().try_into().unwrap_or([0; 255]),
+            },
+        );
     }
     Ok(0)
 }
