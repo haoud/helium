@@ -36,6 +36,7 @@ pub enum Syscall {
     VfsRmdir = 19,
     VfsTruncate = 20,
     VfsStat = 21,
+    VfsReaddir = 22,
 }
 
 impl Syscall {
@@ -66,6 +67,7 @@ impl Syscall {
             19 => Some(Self::VfsRmdir),
             20 => Some(Self::VfsTruncate),
             21 => Some(Self::VfsStat),
+            22 => Some(Self::VfsReaddir),
             _ => None,
         }
     }
@@ -105,6 +107,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::VfsRmdir) => vfs::rmdir(a).map_err(Into::into),
         Some(Syscall::VfsTruncate) => vfs::truncate(a, b).map_err(Into::into),
         Some(Syscall::VfsStat) => vfs::stat(a, b).map_err(Into::into),
+        Some(Syscall::VfsReaddir) => vfs::readdir(a, b).map_err(Into::into),
         None => Err(-1), // NoSuchSyscall,
     };
 

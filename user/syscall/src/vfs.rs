@@ -33,7 +33,7 @@ pub struct Stat {
 
     /// Number of hard links
     pub nlink: u64,
-    
+
     /// Unix timestamp of the last access
     pub atime: clock::Timespec,
 
@@ -42,6 +42,22 @@ pub struct Stat {
 
     /// Unix timestamp of the last status change
     pub ctime: clock::Timespec,
+}
+
+#[repr(C)]
+pub struct Dirent {
+    pub ino: u64,
+    pub kind: u16,
+    pub name_len: u16,
+    pub name: [u8; 256],
+}
+
+impl Dirent {
+    pub const UNKNOWN: u16 = 0;
+    pub const REGULAR: u16 = 1;
+    pub const DIRECTORY: u16 = 2;
+    pub const CHAR_DEVICE: u16 = 3;
+    pub const BLOCK_DEVICE: u16 = 4;
 }
 
 /// Errors that can occur during the `open` syscall.
@@ -466,6 +482,41 @@ impl From<Errno> for StatError {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum ReaddirError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The file descriptor is invalid
+    InvalidFileDescriptor,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The descriptor is not a directory
+    NotADirectory,
+
+    /// The directory is not readable
+    NotReadable,
+
+    /// The directory has no entries remaning
+    EndOfDirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<Errno> for ReaddirError {
+    fn from(error: Errno) -> Self {
+        if error.code() > -(Self::UnknownError as isize) {
+            unsafe { core::mem::transmute(error) }
+        } else {
+            Self::UnknownError
+        }
+    }
+}
+
 /// Open a file and return a file descriptor that can be used to refer to it.
 ///
 /// # Errors
@@ -671,7 +722,7 @@ pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
 
 pub fn stat(path: &str) -> Result<Stat, TruncateError> {
     let str = SyscallString::from(path);
-    let stat = Stat {
+    let mut stat = Stat {
         dev: 0,
         ino: 0,
         size: 0,
@@ -690,7 +741,7 @@ pub fn stat(path: &str) -> Result<Stat, TruncateError> {
             nanoseconds: 0,
         },
     };
-    
+
     let ret;
 
     unsafe {
@@ -698,7 +749,7 @@ pub fn stat(path: &str) -> Result<Stat, TruncateError> {
             "syscall",
             in("rax") Syscall::VfsStat as u64,
             in("rsi") &str as *const _ as u64,
-            in("rdx") &stat as *const _ as u64,
+            in("rdx") &mut stat as *mut _ as u64,
             lateout("rax") ret,
         );
     }
@@ -706,5 +757,30 @@ pub fn stat(path: &str) -> Result<Stat, TruncateError> {
     match syscall_return(ret) {
         Err(errno) => Err(TruncateError::from(errno)),
         Ok(_) => Ok(stat),
+    }
+}
+
+pub fn readdir(fd: &FileDescriptor) -> Result<Dirent, ReaddirError> {
+    let mut dirent = Dirent {
+        ino: 0,
+        kind: 0,
+        name_len: 0,
+        name: [0; 256],
+    };
+    let ret;
+
+    unsafe {
+        core::arch::asm!(
+            "syscall",
+            in("rax") Syscall::VfsReaddir as u64,
+            in("rsi") fd.0 as u64,
+            in("rdx") &mut dirent as *mut _ as u64,
+            lateout("rax") ret,
+        );
+    }
+
+    match syscall_return(ret) {
+        Err(errno) => Err(ReaddirError::from(errno)),
+        Ok(_) => Ok(dirent),
     }
 }

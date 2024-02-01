@@ -3,7 +3,7 @@
 pub struct Name(String);
 
 impl Name {
-    const MAX_LEN: usize = 255;
+    pub const MAX_LEN: usize = 255;
 
     /// Creates a new name from a string.
     ///

@@ -62,5 +62,5 @@ fn main() {
     println!("stat directory /test");
     let stat = syscall::vfs::stat("/test").expect("stat failed");
     println!("stat inode: {}", stat.ino);
-    println!("stat size: {}", stat.size);    
+    println!("stat size: {}", stat.size);
 }

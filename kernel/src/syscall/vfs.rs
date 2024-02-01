@@ -838,7 +838,7 @@ impl From<RmdirError> for isize {
 }
 
 /// Truncate a file to the given length.
-/// 
+///
 /// # Errors
 /// See [`TruncateError`] for more details.
 pub fn truncate(path: usize, len: usize) -> Result<usize, TruncateError> {
@@ -922,9 +922,7 @@ impl From<user::string::FetchError> for TruncateError {
 
 impl From<vfs::inode::TruncateError> for TruncateError {
     fn from(error: vfs::inode::TruncateError) -> Self {
-        match error {
-            
-        }
+        match error {}
     }
 }
 
@@ -950,7 +948,7 @@ pub struct Stat {
 
     /// Number of hard links
     pub nlink: u64,
-    
+
     /// Unix timestamp of the last access
     pub atime: Timespec,
 
@@ -961,6 +959,10 @@ pub struct Stat {
     pub ctime: Timespec,
 }
 
+/// Get information about a file.
+/// 
+/// # Errors
+/// See [`StatError`] for more details.
 pub fn stat(path: usize, stat: usize) -> Result<usize, StatError> {
     let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(StatError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
@@ -978,14 +980,23 @@ pub fn stat(path: usize, stat: usize) -> Result<usize, StatError> {
     let inode = dentry.inode();
     let state = inode.state.lock();
     let stat = Stat {
-        dev: 0,     // TODO
-        kind: 0,    // TODO
+        dev: 0,  // TODO
+        kind: 0, // TODO
         ino: inode.id.0,
         size: state.size as u64,
         nlink: state.links,
-        atime: Timespec { seconds: state.access_time.0.0, nanoseconds: 0 },
-        ctime: Timespec { seconds: state.access_time.0.0, nanoseconds: 0 },
-        mtime: Timespec { seconds: state.access_time.0.0, nanoseconds: 0 },
+        atime: Timespec {
+            seconds: state.access_time.0 .0,
+            nanoseconds: 0,
+        },
+        ctime: Timespec {
+            seconds: state.access_time.0 .0,
+            nanoseconds: 0,
+        },
+        mtime: Timespec {
+            seconds: state.access_time.0 .0,
+            nanoseconds: 0,
+        },
     };
 
     unsafe {
@@ -1050,6 +1061,112 @@ impl From<user::string::FetchError> for StatError {
 
 impl From<StatError> for isize {
     fn from(error: StatError) -> Self {
+        -(error as isize)
+    }
+}
+
+#[repr(C)]
+pub struct Dirent {
+    pub ino: u64,
+    pub kind: u16,
+    pub name_len: u16,
+    pub name: [u8; vfs::name::Name::MAX_LEN],
+}
+
+impl Dirent {
+    pub const UNKNOWN: u16 = 0;
+    pub const REGULAR: u16 = 1;
+    pub const DIRECTORY: u16 = 2;
+    pub const CHAR_DEVICE: u16 = 3;
+    pub const BLOCK_DEVICE: u16 = 4;
+
+    #[must_use]
+    pub const fn convert_inode_type(kind: vfs::dirent::Kind) -> u16 {
+        match kind {
+            vfs::dirent::Kind::File => Self::REGULAR,
+            vfs::dirent::Kind::Directory => Self::DIRECTORY,
+            vfs::dirent::Kind::CharDevice => Self::CHAR_DEVICE,
+            vfs::dirent::Kind::BlockDevice => Self::BLOCK_DEVICE,
+        }
+    }
+}
+
+
+/// Read a directory entry from the directory descriptor `fd` into the
+/// buffer `dirent` from the current position of the directory.
+/// 
+/// # Errors
+/// See [`ReaddirError`] for more details.
+pub fn readdir(fd: usize, dirent: usize) -> Result<usize, ReaddirError> {
+    let current_task = SCHEDULER.current_task();
+    let file = current_task
+        .files()
+        .lock()
+        .get(vfs::fd::Descriptor(fd))
+        .ok_or(ReaddirError::InvalidFileDescriptor)?
+        .clone();
+
+    let ptr = user::Pointer::<Dirent>::from_usize(dirent).ok_or(ReaddirError::BadAddress)?;
+
+    // Check that the file was opened for reading
+    if !file.open_flags.contains(vfs::file::OpenFlags::READ) {
+        return Err(ReaddirError::NotReadable);
+    }
+
+    let dirent = file
+        .as_directory()
+        .ok_or(ReaddirError::NotADirectory)?
+        .readdir(&file, file.state.lock().offset)?;
+
+    file.state.lock().offset.0 += 1;
+    
+    unsafe {
+        #[allow(clippy::cast_possible_truncation)]
+        user::Object::write(&ptr, &Dirent {
+            ino: dirent.inode.0,
+            kind: Dirent::convert_inode_type(dirent.kind),
+            name_len: dirent.name.len() as u16,
+            name: dirent.name.as_bytes().try_into().unwrap_or([0; 255]),
+        });
+    }
+    Ok(0)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(usize)]
+pub enum ReaddirError {
+    /// The syscall number is invalid.
+    NoSuchSyscall = 1,
+
+    /// The file descriptor is invalid
+    InvalidFileDescriptor,
+
+    /// The path passed as an argument
+    BadAddress,
+
+    /// The descriptor is not a directory
+    NotADirectory,
+
+    /// The directory is not readable
+    NotReadable,
+
+    /// The directory has no entries remaning
+    EndOfDirectory,
+
+    /// An unknown error occurred
+    UnknownError,
+}
+
+impl From<vfs::file::ReaddirError> for ReaddirError {
+    fn from(error: vfs::file::ReaddirError) -> Self {
+        match error {
+            vfs::file::ReaddirError::EndOfDirectory => ReaddirError::EndOfDirectory,
+        }
+    }
+}
+
+impl From<ReaddirError> for isize {
+    fn from(error: ReaddirError) -> Self {
         -(error as isize)
     }
 }
