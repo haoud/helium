@@ -30,8 +30,9 @@ pub fn open(path: usize, flags: usize) -> Result<usize, OpenError> {
         .ok_or(OpenError::BadAddress)?
         .fetch()
         .map_err(|_| OpenError::BadAddress)?;
+    let path = vfs::Path::new(&path)?;
 
-    let dentry = match vfs::lookup(&path, &root, &cwd) {
+    let dentry = match vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty()) {
         Ok(dentry) => {
             // If the file exists and the `MUST_CREATE` flag is set, we return an error,
             // because the user has specified that the file must be created during the
@@ -115,12 +116,16 @@ pub enum OpenError {
     UnknownError,
 }
 
+impl From<vfs::InvalidPath> for OpenError {
+    fn from(_: vfs::InvalidPath) -> Self {
+        OpenError::InvalidPath
+    }
+}
+
 impl From<vfs::LookupError> for OpenError {
     fn from(error: vfs::LookupError) -> Self {
         match error {
-            vfs::LookupError::InvalidPath(_) | vfs::LookupError::NotADirectory => {
-                OpenError::InvalidPath
-            }
+            vfs::LookupError::NotADirectory => OpenError::InvalidPath,
             vfs::LookupError::CorruptedFilesystem => OpenError::UnknownError,
             vfs::LookupError::NotFound(_, _) => OpenError::NoSuchFile,
             vfs::LookupError::IoError => OpenError::IoError,
@@ -336,7 +341,7 @@ pub fn write(fd: usize, buf: usize, len: usize) -> Result<usize, WriteError> {
     if let Some(inode) = &file.inode {
         inode.mark_dirty();
     }
-    
+
     state.offset = offset;
     Ok(written)
 }
@@ -544,16 +549,13 @@ pub fn change_cwd(path: usize) -> Result<usize, ChangeCwdError> {
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(ChangeCwdError::BadAddress)?
         .fetch()?;
+    let path = vfs::Path::new(&path)?;
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
     let cwd = current_task.cwd();
 
-    let dentry = vfs::lookup(&path, &root, &cwd)?;
-    if dentry.inode().kind != vfs::inode::Kind::Directory {
-        return Err(ChangeCwdError::NotADirectory);
-    }
-
+    let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::DIRECTORY)?;
     current_task.set_cwd(dentry);
     Ok(0)
 }
@@ -589,12 +591,17 @@ pub enum ChangeCwdError {
     UnknownError,
 }
 
+impl From<vfs::InvalidPath> for ChangeCwdError {
+    fn from(_: vfs::InvalidPath) -> Self {
+        ChangeCwdError::InvalidPath
+    }
+}
+
 impl From<vfs::LookupError> for ChangeCwdError {
     fn from(error: vfs::LookupError) -> Self {
         match error {
             vfs::LookupError::NotADirectory => ChangeCwdError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => ChangeCwdError::NoSuchEntry,
-            vfs::LookupError::InvalidPath(_) => ChangeCwdError::InvalidPath,
             vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
                 ChangeCwdError::UnknownError
             }
@@ -632,29 +639,28 @@ pub fn mkdir(path: usize) -> Result<usize, MkdirError> {
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(MkdirError::BadAddress)?
         .fetch()?;
+    let path = vfs::Path::new(&path)?;
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
     let cwd = current_task.cwd();
 
-    match vfs::lookup(&path, &root, &cwd) {
-        Err(vfs::LookupError::NotFound(parent, remaning)) => {
-            let name = remaning.as_name().ok_or(MkdirError::NoSuchEntry)?.clone();
+    let parent = vfs::lookup(
+        &path,
+        &root,
+        &cwd,
+        vfs::LookupFlags::PARENT | vfs::LookupFlags::DIRECTORY,
+    )?;
 
-            parent
-                .inode()
-                .as_directory()
-                .ok_or(MkdirError::NotADirectory)?
-                .mkdir(parent.inode(), name.as_str())?;
-            
-            parent.inode().mark_dirty();
-        }
-        Ok(_) => return Err(MkdirError::AlreadyExists),
-        Err(e) => {
-            return Err(MkdirError::from(e));
-        }
-    }
+    let name = path.components.last().ok_or(MkdirError::InvalidPath)?;
 
+    parent
+        .inode()
+        .as_directory()
+        .ok_or(MkdirError::NotADirectory)?
+        .mkdir(parent.inode(), name.as_str())?;
+
+    parent.inode().mark_dirty();
     Ok(0)
 }
 
@@ -692,12 +698,17 @@ pub enum MkdirError {
     UnknownError,
 }
 
+impl From<vfs::InvalidPath> for MkdirError {
+    fn from(_: vfs::InvalidPath) -> Self {
+        MkdirError::InvalidPath
+    }
+}
+
 impl From<vfs::LookupError> for MkdirError {
     fn from(error: vfs::LookupError) -> Self {
         match error {
             vfs::LookupError::NotADirectory => MkdirError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => MkdirError::NoSuchEntry,
-            vfs::LookupError::InvalidPath(_) => MkdirError::InvalidPath,
             vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
                 MkdirError::UnknownError
             }
@@ -742,12 +753,13 @@ pub fn rmdir(path: usize) -> Result<usize, RmdirError> {
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(RmdirError::BadAddress)?
         .fetch()?;
+    let path = vfs::Path::new(&path)?;
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
     let cwd = current_task.cwd();
 
-    let dentry = vfs::lookup(&path, &root, &cwd)?;
+    let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::DIRECTORY)?;
     let parent = dentry.parent().unwrap();
 
     parent
@@ -796,12 +808,17 @@ pub enum RmdirError {
     UnknownError,
 }
 
+impl From<vfs::InvalidPath> for RmdirError {
+    fn from(_: vfs::InvalidPath) -> Self {
+        RmdirError::InvalidPath
+    }
+}
+
 impl From<vfs::LookupError> for RmdirError {
     fn from(error: vfs::LookupError) -> Self {
         match error {
             vfs::LookupError::NotADirectory => RmdirError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => RmdirError::NoSuchEntry,
-            vfs::LookupError::InvalidPath(_) => RmdirError::InvalidPath,
             vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
                 RmdirError::UnknownError
             }
@@ -878,12 +895,17 @@ pub enum UnlinkError {
     UnknownError,
 }
 
+impl From<vfs::InvalidPath> for UnlinkError {
+    fn from(_: vfs::InvalidPath) -> Self {
+        UnlinkError::InvalidPath
+    }
+}
+
 impl From<vfs::LookupError> for UnlinkError {
     fn from(error: vfs::LookupError) -> Self {
         match error {
             vfs::LookupError::NotADirectory => UnlinkError::ComponentNotADirectory,
             vfs::LookupError::NotFound(_, _) => UnlinkError::NoSuchEntry,
-            vfs::LookupError::InvalidPath(_) => UnlinkError::InvalidPath,
             vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
                 UnlinkError::UnknownError
             }
@@ -939,12 +961,13 @@ pub fn unlink(path: usize) -> Result<usize, UnlinkError> {
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(UnlinkError::BadAddress)?
         .fetch()?;
+    let path = vfs::Path::new(&path)?;
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
     let cwd = current_task.cwd();
 
-    let dentry = vfs::lookup(&path, &root, &cwd)?;
+    let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty())?;
     let parent = dentry.parent().unwrap();
 
     parent
@@ -968,12 +991,13 @@ pub fn truncate(path: usize, len: usize) -> Result<usize, TruncateError> {
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(TruncateError::BadAddress)?
         .fetch()?;
+    let path = vfs::Path::new(&path)?;
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
     let cwd = current_task.cwd();
 
-    let dentry = vfs::lookup(&path, &root, &cwd)?;
+    let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty())?;
 
     dentry
         .inode()
@@ -981,7 +1005,7 @@ pub fn truncate(path: usize, len: usize) -> Result<usize, TruncateError> {
         .ok_or(TruncateError::NotAFile)?
         .truncate(dentry.inode(), len)?;
 
-    //dentry.dirtying_inode();
+    dentry.dirtying_inode();
     Ok(0)
 }
 
@@ -1019,12 +1043,17 @@ pub enum TruncateError {
     UnknownError,
 }
 
+impl From<vfs::InvalidPath> for TruncateError {
+    fn from(_: vfs::InvalidPath) -> Self {
+        TruncateError::InvalidPath
+    }
+}
+
 impl From<vfs::LookupError> for TruncateError {
     fn from(error: vfs::LookupError) -> Self {
         match error {
             vfs::LookupError::NotADirectory => TruncateError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => TruncateError::NoSuchEntry,
-            vfs::LookupError::InvalidPath(_) => TruncateError::InvalidPath,
             vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
                 TruncateError::UnknownError
             }
@@ -1090,6 +1119,7 @@ pub fn stat(path: usize, stat: usize) -> Result<usize, StatError> {
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(StatError::BadAddress)?
         .fetch()?;
+    let path = vfs::Path::new(&path)?;
 
     let ptr = user::Pointer::<Stat>::from_usize(stat).ok_or(StatError::BadAddress)?;
 
@@ -1097,7 +1127,7 @@ pub fn stat(path: usize, stat: usize) -> Result<usize, StatError> {
     let root = current_task.root();
     let cwd = current_task.cwd();
 
-    let dentry = vfs::lookup(&path, &root, &cwd)?;
+    let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty())?;
 
     let inode = dentry.inode();
     let state = inode.state.lock();
@@ -1158,12 +1188,17 @@ pub enum StatError {
     UnknownError,
 }
 
+impl From<vfs::InvalidPath> for StatError {
+    fn from(_: vfs::InvalidPath) -> Self {
+        StatError::InvalidPath
+    }
+}
+
 impl From<vfs::LookupError> for StatError {
     fn from(error: vfs::LookupError) -> Self {
         match error {
             vfs::LookupError::NotADirectory => StatError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => StatError::NoSuchEntry,
-            vfs::LookupError::InvalidPath(_) => StatError::InvalidPath,
             vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
                 StatError::UnknownError
             }

@@ -97,6 +97,7 @@ pub fn spawn(path: usize) -> Result<usize, SpawnError> {
         .ok_or(SpawnError::BadAddress)?
         .fetch()
         .map_err(|_| SpawnError::BadAddress)?;
+    let path = vfs::Path::new(&path)?;
 
     // Read all the elf file into memory
     let current_task = SCHEDULER.current_task();
@@ -140,14 +141,18 @@ pub enum SpawnError {
     UnknownError,
 }
 
+impl From<vfs::InvalidPath> for SpawnError {
+    fn from(_: vfs::InvalidPath) -> Self {
+        SpawnError::InvalidArgument
+    }
+}
+
 impl From<vfs::ReadAllError> for SpawnError {
     fn from(error: vfs::ReadAllError) -> Self {
         match error {
             vfs::ReadAllError::LookupError(e) => match e {
                 vfs::LookupError::NotFound(_, _) => SpawnError::NoSuchFile,
-                vfs::LookupError::InvalidPath(_) | vfs::LookupError::NotADirectory => {
-                    SpawnError::InvalidArgument
-                }
+                vfs::LookupError::NotADirectory => SpawnError::InvalidArgument,
                 vfs::LookupError::CorruptedFilesystem | vfs::LookupError::IoError => {
                     SpawnError::IoError
                 }

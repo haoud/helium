@@ -1,8 +1,4 @@
-use self::{
-    dentry::Dentry,
-    mount::ReadInodeError,
-    path::{InvalidPath, Path},
-};
+use self::{dentry::Dentry, mount::ReadInodeError};
 use crate::{device::Device, module, vfs::dentry::ROOT};
 use alloc::vec;
 
@@ -16,6 +12,9 @@ pub mod mount;
 pub mod name;
 pub mod path;
 pub mod pipe;
+
+pub use self::name::*;
+pub use self::path::*;
 
 /// Setup the virtual filesystem
 #[init]
@@ -51,7 +50,14 @@ fn fill_ramdisk() {
         .create(&inode, "shell.elf")
         .expect("Failed to create shell.elf");
 
-    let shell = lookup("/shell.elf", root, root).expect("Shell.elf created but not found");
+    let shell = lookup(
+        &Path::new("/shell.elf").unwrap(),
+        root,
+        root,
+        LookupFlags::empty(),
+    )
+    .expect("Shell.elf created but not found");
+
     let file = shell
         .open(file::OpenFlags::WRITE)
         .expect("Failed to open shell.elf");
@@ -70,35 +76,55 @@ fn fill_ramdisk() {
     );
 }
 
-/// Lookup the path and return the inode associated with it.
+bitflags::bitflags! {
+    /// Flags to control the behavior of the lookup operation.
+    pub struct LookupFlags: u32 {
+        /// Return the parent of the last component of the path. If the path has
+        /// only one component, return the parent of the current directory. If the
+        /// parent cannot be resolved, return an error.
+        const PARENT = 1 << 0;
+
+        /// The dentry resolved must be a directory. This is useful used in
+        /// combination with the `PARENT` flag to ensure that the parent of the
+        /// last component of the path is a directory.
+        const DIRECTORY = 1 << 1;
+    }
+}
+
+/// Resolve the given path to a dentry.
 ///
 /// # Errors
-/// This function can fails in many ways, and each of them is described by the
+/// This function can fail in many ways, and each of them is described by the
 /// [`LookupError`] enum.
 ///
 /// # Panics
-/// This function panics if an inode of one component of the path does not
-/// have a superblock associated with it. This should never happen, and is
-/// a serious bug if it does.
+/// This function panics if a dentry without an alive parent is found. This
+/// should never happen, and is a serious bug if it does.
 pub fn lookup(
-    path: &str,
+    path: &Path,
     root: &Arc<Dentry>,
     cwd: &Arc<Dentry>,
+    flags: LookupFlags,
 ) -> Result<Arc<Dentry>, LookupError> {
-    let path = Path::new(path)?;
+    // The parent of the current component of the path. It is initialized to
+    // the root or the current directory, depending on whether the path is
+    // absolute or relative.
     let mut parent = if path.is_absolute() {
         Arc::clone(root)
     } else {
         Arc::clone(cwd)
     };
 
-    // We iterate over each component of the path and fetch the inode associated
-    // with it. If the inode is not found, we return the last inode found and
-    // the remaining path that could not be resolved.
-    // We also handle the special cases of "." and "..": "." is ignored because
-    // it is the current directory, and ".." is resolved to the parent of the
-    // current directory during the iteration.
-    for (i, name) in path.components.iter().enumerate() {
+    // The components of the path to resolve. If the `PARENT` flag is set, the
+    // last component is not resolved because this is the parent component that
+    // we want to return.
+    let components = if flags.contains(LookupFlags::PARENT) {
+        &path.components[..path.components.len() - 1]
+    } else {
+        &path.components
+    };
+
+    for (i, name) in components.iter().enumerate() {
         let dentry = match name.as_str() {
             "." => parent,
             ".." => parent.parent().expect("Dentry without alive parent found"),
@@ -115,9 +141,10 @@ pub fn lookup(
         parent = dentry;
     }
 
-    // We return the final inode and not its parent despite the variable name
-    // because the parent is set to the inode found at the end of each iteration
-    // of the loop.
+    if flags.contains(LookupFlags::DIRECTORY) && parent.inode().kind != inode::Kind::Directory {
+        return Err(LookupError::NotADirectory);
+    }
+
     Ok(parent)
 }
 
@@ -131,11 +158,12 @@ pub fn lookup(
 /// This function panics if the opened file does not have an inode associated
 /// with it. This should never happen, and is a serious bug if it does.
 pub fn read_all(
-    path: &str,
+    path: &Path,
     root: &Arc<Dentry>,
     cwd: &Arc<Dentry>,
 ) -> Result<Box<[u8]>, ReadAllError> {
-    let dentry = lookup(path, root, cwd).map_err(ReadAllError::LookupError)?;
+    let dentry =
+        lookup(path, root, cwd, LookupFlags::empty()).map_err(ReadAllError::LookupError)?;
     let file = dentry
         .open(file::OpenFlags::READ)
         .map_err(|_| ReadAllError::OpenError)?;
@@ -187,10 +215,6 @@ pub enum LookupError {
     /// the remaining path that could not be resolved.
     NotFound(Arc<Dentry>, Path),
 
-    /// The path is invalid. This variant contains an error describing why the
-    /// path is invalid.
-    InvalidPath(InvalidPath),
-
     /// An component of the path used as a directory is not a directory.
     NotADirectory,
 
@@ -199,12 +223,6 @@ pub enum LookupError {
 
     /// An I/O error occurred while resolving the path.
     IoError,
-}
-
-impl From<InvalidPath> for LookupError {
-    fn from(e: InvalidPath) -> Self {
-        LookupError::InvalidPath(e)
-    }
 }
 
 impl From<ReadInodeError> for LookupError {
