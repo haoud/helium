@@ -1311,7 +1311,7 @@ diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=targe
 +}
 diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=target' bin/src/rust/library/std/src/sys/helium/os.rs bin/src/rust-1.73.0-patched/library/std/src/sys/helium/os.rs
 --- bin/src/rust/library/std/src/sys/helium/os.rs	1970-01-01 01:00:00.000000000 +0100
-+++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/os.rs	2024-01-14 12:30:36.905207783 +0100
++++ bin/src/rust-1.73.0-patched/library/std/src/sys/helium/os.rs	2024-02-03 12:22:34.743768200 +0100
 @@ -0,0 +1,121 @@
 +use super::unsupported;
 +use crate::error::Error as StdError;
@@ -1427,8 +1427,8 @@ diff -Naur '--exclude=.git' '--exclude=*.pyc' '--exclude=build' '--exclude=targe
 +    None
 +}
 +
-+pub fn exit(_code: i32) -> ! {
-+    crate::intrinsics::abort()
++pub fn exit(code: i32) -> ! {
++    syscall::task::exit(code);
 +}
 +
 +pub fn getpid() -> u32 {

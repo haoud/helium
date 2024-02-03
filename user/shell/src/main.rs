@@ -53,14 +53,14 @@ fn main() {
     println!("Removing /test/test.txt");
     syscall::vfs::unlink("/test/test.txt").expect("unlink failed");
 
+    println!("stat directory /test");
+    let stat = syscall::vfs::stat("/test").expect("stat failed");
+    println!("stat inode: {}", stat.ino);
+    println!("stat size: {}", stat.size);
+
     println!("Trying to removing /test again");
     match syscall::vfs::rmdir("/test") {
         Err(err) => println!("rmdir failed with error: {:?}", err),
         Ok(_) => println!("rmdir succeeded"),
     }
-
-    println!("stat directory /test");
-    let stat = syscall::vfs::stat("/test").expect("stat failed");
-    println!("stat inode: {}", stat.ino);
-    println!("stat size: {}", stat.size);
 }
