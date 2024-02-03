@@ -11,6 +11,13 @@ pub const O_EXCL: usize = 1 << 4;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct FileDescriptor(usize);
 
+impl FileDescriptor {
+    pub const STDIN: Self = Self(0);
+    pub const STDOUT: Self = Self(1);
+    pub const STDERR: Self = Self(2);
+    pub const AT_FDCWD: Self = Self(usize::MAX);
+}
+
 pub enum Whence {
     Current(isize),
     Start(isize),
@@ -69,6 +76,9 @@ pub enum OpenError {
 
     /// An invalid address was passed as an argument
     BadAddress,
+
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
 
     /// The path is invalid
     InvalidPath,
@@ -562,7 +572,12 @@ impl From<Errno> for UnlinkError {
 ///
 /// # Errors
 /// See `OpenError` for a list of possible errors.
-pub fn open(path: &str, flags: usize, _mode: usize) -> Result<FileDescriptor, OpenError> {
+pub fn open(
+    dir: FileDescriptor,
+    path: &str,
+    flags: usize,
+    _mode: usize,
+) -> Result<FileDescriptor, OpenError> {
     let str = SyscallString::from(path);
     let ret;
 
@@ -570,8 +585,9 @@ pub fn open(path: &str, flags: usize, _mode: usize) -> Result<FileDescriptor, Op
         core::arch::asm!(
             "syscall",
             in("rax") Syscall::VfsOpen as u64,
-            in("rsi") &str as *const _ as u64,
-            in("rdx") flags as u64,
+            in("rsi") dir.0,
+            in("rdx") &str as *const _ as u64,
+            in("r10") flags,
             lateout("rax") ret,
         );
     }

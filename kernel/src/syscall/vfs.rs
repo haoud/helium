@@ -19,10 +19,23 @@ use super::clock::Timespec;
 /// # Panics
 /// This function panics an inode does not have a corresponding superblock. This
 /// should never happen, and is a serious bug in the kernel if it does.
-pub fn open(path: usize, flags: usize) -> Result<usize, OpenError> {
+pub fn open(dir: usize, path: usize, flags: usize) -> Result<usize, OpenError> {
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
-    let cwd = current_task.cwd();
+
+    // This is the dentry pointed by the file descriptor `dir`. If `dir` is
+    // `AT_FDCWD`, the current working directory is used.
+    let cwd = match dir {
+        vfs::fd::Descriptor::AT_FDCWD => current_task.cwd(),
+        _ => current_task
+            .files()
+            .lock()
+            .get(vfs::fd::Descriptor(dir))
+            .ok_or(OpenError::BadFileDescriptor)?
+            .dentry
+            .clone()
+            .ok_or(OpenError::NotADirectory)?,
+    };
 
     let flags = vfs::file::OpenFlags::from_bits(flags).ok_or(OpenError::InvalidFlag)?;
     let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(OpenError::BadAddress)?;
@@ -59,12 +72,15 @@ pub fn open(path: usize, flags: usize) -> Result<usize, OpenError> {
                 }
 
                 let name = path.as_name().ok_or(OpenError::NoSuchFile)?.clone();
-                Dentry::create_and_fetch_file(parent, name)?
+                Dentry::create_and_fetch_file(&parent, name)?
             } else {
                 return Err(OpenError::from(e));
             }
         }
     };
+
+    log::debug!("Opening file inode id {}", dentry.inode().id.0);
+    log::debug!("name: {:?}", dentry.name());
 
     let file = dentry.open(flags)?;
     let id = current_task
@@ -84,6 +100,9 @@ pub enum OpenError {
 
     /// An invalid address was passed as an argument
     BadAddress,
+
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
 
     /// The path is invalid
     InvalidPath,
@@ -338,8 +357,8 @@ pub fn write(fd: usize, buf: usize, len: usize) -> Result<usize, WriteError> {
 
     // If the file is associated with an inode, mark it as dirty since the inode
     // may has been modified
-    if let Some(inode) = &file.inode {
-        inode.mark_dirty();
+    if let Some(dentry) = &file.dentry {
+        dentry.dirtying_inode();
     }
 
     state.offset = offset;

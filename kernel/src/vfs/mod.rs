@@ -78,6 +78,7 @@ fn fill_ramdisk() {
 
 bitflags::bitflags! {
     /// Flags to control the behavior of the lookup operation.
+    #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct LookupFlags: u32 {
         /// Return the parent of the last component of the path. If the path has
         /// only one component, return the parent of the current directory. If the
@@ -169,9 +170,10 @@ pub fn read_all(
         .map_err(|_| ReadAllError::OpenError)?;
 
     let len = file
-        .inode
+        .dentry
         .as_ref()
-        .expect("Regular open file without inode")
+        .expect("Regular open file without dentry")
+        .inode()
         .state
         .lock()
         .size;

@@ -451,9 +451,10 @@ fn readdir(
     offset: vfs::file::Offset,
 ) -> Result<vfs::dirent::DirectoryEntry, vfs::file::ReaddirError> {
     let file_data = file
-        .inode
+        .dentry
         .as_ref()
-        .expect("Open file without inode")
+        .expect("Open file without dentry")
+        .inode()
         .data
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
@@ -471,22 +472,26 @@ fn write(
     buf: &[u8],
     offset: vfs::file::Offset,
 ) -> Result<usize, vfs::file::WriteError> {
-    let file_data = file
-        .inode
+    let inode = file
+        .dentry
         .as_ref()
-        .expect("Open file without inode")
+        .expect("Open file without dentry")
+        .inode();
+    let mut metadata = inode.state.lock();
+
+    let file_data = inode
         .data
         .downcast_ref::<Spinlock<InodeFile>>()
         .expect("Inode is not a ramfs inode");
+    let mut locked_file = file_data.lock();
 
     // Write the buffer to the file, and extend the file if necessary.
-    let mut locked_file = file_data.lock();
     let content = locked_file.content_mut();
     let offset = offset.0;
 
     if offset + buf.len() > content.len() {
         content.resize(offset + buf.len(), 0);
-        file.inode.as_ref().unwrap().state.lock().size = content.len();
+        metadata.size = content.len();
     }
 
     // Write the buffer to the file and return the written size
@@ -500,15 +505,18 @@ fn read(
     buf: &mut [u8],
     offset: vfs::file::Offset,
 ) -> Result<usize, vfs::file::ReadError> {
-    let file_data = file
-        .inode
+    let inode = file
+        .dentry
         .as_ref()
-        .expect("Open file without inode")
+        .expect("Open file without dentry")
+        .inode();
+
+    let file_data = inode
         .data
         .downcast_ref::<Spinlock<InodeFile>>()
         .expect("Inode is not a ramfs inode");
-
     let locked_file = file_data.lock();
+
     let content = locked_file.content();
 
     // Read the buffer from the file. If the read goes beyond the end of the
@@ -549,9 +557,10 @@ fn seek(
         }
         vfs::file::Whence::End => {
             let file_data = file
-                .inode
+                .dentry
                 .as_ref()
                 .expect("Open file without inode")
+                .inode()
                 .data
                 .downcast_ref::<Spinlock<InodeFile>>()
                 .expect("Inode is not a ramfs inode");

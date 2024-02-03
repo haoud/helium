@@ -124,14 +124,14 @@ fn create_pair() -> (Arc<file::File>, Arc<file::File>) {
         operation: file::Operation::File(&PIPE_FILE_OPS),
         open_flags: file::OpenFlags::READ,
         data: Box::new(reader),
-        inode: None,
+        dentry: None,
     }));
 
     let writer_file = Arc::new(file::File::new(file::FileCreateInfo {
         operation: file::Operation::File(&PIPE_FILE_OPS),
         open_flags: file::OpenFlags::WRITE,
         data: Box::new(writer),
-        inode: None,
+        dentry: None,
     }));
 
     (reader_file, writer_file)

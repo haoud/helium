@@ -1,10 +1,10 @@
-use super::{dirent::DirectoryEntry, inode::Inode};
+use super::{dentry::Dentry, dirent::DirectoryEntry};
 use core::any::Any;
 
 #[derive(Debug)]
 pub struct File {
     /// The inode opened by this file.
-    pub inode: Option<Arc<Inode>>,
+    pub dentry: Option<Arc<Dentry>>,
 
     /// The operation table for this file.
     pub operation: Operation,
@@ -26,7 +26,7 @@ impl File {
     pub fn new(info: FileCreateInfo) -> Self {
         let state = OpenFileState { offset: Offset(0) };
         Self {
-            inode: info.inode,
+            dentry: info.dentry,
             operation: info.operation,
             open_flags: info.open_flags,
             state: Spinlock::new(state),
@@ -53,7 +53,7 @@ impl File {
 
 #[derive(Debug)]
 pub struct FileCreateInfo {
-    pub inode: Option<Arc<Inode>>,
+    pub dentry: Option<Arc<Dentry>>,
     pub operation: Operation,
     pub open_flags: OpenFlags,
     pub data: Box<dyn Any + Send + Sync>,

@@ -97,7 +97,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::MmuMap) => mmu::map(a, b, c, d).map_err(Into::into),
         Some(Syscall::MmuUnmap) => mmu::unmap(a, b).map_err(Into::into),
         Some(Syscall::VideoFramebufferInfo) => video::framebuffer_info(a).map_err(Into::into),
-        Some(Syscall::VfsOpen) => vfs::open(a, b).map_err(Into::into),
+        Some(Syscall::VfsOpen) => vfs::open(a, b, c).map_err(Into::into),
         Some(Syscall::VfsClose) => vfs::close(a).map_err(Into::into),
         Some(Syscall::VfsRead) => vfs::read(a, b, c).map_err(Into::into),
         Some(Syscall::VfsWrite) => vfs::write(a, b, c).map_err(Into::into),

@@ -5,6 +5,21 @@ use super::file::File;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Descriptor(pub usize);
 
+impl Descriptor {
+    pub const AT_FDCWD_DESCRIPTOR: Self = Self(Self::AT_FDCWD);
+    pub const AT_FDCWD: usize = usize::MAX;
+
+    /// Create a new file descriptor from the given file descriptor number. If
+    /// the number is `AT_FDCWD`, returns `None`, otherwise returns `Some`.
+    #[must_use]
+    pub const fn new(fd: usize) -> Option<Self> {
+        match fd {
+            Self::AT_FDCWD => None,
+            _ => Some(Self(fd)),
+        }
+    }
+}
+
 /// A table of opened files. This is a simple array of 32 elements, where each
 /// element is an optional reference to an opened file.
 ///

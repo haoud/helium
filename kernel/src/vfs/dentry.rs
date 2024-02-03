@@ -57,10 +57,10 @@ impl Dentry {
     /// # Errors
     /// Currently, this function does not return any error. However, this may change
     /// in the future.
-    pub fn open(&self, flags: OpenFlags) -> Result<File, OpenError> {
+    pub fn open(self: &Arc<Self>, flags: OpenFlags) -> Result<File, OpenError> {
         Ok(file::File::new(FileCreateInfo {
             operation: self.inode.file_ops.clone(),
-            inode: Some(self.inode.clone()),
+            dentry: Some(self.clone()),
             open_flags: flags,
             data: Box::new(()),
         }))
@@ -190,12 +190,12 @@ impl Dentry {
     /// if this function fails to connect the created dentry to this dentry. This should
     /// never happen and is a serious kernel bug.
     pub fn create_and_fetch_file(
-        dentry: Arc<Self>,
+        dentry: &Arc<Self>,
         name: Name,
     ) -> Result<Arc<Self>, CreateFetchError> {
         // Search for the file in the dentry cache and in the underlying filesystem.
         // If a file with the same name already exists, return an error.
-        match Self::fetch(&dentry, &name) {
+        match Self::fetch(dentry, &name) {
             Err(FetchError::NotFound) => {}
             Err(FetchError::NotADirectory) => return Err(CreateFetchError::NotADirectory),
             Err(FetchError::IoError) => return Err(CreateFetchError::IoError),
@@ -219,10 +219,10 @@ impl Dentry {
 
         // If an entry with the same name was created in the meantime, we
         // simply return an error.
-        match Self::connect_child(&dentry, child) {
+        match Self::connect_child(dentry, Arc::clone(&child)) {
             Err(ConnectError::AlreadyConnected | ConnectError::NotADirectory) => unreachable!(),
             Err(ConnectError::AlreadyExists) => Err(CreateFetchError::AlreadyExists),
-            Ok(_) => Ok(dentry),
+            Ok(_) => Ok(child),
         }
     }
 
@@ -346,12 +346,6 @@ impl Dentry {
         }
 
         Ok(tree.children.swap_remove(index))
-    }
-}
-
-impl Drop for Dentry {
-    fn drop(&mut self) {
-        log::debug!("Dentry dropped: {:?}", self.name());
     }
 }
 
