@@ -372,6 +372,9 @@ pub enum RmdirError {
     /// The path passed as an argument
     BadAddress,
 
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
+
     /// The path is not a valid UTF-8 string
     InvalidUtf8,
 
@@ -742,7 +745,7 @@ pub fn mkdir(dir: &FileDescriptor, path: &str) -> Result<(), MkdirError> {
     }
 }
 
-pub fn rmdir(path: &str) -> Result<(), RmdirError> {
+pub fn rmdir(dir: &FileDescriptor, path: &str) -> Result<(), RmdirError> {
     let str = SyscallString::from(path);
     let ret;
 
@@ -750,7 +753,8 @@ pub fn rmdir(path: &str) -> Result<(), RmdirError> {
         core::arch::asm!(
             "syscall",
             in("rax") Syscall::VfsRmdir as u64,
-            in("rsi") &str as *const _ as u64,
+            in("rsi") dir.0,
+            in("rdx") &str as *const _ as u64,
             lateout("rax") ret,
         );
     }

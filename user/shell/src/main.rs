@@ -32,10 +32,10 @@ fn main() {
         (total / 1_000) * 1000 / 4200
     );
 
-    syscall::vfs::rmdir("/test").expect("rmdir failed");
+    syscall::vfs::rmdir(&FileDescriptor::AT_FDCWD, "/test").expect("rmdir failed");
     println!("Successfully removed /test, trying to remove it again");
 
-    match syscall::vfs::rmdir("/test") {
+    match syscall::vfs::rmdir(&FileDescriptor::AT_FDCWD, "/test") {
         Err(err) => println!("rmdir failed with error: {:?}", err),
         Ok(_) => println!("rmdir succeeded"),
     }
@@ -53,7 +53,7 @@ fn main() {
     .expect("open failed");
 
     println!("Trying to removing /test");
-    match syscall::vfs::rmdir("/test") {
+    match syscall::vfs::rmdir(&FileDescriptor::AT_FDCWD, "/test") {
         Err(err) => println!("rmdir failed with error: {:?}", err),
         Ok(_) => println!("rmdir succeeded"),
     }
@@ -67,7 +67,7 @@ fn main() {
     println!("stat size: {}", stat.size);
 
     println!("Trying to removing /test again");
-    match syscall::vfs::rmdir("/test") {
+    match syscall::vfs::rmdir(&FileDescriptor::AT_FDCWD, "/test") {
         Err(err) => println!("rmdir failed with error: {:?}", err),
         Ok(_) => println!("rmdir succeeded"),
     }

@@ -683,7 +683,7 @@ pub fn mkdir(dirfd: usize, path: usize) -> Result<usize, MkdirError> {
         &cwd,
         vfs::LookupFlags::PARENT | vfs::LookupFlags::DIRECTORY,
     )?;
-    
+
     let name = path.components.last().ok_or(MkdirError::InvalidPath)?;
 
     parent
@@ -783,7 +783,7 @@ impl From<MkdirError> for isize {
 /// # Panics
 /// This function panics if the directory has no parent. This should never happen, and is a
 /// serious bug in the kernel if it does.
-pub fn rmdir(path: usize) -> Result<usize, RmdirError> {
+pub fn rmdir(dirfd: usize, path: usize) -> Result<usize, RmdirError> {
     let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(RmdirError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(RmdirError::BadAddress)?
@@ -792,7 +792,20 @@ pub fn rmdir(path: usize) -> Result<usize, RmdirError> {
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
-    let cwd = current_task.cwd();
+
+    // This is the dentry pointed by the file descriptor `dirfd`. If `dirfd` is
+    // `AT_FDCWD`, then the current working directory is used.
+    let cwd = match dirfd {
+        vfs::fd::Descriptor::AT_FDCWD => current_task.cwd(),
+        _ => current_task
+            .files()
+            .lock()
+            .get(vfs::fd::Descriptor(dirfd))
+            .ok_or(RmdirError::BadFileDescriptor)?
+            .dentry
+            .clone()
+            .ok_or(RmdirError::NotADirectory)?,
+    };
 
     let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::DIRECTORY)?;
     let parent = dentry.parent().unwrap();
@@ -817,6 +830,9 @@ pub enum RmdirError {
 
     /// The path passed as an argument
     BadAddress,
+
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
 
     /// The path is not a valid UTF-8 string
     InvalidUtf8,
