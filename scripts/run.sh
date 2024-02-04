@@ -15,7 +15,7 @@ qemu-system-x86_64 -m 128                                   \
     -no-shutdown                                            \
     -serial stdio                                           \
     -cpu max                                                \
-    -smp 1
+    -smp 2
 
 code=$?
 if [ $code -eq 3 ]; then

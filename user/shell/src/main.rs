@@ -2,7 +2,7 @@ use syscall::vfs::FileDescriptor;
 
 fn main() {
     println!("Creating /test");
-    syscall::vfs::mkdir("/test").expect("mkdir failed");
+    syscall::vfs::mkdir(&FileDescriptor::AT_FDCWD, "/test").expect("mkdir failed");
 
     println!("Changing cwd to /test");
     syscall::vfs::change_cwd("/test").expect("change_cwd failed");
@@ -41,7 +41,7 @@ fn main() {
     }
 
     println!("Creating /test again");
-    syscall::vfs::mkdir("/test").expect("mkdir failed");
+    syscall::vfs::mkdir(&FileDescriptor::AT_FDCWD, "/test").expect("mkdir failed");
 
     println!("Adding /test/test.txt");
     syscall::vfs::open(

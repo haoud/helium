@@ -19,18 +19,18 @@ use super::clock::Timespec;
 /// # Panics
 /// This function panics an inode does not have a corresponding superblock. This
 /// should never happen, and is a serious bug in the kernel if it does.
-pub fn open(dir: usize, path: usize, flags: usize) -> Result<usize, OpenError> {
+pub fn open(dirfd: usize, path: usize, flags: usize) -> Result<usize, OpenError> {
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
 
-    // This is the dentry pointed by the file descriptor `dir`. If `dir` is
+    // This is the dentry pointed by the file descriptor `dirfd`. If `dirfd` is
     // `AT_FDCWD`, the current working directory is used.
-    let cwd = match dir {
+    let cwd = match dirfd {
         vfs::fd::Descriptor::AT_FDCWD => current_task.cwd(),
         _ => current_task
             .files()
             .lock()
-            .get(vfs::fd::Descriptor(dir))
+            .get(vfs::fd::Descriptor(dirfd))
             .ok_or(OpenError::BadFileDescriptor)?
             .dentry
             .clone()
@@ -653,7 +653,7 @@ impl From<ChangeCwdError> for isize {
 ///
 /// # Errors
 /// See [`SeekError`] for more details.
-pub fn mkdir(path: usize) -> Result<usize, MkdirError> {
+pub fn mkdir(dirfd: usize, path: usize) -> Result<usize, MkdirError> {
     let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(MkdirError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(MkdirError::BadAddress)?
@@ -662,7 +662,20 @@ pub fn mkdir(path: usize) -> Result<usize, MkdirError> {
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
-    let cwd = current_task.cwd();
+
+    // This is the dentry pointed by the file descriptor `dirfd`. If `dirfd` is
+    // `AT_FDCWD`, then the current working directory is used.
+    let cwd = match dirfd {
+        vfs::fd::Descriptor::AT_FDCWD => current_task.cwd(),
+        _ => current_task
+            .files()
+            .lock()
+            .get(vfs::fd::Descriptor(dirfd))
+            .ok_or(MkdirError::BadFileDescriptor)?
+            .dentry
+            .clone()
+            .ok_or(MkdirError::NotADirectory)?,
+    };
 
     let parent = vfs::lookup(
         &path,
@@ -670,7 +683,7 @@ pub fn mkdir(path: usize) -> Result<usize, MkdirError> {
         &cwd,
         vfs::LookupFlags::PARENT | vfs::LookupFlags::DIRECTORY,
     )?;
-
+    
     let name = path.components.last().ok_or(MkdirError::InvalidPath)?;
 
     parent
@@ -689,8 +702,11 @@ pub enum MkdirError {
     /// The syscall number is invalid.
     NoSuchSyscall = 1,
 
-    /// The path passed as an argument
+    /// The path passed as an argument is at an invalid address
     BadAddress,
+
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
 
     /// The path is not a valid UTF-8 string
     InvalidUtf8,

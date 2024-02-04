@@ -325,6 +325,9 @@ pub enum MkdirError {
     /// The path passed as an argument
     BadAddress,
 
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
+
     /// The path is not a valid UTF-8 string
     InvalidUtf8,
 
@@ -719,7 +722,7 @@ pub fn change_cwd(path: &str) -> Result<(), ChangeCwdError> {
     }
 }
 
-pub fn mkdir(path: &str) -> Result<(), MkdirError> {
+pub fn mkdir(dir: &FileDescriptor, path: &str) -> Result<(), MkdirError> {
     let str = SyscallString::from(path);
     let ret;
 
@@ -727,7 +730,8 @@ pub fn mkdir(path: &str) -> Result<(), MkdirError> {
         core::arch::asm!(
             "syscall",
             in("rax") Syscall::VfsMkdir as u64,
-            in("rsi") &str as *const _ as u64,
+            in("rsi") dir.0,
+            in("rdx") &str as *const _ as u64,
             lateout("rax") ret,
         );
     }
