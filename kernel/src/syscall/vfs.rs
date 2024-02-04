@@ -921,6 +921,12 @@ pub enum UnlinkError {
     /// The path passed as an argument
     BadAddress,
 
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
+
+    /// The file descriptor does not point to a directory
+    NotADirectory,
+
     /// The path is not a valid UTF-8 string
     InvalidUtf8,
 
@@ -1007,7 +1013,7 @@ impl From<UnlinkError> for isize {
 /// # Panics
 /// This function panics if the entry has no parent. This should never happen, and is a
 /// serious bug in the kernel if it does.
-pub fn unlink(path: usize) -> Result<usize, UnlinkError> {
+pub fn unlink(dirfd: usize, path: usize) -> Result<usize, UnlinkError> {
     let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(UnlinkError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(UnlinkError::BadAddress)?
@@ -1016,7 +1022,20 @@ pub fn unlink(path: usize) -> Result<usize, UnlinkError> {
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
-    let cwd = current_task.cwd();
+
+    // This is the dentry pointed by the file descriptor `dirfd`. If `dirfd` is
+    // `AT_FDCWD`, then the current working directory is used.
+    let cwd = match dirfd {
+        vfs::fd::Descriptor::AT_FDCWD => current_task.cwd(),
+        _ => current_task
+            .files()
+            .lock()
+            .get(vfs::fd::Descriptor(dirfd))
+            .ok_or(UnlinkError::BadFileDescriptor)?
+            .dentry
+            .clone()
+            .ok_or(UnlinkError::NotADirectory)?,
+    };
 
     let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty())?;
     let parent = dentry.parent().unwrap();

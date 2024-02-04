@@ -539,6 +539,12 @@ pub enum UnlinkError {
     /// The path passed as an argument
     BadAddress,
 
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
+
+    /// The file descriptor does not point to a directory
+    NotADirectory,
+
     /// The path is not a valid UTF-8 string
     InvalidUtf8,
 
@@ -850,7 +856,7 @@ pub fn readdir(fd: &FileDescriptor) -> Result<Dirent, ReaddirError> {
     }
 }
 
-pub fn unlink(path: &str) -> Result<(), UnlinkError> {
+pub fn unlink(dir: &FileDescriptor, path: &str) -> Result<(), UnlinkError> {
     let str = SyscallString::from(path);
     let ret;
 
@@ -858,7 +864,8 @@ pub fn unlink(path: &str) -> Result<(), UnlinkError> {
         core::arch::asm!(
             "syscall",
             in("rax") Syscall::VfsUnlink as u64,
-            in("rsi") &str as *const _ as u64,
+            in("rsi") dir.0,
+            in("rdx") &str as *const _ as u64,
             lateout("rax") ret,
         );
     }

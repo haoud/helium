@@ -107,7 +107,7 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::ClockGetTime) => clock::get_time(a).map_err(Into::into),
         Some(Syscall::VfsMkdir) => vfs::mkdir(a, b).map_err(Into::into),
         Some(Syscall::VfsRmdir) => vfs::rmdir(a, b).map_err(Into::into),
-        Some(Syscall::VfsUnlink) => vfs::unlink(a).map_err(Into::into),
+        Some(Syscall::VfsUnlink) => vfs::unlink(a, b).map_err(Into::into),
         Some(Syscall::VfsTruncate) => vfs::truncate(a, b).map_err(Into::into),
         Some(Syscall::VfsStat) => vfs::stat(a, b).map_err(Into::into),
         Some(Syscall::VfsReaddir) => vfs::readdir(a, b).map_err(Into::into),

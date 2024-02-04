@@ -59,7 +59,7 @@ fn main() {
     }
 
     println!("Removing /test/test.txt");
-    syscall::vfs::unlink("/test/test.txt").expect("unlink failed");
+    syscall::vfs::unlink(&FileDescriptor::AT_FDCWD, "/test/test.txt").expect("unlink failed");
 
     println!("stat directory /test");
     let stat = syscall::vfs::stat("/test").expect("stat failed");
