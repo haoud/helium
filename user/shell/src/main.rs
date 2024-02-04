@@ -62,7 +62,7 @@ fn main() {
     syscall::vfs::unlink(&FileDescriptor::AT_FDCWD, "/test/test.txt").expect("unlink failed");
 
     println!("stat directory /test");
-    let stat = syscall::vfs::stat("/test").expect("stat failed");
+    let stat = syscall::vfs::stat(&FileDescriptor::AT_FDCWD, "/test").expect("stat failed");
     println!("stat inode: {}", stat.ino);
     println!("stat size: {}", stat.size);
 

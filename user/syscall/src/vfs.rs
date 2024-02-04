@@ -791,7 +791,7 @@ pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
     }
 }
 
-pub fn stat(path: &str) -> Result<Stat, TruncateError> {
+pub fn stat(dir: &FileDescriptor, path: &str) -> Result<Stat, TruncateError> {
     let str = SyscallString::from(path);
     let mut stat = Stat {
         dev: 0,
@@ -819,8 +819,9 @@ pub fn stat(path: &str) -> Result<Stat, TruncateError> {
         core::arch::asm!(
             "syscall",
             in("rax") Syscall::VfsStat as u64,
-            in("rsi") &str as *const _ as u64,
-            in("rdx") &mut stat as *mut _ as u64,
+            in("rsi") dir.0,
+            in("rdx") &str as *const _ as u64,
+            in("r10") &mut stat as *mut _ as u64,
             lateout("rax") ret,
         );
     }

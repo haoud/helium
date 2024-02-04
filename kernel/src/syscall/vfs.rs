@@ -1184,7 +1184,7 @@ pub struct Stat {
 ///
 /// # Errors
 /// See [`StatError`] for more details.
-pub fn stat(path: usize, stat: usize) -> Result<usize, StatError> {
+pub fn stat(dirfd: usize, path: usize, stat: usize) -> Result<usize, StatError> {
     let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(StatError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(StatError::BadAddress)?
@@ -1195,7 +1195,20 @@ pub fn stat(path: usize, stat: usize) -> Result<usize, StatError> {
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
-    let cwd = current_task.cwd();
+
+    // This is the dentry pointed by the file descriptor `dirfd`. If `dirfd` is
+    // `AT_FDCWD`, then the current working directory is used.
+    let cwd = match dirfd {
+        vfs::fd::Descriptor::AT_FDCWD => current_task.cwd(),
+        _ => current_task
+            .files()
+            .lock()
+            .get(vfs::fd::Descriptor(dirfd))
+            .ok_or(StatError::BadFileDescriptor)?
+            .dentry
+            .clone()
+            .ok_or(StatError::NotADirectory)?,
+    };
 
     let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty())?;
 
@@ -1235,6 +1248,9 @@ pub enum StatError {
 
     /// The path passed as an argument
     BadAddress,
+
+    /// An invalid file descriptor was passed as an argument
+    BadFileDescriptor,
 
     /// The path is not a valid UTF-8 string
     InvalidUtf8,
