@@ -174,7 +174,7 @@ pub fn read_all(
         .as_ref()
         .expect("Regular open file without dentry")
         .inode()
-        .state
+        .metadata
         .lock()
         .size;
 

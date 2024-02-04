@@ -65,7 +65,6 @@ impl InodeDirectory {
     pub fn add_entry(&mut self, inode: &vfs::inode::Inode, name: String) {
         assert!(self.get_entry(&name).is_none());
 
-        inode.state.lock().links += 1;
         self.entries.push(vfs::dirent::DirectoryEntry {
             kind: vfs::dirent::Kind::from(inode.kind),
             inode: inode.id,

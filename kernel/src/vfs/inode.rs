@@ -45,7 +45,7 @@ pub struct Inode {
     /// can change over time, like the last time it has been modified. It is
     /// stored in a separate structure to avoid locking the inode just to read
     /// fields that are never modified, like the identifier or the inode type.
-    pub state: Spinlock<InodeState>,
+    pub metadata: Spinlock<InodeMetadata>,
 
     /// Custom data associated with this inode. It is used by the filesystem
     /// to store informations about the inode that are not stored in the inode
@@ -60,7 +60,7 @@ impl Inode {
     #[must_use]
     pub fn new(superblock: Weak<Super>, info: InodeCreateInfo) -> Self {
         Self {
-            state: Spinlock::new(info.state),
+            metadata: Spinlock::new(info.metadata),
             inode_ops: info.inode_ops,
             file_ops: info.file_ops,
             device: info.device,
@@ -140,7 +140,7 @@ impl Drop for Inode {
 }
 
 #[derive(Debug)]
-pub struct InodeState {
+pub struct InodeMetadata {
     /// The last time the inode data has been modified.
     pub modification_time: UnixTime,
 
@@ -155,16 +155,6 @@ pub struct InodeState {
 
     /// The size of this inode, in bytes.
     pub size: usize,
-}
-
-impl InodeState {
-    /// Decrements the number of hard links to this inode and returns the new
-    /// number of links.
-    #[must_use]
-    pub fn unlinked(&mut self) -> u64 {
-        self.links -= 1;
-        self.links
-    }
 }
 
 /// The type of an inode.
@@ -197,7 +187,7 @@ pub struct InodeCreateInfo {
     pub kind: Kind,
     pub inode_ops: inode::Operation,
     pub file_ops: file::Operation,
-    pub state: InodeState,
+    pub metadata: InodeMetadata,
     pub data: Box<dyn Any + Send + Sync>,
 }
 

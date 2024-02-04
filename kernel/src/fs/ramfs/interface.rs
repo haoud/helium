@@ -69,7 +69,7 @@ fn read_super(
             kind: vfs::inode::Kind::Directory,
             inode_ops: vfs::inode::Operation::Directory(&INODE_DIR_OPS),
             file_ops: vfs::file::Operation::Directory(&FILE_DIRECTORY_OPS),
-            state: vfs::inode::InodeState {
+            metadata: vfs::inode::InodeMetadata {
                 modification_time: UnixTime::now(),
                 access_time: UnixTime::now(),
                 change_time: UnixTime::now(),
@@ -143,7 +143,6 @@ fn read_inode(
 /// This function never fails.
 #[allow(clippy::unnecessary_wraps)]
 fn truncate(inode: &vfs::inode::Inode, size: usize) -> Result<usize, vfs::inode::TruncateError> {
-    inode.state.lock().size = size;
     inode
         .data
         .downcast_ref::<Spinlock<InodeFile>>()
@@ -152,6 +151,10 @@ fn truncate(inode: &vfs::inode::Inode, size: usize) -> Result<usize, vfs::inode:
         .content_mut()
         .resize(size, 0);
 
+    let mut metadata = inode.metadata.lock();
+    metadata.modification_time = UnixTime::now();
+    metadata.change_time = UnixTime::now();
+    metadata.size = size;
     Ok(size)
 }
 
@@ -197,11 +200,11 @@ fn create(
             kind: vfs::inode::Kind::File,
             inode_ops: vfs::inode::Operation::File(&INODE_FILE_OPS),
             file_ops: vfs::file::Operation::File(&REGULAR_FILE_OPS),
-            state: vfs::inode::InodeState {
+            metadata: vfs::inode::InodeMetadata {
                 modification_time: UnixTime::now(),
                 access_time: UnixTime::now(),
                 change_time: UnixTime::now(),
-                links: 0,
+                links: 1,
                 size: 0,
             },
             data: Box::new(Spinlock::new(InodeFile::empty())),
@@ -216,6 +219,13 @@ fn create(
 
     // Add the inode to the directory and return its identifier.
     locked_dir.add_entry(&file_inode, String::from(name));
+
+    // Update the metadata of the parent directory.
+    let mut metadata = inode.metadata.lock();
+    metadata.size = locked_dir.entries.len() * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
+    metadata.modification_time = UnixTime::now();
+    metadata.change_time = UnixTime::now();
+    metadata.links += 1;
     Ok(file_id)
 }
 
@@ -232,6 +242,8 @@ fn lookup(
         .data
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
+
+    inode.metadata.lock().access_time = UnixTime::now();
 
     ramfs_inode
         .lock()
@@ -274,16 +286,28 @@ fn unlink(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::Unlin
     // Fetch the inode and decrement the links counter of the inode.
     // If the counter reaches 0, the inode is removed from the superblock.
     let entry = locked_dir.entries.remove(index);
-    let inode = ramfs_super
+    let child = ramfs_super
         .lock()
         .inodes
         .get(&entry.inode)
         .expect("Dead inode in directory")
         .clone();
 
-    if inode.state.lock().unlinked() == 0 {
+    // Update the metadata of the child inode.
+    let mut metadata = child.metadata.lock();
+    metadata.change_time = UnixTime::now();
+    metadata.links -= 1;
+
+    if metadata.links == 0 {
         ramfs_super.lock().inodes.remove(&entry.inode);
     }
+
+    // Update the metadata of the parent directory.
+    let mut metadata = inode.metadata.lock();
+    metadata.size = locked_dir.entries.len() * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
+    metadata.modification_time = UnixTime::now();
+    metadata.change_time = UnixTime::now();
+    metadata.links -= 1;
     Ok(())
 }
 
@@ -322,11 +346,11 @@ fn mkdir(
             kind: vfs::inode::Kind::Directory,
             inode_ops: vfs::inode::Operation::Directory(&INODE_DIR_OPS),
             file_ops: vfs::file::Operation::Directory(&FILE_DIRECTORY_OPS),
-            state: vfs::inode::InodeState {
+            metadata: vfs::inode::InodeMetadata {
                 modification_time: UnixTime::now(),
                 access_time: UnixTime::now(),
                 change_time: UnixTime::now(),
-                links: 0,
+                links: 1,
                 size: 0,
             },
             data: Box::new(Spinlock::new(InodeDirectory::empty())),
@@ -342,6 +366,13 @@ fn mkdir(
 
     // Add the inode to the directory and return its identifier.
     locked_dir.add_entry(&directory_inode, String::from(name));
+
+    // Update the metadata of the parent directory.
+    let mut metadata = inode.metadata.lock();
+    metadata.size = locked_dir.entries.len() * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
+    metadata.access_time = UnixTime::now();
+    metadata.change_time = UnixTime::now();
+    metadata.links += 1;
     Ok(directory_id)
 }
 
@@ -378,14 +409,14 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
     }
 
     // Fetch the inode and verify that the directory is empty.
-    let inode = ramfs_super
+    let child = ramfs_super
         .lock()
         .inodes
         .get(&locked_dir.entries[index].inode)
         .expect("Dead inode in directory")
         .clone();
 
-    let directory_data = inode
+    let directory_data = child
         .data
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
@@ -394,12 +425,23 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
         return Err(vfs::inode::RmdirError::NotEmpty);
     }
 
-    // Decrement the links counter of the inode. If the counter reaches 0, the
-    // inode is removed from the superblock.
+    let mut metadata = child.metadata.lock();
+    metadata.change_time = UnixTime::now();
+    metadata.links -= 1;
+
+    // Decrement the links counter of the child. If the counter reaches 0, the
+    // child is removed from the superblock.
     let entry = locked_dir.entries.remove(index);
-    if inode.state.lock().unlinked() == 0 {
+    if metadata.links == 0 {
         ramfs_super.lock().inodes.remove(&entry.inode);
     }
+
+    // Update the metadata of the parent directory.
+    let mut metadata = inode.metadata.lock();
+    metadata.size = locked_dir.entries.len() * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
+    metadata.modification_time = UnixTime::now();
+    metadata.change_time = UnixTime::now();
+    metadata.links -= 1;
     Ok(())
 }
 
@@ -438,6 +480,9 @@ fn rename(inode: &vfs::inode::Inode, old: &str, new: &str) -> Result<(), vfs::in
         .find(|entry| entry.name == old)
         .map(|entry| entry.name = String::from(new))
         .ok_or(vfs::inode::RenameError::NoSuchEntry)?;
+
+    // Update the metadata of the parent directory.
+    inode.metadata.lock().modification_time = UnixTime::now();
     Ok(())
 }
 
@@ -450,11 +495,13 @@ fn readdir(
     file: &vfs::file::File,
     offset: vfs::file::Offset,
 ) -> Result<vfs::dirent::DirectoryEntry, vfs::file::ReaddirError> {
-    let file_data = file
+    let inode = file
         .dentry
         .as_ref()
         .expect("Open file without dentry")
-        .inode()
+        .inode();
+
+    let file_data = inode
         .data
         .downcast_ref::<Spinlock<InodeDirectory>>()
         .expect("Inode is not a ramfs inode");
@@ -463,6 +510,9 @@ fn readdir(
     if offset.0 >= locked_dir.entries.len() {
         return Err(vfs::file::ReaddirError::EndOfDirectory);
     }
+
+    // Update the access time of the inode and return the directory entry.
+    inode.metadata.lock().access_time = UnixTime::now();
     Ok(locked_dir.entries[offset.0].clone())
 }
 
@@ -477,7 +527,7 @@ fn write(
         .as_ref()
         .expect("Open file without dentry")
         .inode();
-    let mut metadata = inode.state.lock();
+    let mut metadata = inode.metadata.lock();
 
     let file_data = inode
         .data
@@ -491,11 +541,14 @@ fn write(
 
     if offset + buf.len() > content.len() {
         content.resize(offset + buf.len(), 0);
-        metadata.size = content.len();
     }
 
-    // Write the buffer to the file and return the written size
+    // Write the buffer to the file
     content[offset..offset + buf.len()].copy_from_slice(buf);
+
+    // Update the metadata of the inode and return the written size.
+    metadata.modification_time = UnixTime::now();
+    metadata.size = content.len();
     Ok(buf.len())
 }
 
@@ -515,8 +568,8 @@ fn read(
         .data
         .downcast_ref::<Spinlock<InodeFile>>()
         .expect("Inode is not a ramfs inode");
-    let locked_file = file_data.lock();
 
+    let locked_file = file_data.lock();
     let content = locked_file.content();
 
     // Read the buffer from the file. If the read goes beyond the end of the
@@ -524,6 +577,9 @@ fn read(
     // returned.
     let len = core::cmp::min(buf.len(), content.len() - offset.0);
     buf[..len].copy_from_slice(&content[offset.0..offset.0 + len]);
+
+    // Update the access time of the inode and return the read size.
+    inode.metadata.lock().access_time = UnixTime::now();
     Ok(len)
 }
 

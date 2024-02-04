@@ -1213,7 +1213,7 @@ pub fn stat(dirfd: usize, path: usize, stat: usize) -> Result<usize, StatError> 
     let dentry = vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty())?;
 
     let inode = dentry.inode();
-    let state = inode.state.lock();
+    let state = inode.metadata.lock();
     let stat = Stat {
         dev: 0,  // TODO
         kind: 0, // TODO
