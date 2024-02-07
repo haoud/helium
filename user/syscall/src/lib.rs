@@ -53,7 +53,7 @@ impl Errno {
     }
 }
 
-// A struct that contains all the syscall numbers used by the kernel.
+/// A struct that contains all the syscall numbers used by the kernel.
 #[non_exhaustive]
 #[repr(u64)]
 pub enum Syscall {
@@ -83,6 +83,8 @@ pub enum Syscall {
     VfsReaddir = 23,
 }
 
+/// Interpret the given syscall return code as either an error or a success
+/// and convert it to a `Result` type.
 pub fn syscall_return(code: usize) -> Result<usize, Errno> {
     if Errno::valid(code as isize) {
         Err(Errno(-(code as isize)))

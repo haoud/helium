@@ -3,8 +3,13 @@ use super::{syscall_return, Errno, Syscall};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(usize)]
 pub enum ReadInfoError {
+    /// There is no such syscall.
     NoSuchSyscall = 1,
+
+    /// One or more of the arguments is located at an invalid address.
     BadAddress,
+
+    /// An I/O error occurred while reading the framebuffer information.
     UnknownError,
 }
 
@@ -30,6 +35,13 @@ pub struct FramebufferInfo {
     pub bpp: u16,
 }
 
+/// Obtain information about the framebuffer.
+/// 
+/// This function returns information about the framebuffer, such as its height,
+/// width and bits per pixel. The information is returned in a `FramebufferInfo`
+/// 
+/// # Errors
+/// See `ReadInfoError` for details.
 pub fn framebuffer_info() -> Result<FramebufferInfo, ReadInfoError> {
     let mut framebuffer_info = FramebufferInfo {
         height: 0,
@@ -47,8 +59,6 @@ pub fn framebuffer_info() -> Result<FramebufferInfo, ReadInfoError> {
         );
     }
 
-    // Transmute the return value to ReadInfoError if a valid error code was returned.
-    // If the error code is unknown, return an UnknownError.
     match syscall_return(ret) {
         Err(errno) => Err(ReadInfoError::from(errno)),
         Ok(_) => Ok(framebuffer_info),

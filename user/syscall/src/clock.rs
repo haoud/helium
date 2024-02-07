@@ -1,5 +1,6 @@
 use super::{syscall_return, Errno, Syscall};
 
+/// The timespec struct is used to represent time in seconds and nanoseconds.
 #[repr(C)]
 pub struct Timespec {
     pub seconds: u64,
@@ -29,6 +30,12 @@ impl From<Errno> for GetTimeError {
     }
 }
 
+/// Get the current time since the Unix epoch.
+/// 
+/// # Errors
+/// - `GetTimeError::BadAddress`: The given address for the timespec is not a valid address.
+/// This should never happen, as the address is always valid and directly provided by this
+/// function.
 pub fn get_time() -> Result<Timespec, GetTimeError> {
     let mut timespec = Timespec {
         seconds: 0,

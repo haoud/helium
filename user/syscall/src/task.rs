@@ -3,14 +3,31 @@ use super::{syscall_return, Errno, Syscall, SyscallString};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(usize)]
 pub enum SpawnError {
+    /// There is no such syscall.
     NoSuchSyscall = 1,
+
+    /// One or more of the arguments is located at an invalid address.
     BadAddress,
+
+    /// One or more of the arguments is invalid.
     InvalidArgument,
+
+    /// The executable file does not exist.
     NoSuchFile,
+
+    /// The given path is not a file.
     NotAFile,
+
+    /// An I/O error occurred while reading the file.
     IoError,
+
+    /// The file is not a valid ELF file.
     InvalidElf,
+
+    /// The kernel ran out of memory while trying to spawn the task.
     OutOfMemory,
+
+    /// An unknown error occurred
     UnknownError,
 }
 
@@ -95,6 +112,15 @@ pub fn exit(code: i32) -> ! {
 }
 
 /// Spawn a new task from the specified ELF file.
+/// 
+/// # Errors
+/// - `SpawnError::BadAddress`: One or more of the arguments is located at an invalid address.
+/// - `SpawnError::InvalidArgument`: One or more of the arguments is invalid.
+/// - `SpawnError::NoSuchFile`: The executable file does not exist.
+/// - `SpawnError::NotAFile`: The given path is not a file.
+/// - `SpawnError::IoError`: An I/O error occurred while reading the file.
+/// - `SpawnError::InvalidElf`: The file is not a valid ELF file.
+/// - `SpawnError::OutOfMemory`: The kernel ran out of memory while trying to spawn the task.
 pub fn spawn(path: &str) -> Result<Identifier, SpawnError> {
     let str = SyscallString::from(path);
     let ret;

@@ -1,26 +1,51 @@
 use super::{clock, syscall_return, Errno, Syscall, SyscallString};
 
+/// Read access. If not set, the file cannot be read from.
 pub const O_READ: usize = 1 << 0;
+
+/// Write access. If not set, the file cannot be written to.
 pub const O_WRITE: usize = 1 << 1;
+
+/// Create the file if it does not exist. If the file exists, this flag has no effect.
 pub const O_CREATE: usize = 1 << 2;
+
+/// Truncate the file to 0 bytes after opening. If the file does not exist, it is created.
 pub const O_TRUNC: usize = 1 << 3;
+
+/// Fail if the file already exists. This flag is only valid in combination with `O_CREATE`.
 pub const O_EXCL: usize = 1 << 4;
 
 /// A file descriptor. This is an opaque handle that can be used to refer to
 /// an open file.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct FileDescriptor(usize);
 
 impl FileDescriptor {
+    /// The standard input file descriptor.
     pub const STDIN: Self = Self(0);
+
+    /// The standard output file descriptor.
     pub const STDOUT: Self = Self(1);
+
+    /// The standard error file descriptor.
     pub const STDERR: Self = Self(2);
+
+    /// The file descriptor for the current working directory. It is a special file
+    /// descriptor that can be used to refer to the current working directory in
+    /// some syscalls.
     pub const AT_FDCWD: Self = Self(usize::MAX);
 }
 
+/// The `whence` argument to the `seek` syscall. This argument determines
+/// how the offset is interpreted.
 pub enum Whence {
+    /// The offset is relative to the current position in the file.
     Current(isize),
+
+    /// The offset is relative to the start of the file.
     Start(isize),
+
+    /// The offset is relative to the end of the file.
     End(isize),
 }
 
@@ -51,6 +76,8 @@ pub struct Stat {
     pub ctime: clock::Timespec,
 }
 
+/// A directory entry.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[repr(C)]
 pub struct Dirent {
     pub ino: u64,
@@ -610,6 +637,11 @@ pub fn open(
     }
 }
 
+/// Close a file descriptor. After closing, the file descriptor is no longer valid
+/// and cannot be used to refer to the file.
+/// 
+/// # Errors
+/// See `CloseError` for a list of possible errors.
 pub fn close(fd: FileDescriptor) -> Result<(), CloseError> {
     let ret;
 
@@ -628,6 +660,10 @@ pub fn close(fd: FileDescriptor) -> Result<(), CloseError> {
     }
 }
 
+/// Read from a file descriptor into a buffer and return the number of bytes read.
+/// 
+/// # Errors
+/// See `ReadError` for a list of possible errors.
 pub fn read(fd: &FileDescriptor, buffer: &mut [u8]) -> Result<usize, ReadError> {
     let ret;
 
@@ -648,6 +684,10 @@ pub fn read(fd: &FileDescriptor, buffer: &mut [u8]) -> Result<usize, ReadError> 
     }
 }
 
+/// Write to a file descriptor from a buffer and return the number of bytes written.
+/// 
+/// # Errors
+/// See `WriteError` for a list of possible errors.
 pub fn write(fd: &FileDescriptor, buffer: &[u8]) -> Result<usize, WriteError> {
     let ret;
 
@@ -668,6 +708,15 @@ pub fn write(fd: &FileDescriptor, buffer: &[u8]) -> Result<usize, WriteError> {
     }
 }
 
+/// Change the file offset of a file descriptor to the specified relative position and
+/// return the new absolute position.
+/// 
+/// The `whence` argument contains the offset and how it should be interpreted. The
+/// relative position can be negative, in which case the file offset is moved backwards.
+/// However, the absolute position cannot be negative.
+/// 
+/// # Errors
+/// See `SeekError` for a list of possible errors.
 pub fn seek(fd: &FileDescriptor, whence: Whence) -> Result<usize, SeekError> {
     let (whence, offset) = match whence {
         Whence::Current(offset) => (0, offset),
@@ -693,6 +742,12 @@ pub fn seek(fd: &FileDescriptor, whence: Whence) -> Result<usize, SeekError> {
     }
 }
 
+/// Get the current working directory and write it into the buffer. The buffer must be
+/// large enough to hold the entire path. The function returns the number of bytes written
+/// into the buffer.
+/// 
+/// # Errors
+/// See `GetCwdError` for a list of possible errors.
 pub fn get_cwd(buffer: &mut [u8]) -> Result<usize, GetCwdError> {
     let ret;
 
@@ -712,6 +767,10 @@ pub fn get_cwd(buffer: &mut [u8]) -> Result<usize, GetCwdError> {
     }
 }
 
+/// Change the current working directory to the specified path.
+/// 
+/// # Errors
+/// See `ChangeCwdError` for a list of possible errors.
 pub fn change_cwd(path: &str) -> Result<(), ChangeCwdError> {
     let str = SyscallString::from(path);
     let ret;
@@ -731,6 +790,12 @@ pub fn change_cwd(path: &str) -> Result<(), ChangeCwdError> {
     }
 }
 
+/// Create a new empty directory at the specified path. If the path is relative, it is
+/// created relative to the specified directory. If the path is absolute, the directory
+/// argument is ignored.
+/// 
+/// # Errors
+/// See [`MkdirError`] for a list of possible errors.
 pub fn mkdir(dir: &FileDescriptor, path: &str) -> Result<(), MkdirError> {
     let str = SyscallString::from(path);
     let ret;
@@ -751,6 +816,12 @@ pub fn mkdir(dir: &FileDescriptor, path: &str) -> Result<(), MkdirError> {
     }
 }
 
+/// Remove a empty directory at the specified path. If the path is relative, it is removed
+/// relative to the specified directory. If the path is absolute, the directory argument is
+/// ignored.
+/// 
+/// # Errors
+/// See [`RmdirError`] for a list of possible errors.
 pub fn rmdir(dir: &FileDescriptor, path: &str) -> Result<(), RmdirError> {
     let str = SyscallString::from(path);
     let ret;
@@ -771,6 +842,12 @@ pub fn rmdir(dir: &FileDescriptor, path: &str) -> Result<(), RmdirError> {
     }
 }
 
+/// Truncate the file at the specified path to the specified length.
+/// If the file is larger than the specified length, the extra data is discarded. If the
+/// file is smaller than the specified length, it is extended with zero bytes.
+/// 
+/// # Errors
+/// See [`TruncateError`] for a list of possible errors.
 pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
     let str = SyscallString::from(path);
     let ret;
@@ -791,6 +868,12 @@ pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
     }
 }
 
+/// Get informations about the file at the specified path. If the path is relative, it is
+/// resolved relative to the specified directory. If the path is absolute, the directory
+/// argument is ignored.
+/// 
+/// # Errors
+/// See [`StatError`] for a list of possible errors.
 pub fn stat(dir: &FileDescriptor, path: &str) -> Result<Stat, TruncateError> {
     let str = SyscallString::from(path);
     let mut stat = Stat {
@@ -832,6 +915,10 @@ pub fn stat(dir: &FileDescriptor, path: &str) -> Result<Stat, TruncateError> {
     }
 }
 
+/// Read the next directory entry from the specified directory and return it.
+/// 
+/// # Errors
+/// See [`ReaddirError`] for a list of possible errors.
 pub fn readdir(fd: &FileDescriptor) -> Result<Dirent, ReaddirError> {
     let mut dirent = Dirent {
         ino: 0,
@@ -857,6 +944,14 @@ pub fn readdir(fd: &FileDescriptor) -> Result<Dirent, ReaddirError> {
     }
 }
 
+/// Unlink the file at the specified path. If the path is relative, it is resolved relative
+/// to the specified directory. If the path is absolute, the directory argument is ignored.
+/// 
+/// If there is no other reference to the file, the file is deleted, otherwise the file is
+/// kept on the file system until all references to it are removed.
+/// 
+/// # Errors
+/// See [`UnlinkError`] for a list of possible errors.
 pub fn unlink(dir: &FileDescriptor, path: &str) -> Result<(), UnlinkError> {
     let str = SyscallString::from(path);
     let ret;
