@@ -1,20 +1,22 @@
 {
     "rust-analyzer.procMacro.attributes.enable": true,
+    "rust-analyzer.procMacro.enable": true,
     "rust-analyzer.check.allTargets": false,
     "rust-analyzer.check.command": "clippy",
     "rust-analyzer.cargo.target": "x86_64-unknown-none",
     "rust-analyzer.linkedProjects": [
-        "kernel/crates/helium-macros/Cargo.toml",
-        "kernel/crates/helium-addr/Cargo.toml",
-        "kernel/crates/helium-sync/Cargo.toml",
-        "kernel/crates/helium-lib/Cargo.toml",
-        "kernel/Cargo.toml",
+        "crates/helium-macros/Cargo.toml",
+        "crates/helium-addr/Cargo.toml",
+        "crates/helium-sync/Cargo.toml",
+        "crates/helium-lib/Cargo.toml",
+        "Cargo.toml"
     ],
     "editor.semanticTokenColorCustomizations": {
-        "enabled": true,
+        "enabled": true
     },
     "editor.inlayHints.enabled": "offUnlessPressed",
+    "editor.formatOnSave": true,
     "editor.rulers": [
         100
-    ],
+    ]
 }
