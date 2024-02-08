@@ -36,12 +36,13 @@ jobs:
       run: |
         chmod +x ./scripts/*
         ./scripts/first_build.sh
-        rm -rf bin/src/rust-1.73.0/src
-        rm -rf bin/src/rust-1.73.0/tests
-        rm -rf bin/src/rust-1.73.0/build
-        rm -rf bin/src/rust-1.73.0/target
-        rm -rf bin/src/rust-1.73.0/library
-        rm -rf bin/src/rust-1.73.0/compiler
+        rm -rf bin/src/rust-1.73.0/
+        rm -rf bin/src/rust-1.73.0-patched/src
+        rm -rf bin/src/rust-1.73.0-patched/tests
+        rm -rf bin/src/rust-1.73.0-patched/build
+        rm -rf bin/src/rust-1.73.0-patched/target
+        rm -rf bin/src/rust-1.73.0-patched/library
+        rm -rf bin/src/rust-1.73.0-patched/compiler
 
     - name: Save rust compiler artifacts
       if: steps.restore-rust-artifacts.outputs.cache-hit != 'true'
