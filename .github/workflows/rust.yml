@@ -39,7 +39,6 @@ jobs:
         rm -rf bin/src/rust-1.73.0/
         rm -rf bin/src/rust-1.73.0-patched/src
         rm -rf bin/src/rust-1.73.0-patched/tests
-        rm -rf bin/src/rust-1.73.0-patched/build
         rm -rf bin/src/rust-1.73.0-patched/target
         rm -rf bin/src/rust-1.73.0-patched/library
         rm -rf bin/src/rust-1.73.0-patched/compiler
