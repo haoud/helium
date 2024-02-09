@@ -121,7 +121,7 @@ pub unsafe fn terminate_setup() -> ! {
             // TODO: Run the tests
             stop(Stop::Success);
         } else {
-            log::info!("Helium booted successfully !" + "                                                           ");
+            log::info!("Helium booted successfully !");
             user::enter_userland();
         }
     }
