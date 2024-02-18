@@ -3,25 +3,3 @@ name = "syscall"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies.compiler_builtins]
-features = ["mem"]
-optional = true
-version = "0.1"
-
-[dependencies.core]
-optional = true
-package = "rustc-std-workspace-core"
-version = "1.0.0"
-
-[dependencies.alloc]
-optional = true
-package = "rustc-std-workspace-alloc"
-version = "1.0.0"
-
-[features]
-default = []
-rustc-dep-of-std = [
-	"core",
-	"alloc",
-	"compiler_builtins/rustc-dep-of-std"
-]

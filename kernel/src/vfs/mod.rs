@@ -1,5 +1,5 @@
 use self::{dentry::Dentry, mount::ReadInodeError};
-use crate::{device::Device, module, vfs::dentry::ROOT};
+use crate::device::Device;
 use alloc::vec;
 
 pub mod dentry;
@@ -20,60 +20,6 @@ pub use self::path::*;
 #[init]
 pub fn setup() {
     fs::mount_root("ramfs", Device::None);
-    fill_ramdisk();
-}
-
-/// Fill the ramdisk with some files and directories
-fn fill_ramdisk() {
-    let shell_data = module::read("/boot/shell.elf").expect("Shell executable not found");
-
-    let root = ROOT.get().unwrap();
-    let inode = root.inode().clone();
-
-    // Create the /bin directory
-    inode
-        .as_directory()
-        .unwrap()
-        .mkdir(&inode, "bin")
-        .expect("Failed to create /bin");
-
-    // Create the /usr directory
-    inode
-        .as_directory()
-        .unwrap()
-        .mkdir(&inode, "usr")
-        .expect("Failed to create /usr");
-
-    inode
-        .as_directory()
-        .unwrap()
-        .create(&inode, "shell.elf")
-        .expect("Failed to create shell.elf");
-
-    let shell = lookup(
-        &Path::new("/shell.elf").unwrap(),
-        root,
-        root,
-        LookupFlags::empty(),
-    )
-    .expect("Shell.elf created but not found");
-
-    let file = shell
-        .open(file::OpenFlags::WRITE)
-        .expect("Failed to open shell.elf");
-
-    // Write the shell to the file
-    let len = file
-        .as_file()
-        .unwrap()
-        .write(&file, shell_data, file::Offset(0))
-        .expect("Failed to write to shell.elf");
-
-    assert!(
-        len == shell_data.len(),
-        "Wrote {len} bytes instead of {}",
-        shell_data.len()
-    );
 }
 
 bitflags::bitflags! {

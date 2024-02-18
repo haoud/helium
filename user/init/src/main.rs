@@ -1,4 +1,14 @@
-fn main() {
-    println!("init: spawning shell");
-    syscall::task::spawn("/shell.elf").expect("Failed to spawn shell");
+#![no_std]
+#![no_main]
+
+#[no_mangle]
+pub extern "C" fn _start() -> ! {
+    loop {
+        syscall::task::yields();
+    }
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
 }
