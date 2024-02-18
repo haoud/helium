@@ -22,39 +22,6 @@ jobs:
         packages: ninja-build lld libssl-dev qemu-system-x86
         version: 1.0
 
-    - name: Restore rust compiler artifacts
-      id: restore-rust-artifacts
-      uses: actions/cache/restore@v3
-      with:
-        path: bin/src/rust-1.73.0-patched
-        key: ${{ runner.os }}-rust-${{ hashFiles('patch/rust.diff') }}
-
-    # Build rust compiler if cache miss
-    # After building, remove all unnecessary files to reduce the cache size
-    - name: Build rust compiler
-      if: steps.restore-rust-artifacts.outputs.cache-hit != 'true'
-      run: |
-        chmod +x ./scripts/*
-        ./scripts/first_build.sh
-        rm -rf bin/src/rust-1.73.0/
-        rm -rf bin/src/rust-1.73.0-patched/src
-        rm -rf bin/src/rust-1.73.0-patched/tests
-        rm -rf bin/src/rust-1.73.0-patched/target
-        rm -rf bin/src/rust-1.73.0-patched/library
-        rm -rf bin/src/rust-1.73.0-patched/compiler
-
-    - name: Save rust compiler artifacts
-      if: steps.restore-rust-artifacts.outputs.cache-hit != 'true'
-      id: save-rust-artifacts
-      uses: actions/cache/save@v3
-      with:
-        path: bin/src/rust-1.73.0-patched
-        key: ${{ runner.os }}-rust-${{ hashFiles('patch/rust.diff') }}
-
-    - name: Add x86_64-unknown-helium target
-      if: steps.restore-rust-artifacts.outputs.cache-hit != 'false'
-      run: ./scripts/add_user_toolchain.sh
-
     - name: Build kernel and userland
       run: make build
 
