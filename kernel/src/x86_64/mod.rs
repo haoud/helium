@@ -71,7 +71,7 @@ pub unsafe fn setup() {
 /// function because the BSP already initialized a lot of things that only need to be done once.
 #[init]
 #[inline(never)]
-unsafe fn ap_setup(info: &limine::SmpInfo) {
+unsafe fn ap_setup(info: &limine::smp::Cpu) {
     smp::per_cpu_setup(info.lapic_id);
 
     gdt::load();

@@ -24,14 +24,15 @@ pub fn framebuffer_info(info_ptr: usize) -> Result<usize, ReadInfoError> {
 
     let framebuffer = &LIMINE_FRAMEBUFFER
         .get_response()
-        .get()
         .expect("Failed to get framebuffer info")
-        .framebuffers()[0];
+        .framebuffers()
+        .next()
+        .expect("No framebuffer info");
 
     let framebuffer_info = FramebufferInfo {
-        height: framebuffer.height,
-        width: framebuffer.width,
-        bpp: framebuffer.bpp,
+        height: framebuffer.height(),
+        width: framebuffer.width(),
+        bpp: framebuffer.bpp(),
     };
 
     unsafe {

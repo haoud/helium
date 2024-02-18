@@ -16,9 +16,8 @@ static HEAP_ALLOCATOR: Heap = Heap::new();
 pub static FRAME_ALLOCATOR: Lazy<Spinlock<dummy::Allocator>> = Lazy::new(|| {
     let mmap = LIMINE_MEMMAP
         .get_response()
-        .get()
         .expect("No memory map found")
-        .memmap();
+        .entries();
 
     Spinlock::new(dummy::Allocator::new(mmap))
 });

@@ -7,7 +7,6 @@ use addr::{
     virt::Virtual,
 };
 use core::{mem::size_of, ops::Range};
-use limine::NonNullPtr;
 
 /// Represents the state of a physical memory frame, and contains information about the frame such
 /// as its flags and its reference count.
@@ -114,7 +113,7 @@ impl<T: Default> State<T> {
     #[init]
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
-    pub fn new(mmap: &[NonNullPtr<limine::MemmapEntry>]) -> Self {
+    pub fn new(mmap: &[&limine::memory_map::Entry]) -> Self {
         let last = Self::find_last_usable_frame_index(mmap);
         let array_location = Self::find_array_location(mmap, last);
 
@@ -142,17 +141,17 @@ impl<T: Default> State<T> {
             let start = frame::Index::from_address(entry.base as usize)
                 .0
                 .min(last.0);
-            let end = Frame::upper(entry.base + entry.len).index().0.min(last.0);
+            let end = Frame::upper(entry.base + entry.length).index().0.min(last.0);
 
             for frame in &mut array[start..end] {
-                match entry.typ {
-                    limine::MemoryMapEntryType::Usable => {
+                match entry.entry_type {
+                    limine::memory_map::EntryType::USABLE => {
                         frame.flags.remove(FrameFlags::POISONED);
                         frame.flags.insert(FrameFlags::FREE);
                         statistics.poisoned.0 -= 1;
                         statistics.usable.0 += 1;
                     }
-                    limine::MemoryMapEntryType::BootloaderReclaimable => {
+                    limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE => {
                         frame.flags.remove(FrameFlags::POISONED);
                         frame.flags.insert(FrameFlags::BOOT);
                         statistics.poisoned.0 -= 1;
@@ -161,7 +160,7 @@ impl<T: Default> State<T> {
                         statistics.usable.0 += 1;
                         frame.count = 1;
                     }
-                    limine::MemoryMapEntryType::KernelAndModules => {
+                    limine::memory_map::EntryType::KERNEL_AND_MODULES => {
                         frame.flags.remove(FrameFlags::POISONED);
                         frame.flags.insert(FrameFlags::KERNEL);
                         statistics.poisoned.0 -= 1;
@@ -170,16 +169,16 @@ impl<T: Default> State<T> {
                         statistics.usable.0 += 1;
                         frame.count = 1;
                     }
-                    limine::MemoryMapEntryType::AcpiReclaimable
-                    | limine::MemoryMapEntryType::Framebuffer
-                    | limine::MemoryMapEntryType::Reserved
-                    | limine::MemoryMapEntryType::AcpiNvs => {
+                    limine::memory_map::EntryType::ACPI_RECLAIMABLE
+                    | limine::memory_map::EntryType::FRAMEBUFFER
+                    | limine::memory_map::EntryType::RESERVED
+                    | limine::memory_map::EntryType::ACPI_NVS => {
                         frame.flags.remove(FrameFlags::POISONED);
                         frame.flags.insert(FrameFlags::RESERVED);
                         statistics.poisoned.0 -= 1;
                         statistics.reserved.0 += 1;
                     }
-                    limine::MemoryMapEntryType::BadMemory => (),
+                    _ => (),
                 }
             }
         }
@@ -222,14 +221,13 @@ impl<T: Default> State<T> {
     pub unsafe fn reclaim_boot_memory(&mut self) -> Vec<Range<Frame>> {
         let boot_reclaimable = LIMINE_MEMMAP
             .get_response()
-            .get()
             .expect("No memory map found")
-            .memmap()
+            .entries()
             .iter()
-            .filter(|entry| entry.typ == limine::MemoryMapEntryType::BootloaderReclaimable)
+            .filter(|entry| entry.entry_type == limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE)
             .map(|entry| {
                 let start = Frame::new(Physical::from(entry.base));
-                let end = Frame::upper(Physical::from(entry.base + entry.len));
+                let end = Frame::upper(Physical::from(entry.base + entry.length));
                 start..end
             })
             .collect::<Vec<_>>();
@@ -277,12 +275,12 @@ impl<T: Default> State<T> {
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
     fn find_array_location(
-        mmap: &[NonNullPtr<limine::MemmapEntry>],
+        mmap: &[&limine::memory_map::Entry],
         last: frame::Index,
     ) -> Physical {
         mmap.iter()
-            .filter(|entry| entry.typ == limine::MemoryMapEntryType::Usable)
-            .find(|entry| entry.len as usize >= last.0 * size_of::<FrameInfo<T>>())
+            .filter(|entry| entry.entry_type == limine::memory_map::EntryType::USABLE)
+            .find(|entry| entry.length as usize >= last.0 * size_of::<FrameInfo<T>>())
             .map_or_else(
                 || panic!("Could not find a free region to place the frame array!"),
                 |entry| Physical::new(entry.base as usize),
@@ -294,14 +292,14 @@ impl<T: Default> State<T> {
     /// the range of the array are considered as reserved/poisoned.
     #[init]
     #[must_use]
-    fn find_last_usable_frame_index(mmap: &[NonNullPtr<limine::MemmapEntry>]) -> frame::Index {
+    fn find_last_usable_frame_index(mmap: &[&limine::memory_map::Entry]) -> frame::Index {
         mmap.iter()
             .filter(|entry| {
-                entry.typ == limine::MemoryMapEntryType::Usable
-                    || entry.typ == limine::MemoryMapEntryType::KernelAndModules
-                    || entry.typ == limine::MemoryMapEntryType::BootloaderReclaimable
+                entry.entry_type == limine::memory_map::EntryType::USABLE
+                    || entry.entry_type == limine::memory_map::EntryType::KERNEL_AND_MODULES
+                    || entry.entry_type == limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE
             })
-            .map(|entry| entry.base + entry.len)
+            .map(|entry| entry.base + entry.length)
             .max()
             .map_or(frame::Index::default(), |address| {
                 frame::Index::from(Frame::upper(address))

@@ -46,7 +46,6 @@ extern "C" {
 pub unsafe fn start_cpus() {
     let reponse = LIMINE_SMP
         .get_response()
-        .get_mut()
         .expect("No SMP response from Limine");
 
     assert!(reponse.cpus().len() <= MAX_CPUS, "Too many core found");
@@ -55,10 +54,10 @@ pub unsafe fn start_cpus() {
     // Start the APs
     reponse
         .cpus()
-        .iter_mut()
+        .iter()
         .filter(|cpu| cpu.lapic_id != 0)
         .for_each(|cpu| {
-            cpu.goto_address = ap_start;
+            cpu.goto_address.write(ap_start);
         });
 
     // Wait for all APs to start
@@ -131,10 +130,8 @@ fn ap_wait() {
 /// This function is called when an AP is started. This initialize the AP, increment the CPU count
 /// and wait for the BSP to finish its initialization.
 #[no_mangle]
-extern "C" fn ap_start(info: *const limine::SmpInfo) -> ! {
-    unsafe {
-        ap_setup(&*info);
-        ap_wait();
-        SCHEDULER.engage_cpu();
-    }
+unsafe extern "C" fn ap_start(info: &limine::smp::Cpu) -> ! {
+    ap_setup(info);
+    ap_wait();
+    SCHEDULER.engage_cpu();
 }

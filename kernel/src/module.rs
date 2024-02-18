@@ -27,38 +27,30 @@ static mut MODULES: Option<HashMap<String, Vec<u8>>> = None;
 #[init]
 #[allow(clippy::cast_possible_truncation)]
 pub unsafe fn setup() {
-    let response = LIMINE_MODULES
+    let modules = LIMINE_MODULES
         .get_response()
-        .get()
-        .expect("No limine modules response");
+        .expect("No limine modules response")
+        .modules();
 
     MODULES = Some(HashMap::new());
 
-    // SAFETY: This is safe because the data provided by Limine is assumed to
-    // be valid (if we can't trust Limine, what can we trust?). The code below
-    // use this assumption to create slices from the raw pointers provided by
-    // Limine. If the data is invalid, we will have undefined behavior, but
-    // there is nothing we can do about it.
-    let count = response.module_count as usize;
-    let mods = response.modules.as_ptr();
-    let modules = core::slice::from_raw_parts(mods, count);
-
     for module in modules {
-        // Copy the module data to the heap and insert it in the hashmap
-        let path = &module.path.to_str().unwrap().to_str().unwrap();
-        let ptr = module.base.as_ptr().unwrap();
-        let len = module.length as usize;
-        let data = core::slice::from_raw_parts(ptr, len);
+        let path = String::from_utf8_lossy(module.path());
+        let data = core::slice::from_raw_parts(
+            module.addr() as *const u8,
+            module.size() as usize,
+        );
+
         MODULES
             .as_mut()
             .unwrap()
-            .insert((*path).to_string(), data.to_vec());
+            .insert(path.to_string(), data.to_vec());
 
         // Free the frames used by the module since we don't need them anymore
-        let addr = ptr as usize;
+        let addr = module.addr() as usize;
         let start = Frame::new(Physical::from(Virtual::new(addr)));
         let end = Frame::new(Physical::from(
-            Virtual::new(addr + module.length as usize).page_align_up(),
+            Virtual::new(addr + module.size() as usize).page_align_up(),
         ));
 
         FRAME_ALLOCATOR.lock().deallocate_range(start..end);

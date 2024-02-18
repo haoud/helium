@@ -8,7 +8,6 @@ use addr::{
     virt::Virtual,
 };
 use core::ops::Range;
-use limine::NonNullPtr;
 
 /// Additional information about a frame. For this allocator, this structure is empty because the
 /// allocator does not need any additional information about a frame.
@@ -30,7 +29,7 @@ impl Allocator {
     /// the frame array in order to allow the allocation of physical memory frames, and then
     /// initializes the allocator.
     #[must_use]
-    pub fn new(mmap: &[NonNullPtr<limine::MemmapEntry>]) -> Self {
+    pub fn new(mmap: &[&limine::memory_map::Entry]) -> Self {
         Self {
             state: State::new(mmap),
         }
