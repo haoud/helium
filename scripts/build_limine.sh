@@ -13,7 +13,7 @@ mkdir -p bin/src
 cd bin/src
 echo "Downloading limine..."
 git clone https://github.com/limine-bootloader/limine.git \
-    --branch=v3.0-branch-binary \
+    --branch=v7.0.5-binary \
     --depth=1
 echo "Building limine..."
 make -C limine

@@ -16,7 +16,7 @@ typed-builder = "0.18.0"
 hashbrown = "0.14.3"
 bitfield = "0.14.0"
 bitflags = "2.2.1"
-limine = "0.1.12"
+limine = "0.2.0"
 cfg-if = "1.0.0"
 log = "0.4.17"
 
