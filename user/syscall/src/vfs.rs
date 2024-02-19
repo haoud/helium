@@ -639,7 +639,7 @@ pub fn open(
 
 /// Close a file descriptor. After closing, the file descriptor is no longer valid
 /// and cannot be used to refer to the file.
-/// 
+///
 /// # Errors
 /// See `CloseError` for a list of possible errors.
 pub fn close(fd: FileDescriptor) -> Result<(), CloseError> {
@@ -661,7 +661,7 @@ pub fn close(fd: FileDescriptor) -> Result<(), CloseError> {
 }
 
 /// Read from a file descriptor into a buffer and return the number of bytes read.
-/// 
+///
 /// # Errors
 /// See `ReadError` for a list of possible errors.
 pub fn read(fd: &FileDescriptor, buffer: &mut [u8]) -> Result<usize, ReadError> {
@@ -685,7 +685,7 @@ pub fn read(fd: &FileDescriptor, buffer: &mut [u8]) -> Result<usize, ReadError> 
 }
 
 /// Write to a file descriptor from a buffer and return the number of bytes written.
-/// 
+///
 /// # Errors
 /// See `WriteError` for a list of possible errors.
 pub fn write(fd: &FileDescriptor, buffer: &[u8]) -> Result<usize, WriteError> {
@@ -710,11 +710,11 @@ pub fn write(fd: &FileDescriptor, buffer: &[u8]) -> Result<usize, WriteError> {
 
 /// Change the file offset of a file descriptor to the specified relative position and
 /// return the new absolute position.
-/// 
+///
 /// The `whence` argument contains the offset and how it should be interpreted. The
 /// relative position can be negative, in which case the file offset is moved backwards.
 /// However, the absolute position cannot be negative.
-/// 
+///
 /// # Errors
 /// See `SeekError` for a list of possible errors.
 pub fn seek(fd: &FileDescriptor, whence: Whence) -> Result<usize, SeekError> {
@@ -745,7 +745,7 @@ pub fn seek(fd: &FileDescriptor, whence: Whence) -> Result<usize, SeekError> {
 /// Get the current working directory and write it into the buffer. The buffer must be
 /// large enough to hold the entire path. The function returns the number of bytes written
 /// into the buffer.
-/// 
+///
 /// # Errors
 /// See `GetCwdError` for a list of possible errors.
 pub fn get_cwd(buffer: &mut [u8]) -> Result<usize, GetCwdError> {
@@ -768,7 +768,7 @@ pub fn get_cwd(buffer: &mut [u8]) -> Result<usize, GetCwdError> {
 }
 
 /// Change the current working directory to the specified path.
-/// 
+///
 /// # Errors
 /// See `ChangeCwdError` for a list of possible errors.
 pub fn change_cwd(path: &str) -> Result<(), ChangeCwdError> {
@@ -793,7 +793,7 @@ pub fn change_cwd(path: &str) -> Result<(), ChangeCwdError> {
 /// Create a new empty directory at the specified path. If the path is relative, it is
 /// created relative to the specified directory. If the path is absolute, the directory
 /// argument is ignored.
-/// 
+///
 /// # Errors
 /// See [`MkdirError`] for a list of possible errors.
 pub fn mkdir(dir: &FileDescriptor, path: &str) -> Result<(), MkdirError> {
@@ -819,7 +819,7 @@ pub fn mkdir(dir: &FileDescriptor, path: &str) -> Result<(), MkdirError> {
 /// Remove a empty directory at the specified path. If the path is relative, it is removed
 /// relative to the specified directory. If the path is absolute, the directory argument is
 /// ignored.
-/// 
+///
 /// # Errors
 /// See [`RmdirError`] for a list of possible errors.
 pub fn rmdir(dir: &FileDescriptor, path: &str) -> Result<(), RmdirError> {
@@ -845,7 +845,7 @@ pub fn rmdir(dir: &FileDescriptor, path: &str) -> Result<(), RmdirError> {
 /// Truncate the file at the specified path to the specified length.
 /// If the file is larger than the specified length, the extra data is discarded. If the
 /// file is smaller than the specified length, it is extended with zero bytes.
-/// 
+///
 /// # Errors
 /// See [`TruncateError`] for a list of possible errors.
 pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
@@ -871,7 +871,7 @@ pub fn truncate(path: &str, lenght: usize) -> Result<(), TruncateError> {
 /// Get informations about the file at the specified path. If the path is relative, it is
 /// resolved relative to the specified directory. If the path is absolute, the directory
 /// argument is ignored.
-/// 
+///
 /// # Errors
 /// See [`StatError`] for a list of possible errors.
 pub fn stat(dir: &FileDescriptor, path: &str) -> Result<Stat, TruncateError> {
@@ -916,7 +916,7 @@ pub fn stat(dir: &FileDescriptor, path: &str) -> Result<Stat, TruncateError> {
 }
 
 /// Read the next directory entry from the specified directory and return it.
-/// 
+///
 /// # Errors
 /// See [`ReaddirError`] for a list of possible errors.
 pub fn readdir(fd: &FileDescriptor) -> Result<Dirent, ReaddirError> {
@@ -946,10 +946,10 @@ pub fn readdir(fd: &FileDescriptor) -> Result<Dirent, ReaddirError> {
 
 /// Unlink the file at the specified path. If the path is relative, it is resolved relative
 /// to the specified directory. If the path is absolute, the directory argument is ignored.
-/// 
+///
 /// If there is no other reference to the file, the file is deleted, otherwise the file is
 /// kept on the file system until all references to it are removed.
-/// 
+///
 /// # Errors
 /// See [`UnlinkError`] for a list of possible errors.
 pub fn unlink(dir: &FileDescriptor, path: &str) -> Result<(), UnlinkError> {

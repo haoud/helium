@@ -141,7 +141,11 @@ impl<T: Default> State<T> {
             let start = frame::Index::from_address(entry.base as usize)
                 .0
                 .min(last.0);
-            let end = Frame::upper(entry.base + entry.length).index().0.min(last.0);
+
+            let end = Frame::upper(entry.base + entry.length)
+                .index()
+                .0
+                .min(last.0);
 
             for frame in &mut array[start..end] {
                 match entry.entry_type {
@@ -224,7 +228,9 @@ impl<T: Default> State<T> {
             .expect("No memory map found")
             .entries()
             .iter()
-            .filter(|entry| entry.entry_type == limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE)
+            .filter(|entry| {
+                entry.entry_type == limine::memory_map::EntryType::BOOTLOADER_RECLAIMABLE
+            })
             .map(|entry| {
                 let start = Frame::new(Physical::from(entry.base));
                 let end = Frame::upper(Physical::from(entry.base + entry.length));
@@ -274,10 +280,7 @@ impl<T: Default> State<T> {
     #[init]
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
-    fn find_array_location(
-        mmap: &[&limine::memory_map::Entry],
-        last: frame::Index,
-    ) -> Physical {
+    fn find_array_location(mmap: &[&limine::memory_map::Entry], last: frame::Index) -> Physical {
         mmap.iter()
             .filter(|entry| entry.entry_type == limine::memory_map::EntryType::USABLE)
             .find(|entry| entry.length as usize >= last.0 * size_of::<FrameInfo<T>>())

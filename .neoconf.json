@@ -1,0 +1,19 @@
+{
+  "neoconf": {
+    "plugins": {
+      "rust-analyzer": {
+        "enabled": true
+      }
+    }
+  },
+
+  "lspconfig": {
+    "rust-analyzer": {
+      "settings": {
+        "cargo.target": "x86_64-unknown-none",
+        "check.command": "clippy",
+        "check.allTargets": false
+      }
+    } 
+  }
+}

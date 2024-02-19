@@ -5,7 +5,7 @@ build-release:
 	cd init && cargo build --release
 
 install:
-	cd init && ./install.sh
+	./install_package.sh init
 
 fmt:
 	cd init && cargo fmt

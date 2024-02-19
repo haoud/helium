@@ -31,7 +31,7 @@ impl From<Errno> for GetTimeError {
 }
 
 /// Get the current time since the Unix epoch.
-/// 
+///
 /// # Errors
 /// - `GetTimeError::BadAddress`: The given address for the timespec is not a valid address.
 /// This should never happen, as the address is always valid and directly provided by this

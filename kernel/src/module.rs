@@ -36,10 +36,7 @@ pub unsafe fn setup() {
 
     for module in modules {
         let path = String::from_utf8_lossy(module.path());
-        let data = core::slice::from_raw_parts(
-            module.addr() as *const u8,
-            module.size() as usize,
-        );
+        let data = core::slice::from_raw_parts(module.addr().cast_const(), module.size() as usize);
 
         MODULES
             .as_mut()

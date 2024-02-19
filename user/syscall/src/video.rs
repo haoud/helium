@@ -36,10 +36,10 @@ pub struct FramebufferInfo {
 }
 
 /// Obtain information about the framebuffer.
-/// 
+///
 /// This function returns information about the framebuffer, such as its height,
 /// width and bits per pixel. The information is returned in a `FramebufferInfo`
-/// 
+///
 /// # Errors
 /// See `ReadInfoError` for details.
 pub fn framebuffer_info() -> Result<FramebufferInfo, ReadInfoError> {

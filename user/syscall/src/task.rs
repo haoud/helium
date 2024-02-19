@@ -112,7 +112,7 @@ pub fn exit(code: i32) -> ! {
 }
 
 /// Spawn a new task from the specified ELF file.
-/// 
+///
 /// # Errors
 /// - `SpawnError::BadAddress`: One or more of the arguments is located at an invalid address.
 /// - `SpawnError::InvalidArgument`: One or more of the arguments is invalid.
