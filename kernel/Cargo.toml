@@ -10,26 +10,19 @@ sync = { path = "crates/helium-sync", package = "helium-sync" }
 addr = { path = "crates/helium-addr", package = "helium-addr" }
 lib = { path = "crates/helium-lib", package = "helium-lib" }
 elf = { version = "0.7.2", default-features = false }
+scopeguard = { version = "1.2.0", default-features = false }
 
+circular-buffer = { version  = "0.1.7", default-features = false, features = ["alloc"] }
 linked_list_allocator = "0.10.5"
 typed-builder = "0.18.0"
-hashbrown = "0.14.3"
 bitfield = "0.14.0"
 bitflags = "2.2.1"
-limine = "0.2.0"
+limine = "0.1.12"
 cfg-if = "1.0.0"
 log = "0.4.17"
 
-# Temporary, will be removed once the PR subitted to use `alloc`
-# instead of `std` will be merged.
-[dependencies.circular-buffer]
-git = "https://github.com/haoud/rust-circular-buffer.git"
-default-features = false
-features = ["alloc"]
-
 [features]
-default = ["trace-syscalls"]
-trace-syscalls = []
+default = []
 test = ["qemu"]
 qemu = []
 
@@ -38,6 +31,6 @@ debug-assertions = false
 overflow-checks = false
 incremental = false
 codegen-units = 1
-opt-level = 3
+opt-level = 2
 debug = false
 lto = true
