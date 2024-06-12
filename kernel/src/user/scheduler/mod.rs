@@ -106,11 +106,6 @@ pub trait Scheduler {
             return;
         }
 
-        log::debug!(
-            "Switching from {:?} to {:?}",
-            current_task.id().0,
-            next_task.id().0
-        );
         self.set_current_task(Arc::clone(&next_task));
 
         // Here, we manually decrement the strong count of the next task. This is needed
@@ -130,10 +125,14 @@ pub trait Scheduler {
             // If the current task is exiting, we call a special function to exit the task
             // that will do the necessary cleanup in free the memory used by the task before
             // switching to the next task.
-            task::State::Terminated => x86_64::thread::exit(current_task, &mut next_thread),
+            task::State::Terminated => {
+                x86_64::thread::exit(current_task, &mut next_thread)
+            }
 
             // If the current task is rescheduled, we change its state to ready
-            task::State::Rescheduled => current_task.change_state(task::State::Ready),
+            task::State::Rescheduled => {
+                current_task.change_state(task::State::Ready)
+            }
 
             // If the current task is blocked, we do not need to do anything
             task::State::Blocked => (),
@@ -141,7 +140,10 @@ pub trait Scheduler {
             // Other states are not supposed to be scheduled and it is a bug if we are
             // here. We panic in this case, because this is a bug in the kernel that
             // we cannot recover from and should be fixed.
-            _ => unreachable!("scheduler: invalid task state {:#?}", current_task.state()),
+            _ => unreachable!(
+                "scheduler: invalid task state {:#?}",
+                current_task.state()
+            ),
         }
 
         // The strong count of the current task is decremented here and not above with

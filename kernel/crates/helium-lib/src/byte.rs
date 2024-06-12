@@ -3,7 +3,8 @@
 pub struct ByteSize(pub usize);
 
 impl ByteSize {
-    pub const UNITS: &[&'static str] = &["B", "KiB", "MiB", "GiB", "TiB"];
+    pub const UNITS: &'static [&'static str] =
+        &["B", "KiB", "MiB", "GiB", "TiB"];
 
     #[must_use]
     pub const fn new(size: usize) -> Self {

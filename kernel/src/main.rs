@@ -1,3 +1,7 @@
+//! TODO:
+//!  - Modify the indentation of all files
+//!  - Remove all the VFS code
+//!  - Async support in the kernel
 #![no_std]
 #![no_main]
 #![warn(clippy::all)]
