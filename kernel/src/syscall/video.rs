@@ -19,8 +19,8 @@ pub struct FramebufferInfo {
 /// # Panics
 /// Panics if the framebuffer info could not be retrieved from Limine.
 pub fn framebuffer_info(info_ptr: usize) -> Result<usize, ReadInfoError> {
-    let framebuffer_info_ptr =
-        Pointer::<FramebufferInfo>::from_usize(info_ptr).ok_or(ReadInfoError::BadAddress)?;
+    let framebuffer_info_ptr = Pointer::<FramebufferInfo>::from_usize(info_ptr)
+        .ok_or(ReadInfoError::BadAddress)?;
 
     let framebuffer = &LIMINE_FRAMEBUFFER
         .get_response()

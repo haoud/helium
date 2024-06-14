@@ -9,8 +9,8 @@ pub struct Path {
 }
 
 impl Path {
-    /// The maximum length of a path, in bytes. Since we use UTF-8, the maximum character
-    /// count can be less than this.
+    /// The maximum length of a path, in bytes. Since we use UTF-8, the maximum
+    /// character count can be less than this.
     pub const MAX_LEN: usize = 4096;
 
     /// Creates a root path.
@@ -25,17 +25,17 @@ impl Path {
     /// Create a new path from a string.
     ///
     /// # Errors
-    /// This function will return an error if the path is empty, contains a forbidden
-    /// character (currently, the null byte), or is too long. See [`InvalidPath`] for more
-    /// information about possible errors.
+    /// This function will return an error if the path is empty, contains a
+    /// forbidden character (currently, the null byte), or is too long. See
+    /// [`InvalidPath`] for more information about possible errors.
     pub fn new(path: &str) -> Result<Self, InvalidPath> {
         Self::validate(path)?;
 
         // The path is absolute if it starts with a forward slash.
         let absolute = path.chars().nth(0) == Some('/');
 
-        // Split the path into components and validate each component to have a list
-        // of valid names.
+        // Split the path into components and validate each component to have
+        // a list of valid names.
         let components = path
             .split('/')
             .filter(|s| !s.is_empty())
@@ -51,9 +51,9 @@ impl Path {
     /// Validates a path to ensure it is valid.
     ///
     /// # Errors
-    /// This function will return an error if the path is empty, contains a forbidden
-    /// character (currently, the null byte), or is too long. See [`InvalidPath`] for more
-    /// information about possible errors.
+    /// This function will return an error if the path is empty, contains a
+    /// forbidden character (currently, the null byte), or is too long. See
+    /// [`InvalidPath`] for more information about possible errors.
     pub fn validate(path: &str) -> Result<(), InvalidPath> {
         if path.is_empty() {
             return Err(InvalidPath::Empty);
@@ -67,9 +67,9 @@ impl Path {
         Ok(())
     }
 
-    /// Try to convert the path to a name. This will return None if the path is not a valid
-    /// name (for example, if it contains more than one component), or Some(name) if the path
-    /// is a valid name.
+    /// Try to convert the path to a name. This will return None if the path
+    /// is not a valid name (for example, if it contains more than one
+    /// component), or Some(name) if the path is a valid name.
     #[must_use]
     pub fn as_name(&self) -> Option<&Name> {
         if self.components.len() != 1 {
@@ -94,14 +94,15 @@ impl Path {
         self.components.pop()
     }
 
-    /// Return true if the path is absolute (starts with a forward slash), false otherwise.
+    /// Return true if the path is absolute (starts with a forward slash),
+    /// false otherwise.
     #[must_use]
     pub const fn is_absolute(&self) -> bool {
         self.absolute
     }
 
-    /// Return true if the path is relative (does not start with a forward slash), false
-    /// otherwise.
+    /// Return true if the path is relative (does not start with a forward
+    /// slash), false otherwise.
     #[must_use]
     pub const fn is_relative(&self) -> bool {
         !self.absolute
@@ -159,8 +160,8 @@ impl Display for Path {
 /// Errors that can occur when validating a path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum InvalidPath {
-    // An forbidden character was found in the path. Currently, the only forbidden character is
-    // the null byte.
+    /// An forbidden character was found in the path. Currently, the only
+    /// forbidden character is the null byte.
     InvalidChar,
 
     /// The path is not valid UTF-8.

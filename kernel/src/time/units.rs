@@ -278,10 +278,9 @@ impl From<Second> for Microsecond {
 impl From<Millisecond> for Microsecond {
     fn from(value: Millisecond) -> Self {
         Self(
-            value
-                .0
-                .checked_mul(1000)
-                .expect("Overflow when converting milliseconds to microseconds"),
+            value.0.checked_mul(1000).expect(
+                "Overflow when converting milliseconds to microseconds",
+            ),
         )
     }
 }

@@ -15,9 +15,10 @@ pub fn uptime_fast() -> Nanosecond {
     Nanosecond::new(ns)
 }
 
-/// Returns the uptime in nanoseconds. This function is more precise than `uptime_fast` because
-/// it compute the elapsed time since the last tick, but is much slower due to the additional
-/// computation and/or extra I/O port access.
+/// Returns the uptime in nanoseconds. This function is more precise than
+/// `uptime_fast` because it compute the elapsed time since the last tick,
+/// but is much slower due to the additional computation and/or extra I/O
+/// port access.
 #[must_use]
 pub fn uptime() -> Nanosecond {
     let tick = pit::TICK.load(Ordering::Relaxed);

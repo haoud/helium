@@ -28,7 +28,8 @@ pub fn write(buffer: usize, len: usize) -> Result<usize, WriteError> {
 pub enum WriteError {
     NoSuchSyscall = 1,
 
-    /// The buffer is not in the user address space or the buffer is not readable
+    /// The buffer is not in the user address space or the buffer is not
+    /// readable
     BadAddress,
 
     UnknownError,
@@ -85,7 +86,8 @@ pub enum ReadError {
     /// There is no serial port on the system
     NoSerialPort,
 
-    /// The buffer is not in the user address space or the buffer is not writable
+    /// The buffer is not in the user address space or the buffer is not
+    /// writable
     BadAddress,
 
     UnknownError,

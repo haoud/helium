@@ -41,10 +41,10 @@ impl Stats {
         }
     }
 
-    /// Called when frames are deallocated and update the statistics accordingly to the number of
-    /// frames deallocated and their flags.
-    /// The only flags used are [`FrameFlags::KERNEL`] to track the number of kernel frames used.
-    /// Other flags are ignored.
+    /// Called when frames are deallocated and update the statistics
+    /// accordingly to the number of frames deallocated and their flags.
+    /// The only flags used are [`FrameFlags::KERNEL`] to track the number
+    /// of kernel frames used. Other flags are ignored.
     pub fn frames_deallocated(&mut self, count: usize, flags: FrameFlags) {
         self.allocated.0 -= count;
         if flags.contains(FrameFlags::KERNEL) {
@@ -52,9 +52,9 @@ impl Stats {
         }
     }
 
-    /// Called when frames are allocated and update the statistics accordingly to the number of
-    /// frames allocated and their flags.
-    /// The only flags used are [`FrameFlags::KERNEL`] to track the number of kernel frames used.
+    /// Called when frames are allocated and update the statistics accordingly
+    /// to the number of frames allocated and their flags. The only flags used
+    /// are [`FrameFlags::KERNEL`] to track the number of kernel frames used.
     /// Other flags are ignored.
     pub fn frames_allocated(&mut self, count: usize, flags: FrameFlags) {
         self.allocated.0 += count;
@@ -98,30 +98,33 @@ impl core::fmt::Debug for Stats {
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct FrameFlags : u8 {
-        /// If set, the frame is poisoned. This means that the frame is not usable for allocation,
-        /// either because it does not exist or because it is poisoned by the firmware (e.g. bad
-        /// memory)
+        /// If set, the frame is poisoned. This means that the frame is not
+        /// usable for allocation, either because it does not exist or because
+        /// it is poisoned by the firmware (e.g. bad memory)
         const POISONED = 1 << 0;
 
-        /// If set, the frame is reserved. This means that the frame is not usable for allocation,
-        /// but can still be used for other purposes (e.g. framebuffer, memory mapped IO, etc.)
+        /// If set, the frame is reserved. This means that the frame is not
+        /// usable for allocation, but can still be used for other purposes
+        /// (e.g. framebuffer, memory mapped IO, etc.)
         const RESERVED = 1 << 1;
 
-        /// If set, the frame is free. This means that the frame is usable for allocation. This
-        /// flags cannot coexist with [`FrameFlags::RESERVED`] or [`FrameFlags::POISONED`].
+        /// If set, the frame is free. This means that the frame is usable for
+        /// allocation. This flags cannot coexist with [`FrameFlags::RESERVED`]
+        /// or [`FrameFlags::POISONED`].
         const FREE = 1 << 2;
 
-        /// If set, that means that the frame has been zeroed. This flags is only used for free
-        /// frames to speed up the allocation process.
+        /// If set, that means that the frame has been zeroed. This flags is
+        /// only used for free frames to speed up the allocation process.
         const ZEROED = 1 << 3;
 
-        /// If set, the frame is used by the kernel. This is only used to track the kernel memory
-        /// usage.
+        /// If set, the frame is used by the kernel. This is only used to track
+        /// the kernel memory usage.
         const KERNEL = 1 << 4;
 
-        /// If set, the frame is a bootloader reclaimable frame. Currently, this flags does
-        /// nothing, but it will be used in the future to allow the kernel to reclaim frames
-        /// that were allocated by the bootloader and only used during the boot process.
+        /// If set, the frame is a bootloader reclaimable frame. Currently,
+        /// this flags does nothing, but it will be used in the future to allow
+        /// the kernel to reclaim frames that were allocated by the bootloader
+        /// and only used during the boot process.
         const BOOT = 1 << 5;
     }
 
@@ -130,8 +133,8 @@ bitflags! {
         /// If set, the allocated frame will be zeroed before being returned
         const ZEROED =  FrameFlags::ZEROED.bits();
 
-        /// If set, the allocated frame will be marked as used by the kernel. This is only
-        /// used to track the kernel memory usage.
+        /// If set, the allocated frame will be marked as used by the kernel.
+        /// This is only used to track the kernel memory usage.
         const KERNEL = FrameFlags::KERNEL.bits();
     }
 }

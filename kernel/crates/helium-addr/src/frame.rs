@@ -1,10 +1,10 @@
 use crate::phys::Physical;
 use core::iter::Step;
 
-/// Represents the identifier of a physical memory frame. This is a simple wrapper
-/// around a usize that guarantees that the usize is a valid frame index (meaning
-/// that the usize is less than [`Index::MAX`], but it does not guarantee that the
-/// frame really exists).
+/// Represents the identifier of a physical memory frame. This is a simple
+/// wrapper around a usize that guarantees that the usize is a valid frame
+/// index (meaning that the usize is less than [`Index::MAX`], but it does
+/// not guarantee that the frame really exists).
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Index(pub usize);
 
@@ -14,16 +14,16 @@ impl Index {
     /// Creates a new frame index with the given index.
     ///
     /// # Panics
-    /// Panics if the index is greater than [`FrameIndex::MAX`] (meaning that the index
-    /// does not represent a valid frame).
+    /// Panics if the index is greater than [`FrameIndex::MAX`] (meaning that
+    /// the index does not represent a valid frame).
     #[must_use]
     pub const fn new(index: usize) -> Self {
         assert!(index <= Index::MAX);
         Self(index)
     }
 
-    /// Return the first address of the frame. This is the address of the first byte of
-    /// the frame, guaranteed to be page aligned.
+    /// Return the first address of the frame. This is the address of the first
+    /// byte of the frame, guaranteed to be page aligned.
     #[must_use]
     pub fn address(self) -> Physical {
         Physical::from(self.0 * Frame::SIZE)
@@ -32,8 +32,8 @@ impl Index {
     /// Creates a new frame index from the given address.
     ///
     /// # Panics
-    /// Panics if the address is not a valid physical address (see [`Physical::new`] for
-    /// more information)
+    /// Panics if the address is not a valid physical address (see
+    /// [`Physical::new`] for more information)
     #[must_use]
     pub const fn from_address(addr: usize) -> Self {
         #[allow(clippy::cast_possible_truncation)]
@@ -78,10 +78,10 @@ impl core::fmt::Debug for FrameCount {
     }
 }
 
-/// Represents a physical memory frame. A Frame is a 4 KiB block of memory, and is
-/// the smallest unit of physical memory that can be allocated. This struct is a
-/// wrapper around a physical address, and guarantees that the address is always
-/// page aligned (i.e 4 KiB aligned).
+/// Represents a physical memory frame. A Frame is a 4 KiB block of memory, and
+/// is the smallest unit of physical memory that can be allocated. This struct
+/// is a wrapper around a physical address, and guarantees that the address is
+/// always page aligned (i.e 4 KiB aligned).
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Frame(Physical);
@@ -90,8 +90,9 @@ impl Frame {
     /// The size of a frame, in bytes.
     pub const SIZE: usize = 4096;
 
-    /// Creates a new frame from the given physical address. The address must be page aligned
-    /// and must be a valid physical address (i.e. it must be less than 2^52).
+    /// Creates a new frame from the given physical address. The address must
+    /// be page aligned and must be a valid physical address (i.e. it must be
+    /// less than 2^52).
     ///
     /// # Panics
     /// Panics if the address is not page aligned (4 KiB aligned).
@@ -102,17 +103,18 @@ impl Frame {
         Self(address)
     }
 
-    /// Creates a new frame and truncates the address to the previous page boundary if necessary.
-    /// For example, if the address is `0xFFFF_FFF8_0000_1234`, the returned frame will have the
-    /// address `0xFFFF_FFF8_0000_1000`.
+    /// Creates a new frame and truncates the address to the previous page
+    /// boundary if necessary. For example, if the address is
+    /// `0xFFFF_FFF8_0000_1234`, the returned frame will have the address
+    /// `0xFFFF_FFF8_0000_1000`.
     #[must_use]
     pub fn truncate<T: Into<Physical>>(address: T) -> Self {
         Self(address.into().page_align_down())
     }
 
-    /// Creates a new frame and rounds the address up to the next page boundary if necessary.
-    /// For example, if the address is `0xFFFF_FFF8_0000_1234`, the returned frame will have the
-    /// address `0xFFFF_FFF8_0000_2000`.
+    /// Creates a new frame and rounds the address up to the next page boundary
+    /// if necessary. For example, if the address is `0xFFFF_FFF8_0000_1234`,
+    /// the returned frame will have the address `0xFFFF_FFF8_0000_2000`.
     #[must_use]
     pub fn upper<T: Into<Physical>>(address: T) -> Self {
         Self(address.into().page_align_up())
@@ -124,39 +126,43 @@ impl Frame {
         address >= self.0 && address < self.0 + Frame::SIZE
     }
 
-    /// Return the physical address of the frame. This is the address of the first byte of the
-    /// frame, guaranteed to be page aligned. This is the same as [`Frame::start`].
+    /// Return the physical address of the frame. This is the address of the
+    /// first byte of the frame, guaranteed to be page aligned. This is the
+    /// same as [`Frame::start`].
     #[must_use]
     pub const fn addr(&self) -> Physical {
         self.0
     }
 
-    /// Return the physical address of the frame. This is the address of the first byte of the
-    /// frame, guaranteed to be page aligned. This is the same as [`Frame::addr`].
+    /// Return the physical address of the frame. This is the address of the
+    /// first byte of the frame, guaranteed to be page aligned. This is the
+    /// same as [`Frame::addr`].
     #[must_use]
     pub const fn start(&self) -> Physical {
         self.0
     }
 
-    /// Return the physical address of the first byte of the frame that follows this frame.
+    /// Return the physical address of the first byte of the frame that follows
+    /// this frame.
     ///
     /// # Panics
-    /// Panics if the next frame does not exist (i.e. if the address of the next frame is
-    /// greater than 2^52).
+    /// Panics if the next frame does not exist (i.e. if the address of the
+    /// next frame is greater than 2^52).
     #[must_use]
     pub fn next(&self) -> Self {
         Self::new(self.0 + Frame::SIZE)
     }
 
-    /// Return the physical address of the last byte of the frame. The returned address is not
-    /// included in the frame.
+    /// Return the physical address of the last byte of the frame. The returned
+    /// address is not included in the frame.
     #[must_use]
     pub fn end(&self) -> Physical {
         self.0 + Frame::SIZE
     }
 
-    /// Return the index of the frame. This is an identifier that is unique for each different
-    /// frame. The first frame  in memory has index 0, the second frame has index 1, etc.
+    /// Return the index of the frame. This is an identifier that is unique for
+    /// each different frame. The first frame  in memory has index 0, the
+    /// second frame has index 1, etc.
     #[must_use]
     pub fn index(&self) -> Index {
         Index::from(*self)
@@ -167,8 +173,8 @@ impl From<u64> for Frame {
     /// Creates a new frame from a u64 address.
     ///
     /// # Panics
-    /// Panics if the address is not page aligned (4 KiB aligned), or if the address is not a
-    /// valid physical address (i.e. it is greater than 2^52)
+    /// Panics if the address is not page aligned (4 KiB aligned), or if the
+    /// address is not a valid physical address (i.e. it is greater than 2^52)
     fn from(address: u64) -> Self {
         Self::new(Physical::from(address))
     }
@@ -178,8 +184,8 @@ impl From<usize> for Frame {
     /// Creates a new frame from a usize address.
     ///
     /// # Panics
-    /// Panics if the address is not page aligned (4 KiB aligned), or if the address is not a
-    /// valid physical address (i.e. it is greater than 2^52)
+    /// Panics if the address is not page aligned (4 KiB aligned), or if the
+    /// address is not a valid physical address (i.e. it is greater than 2^52)
     fn from(address: usize) -> Self {
         Self::new(Physical::new(address))
     }
@@ -189,8 +195,8 @@ impl From<Index> for Frame {
     /// Creates a new frame from a frame index.
     ///
     /// # Panics
-    /// Panics if the index is greater than [`FrameIndex::MAX`] (meaning that the index does not
-    /// represent a valid frame).
+    /// Panics if the index is greater than [`FrameIndex::MAX`] (meaning that
+    /// the index does not represent a valid frame).
     fn from(idx: Index) -> Self {
         Self::new(idx.address())
     }

@@ -18,19 +18,21 @@ pub static SUPER_OPS: vfs::mount::Operation = vfs::mount::Operation {
 };
 
 /// Operations that can be performed on a directory inode.
-pub static INODE_DIR_OPS: vfs::inode::DirectoryOperation = vfs::inode::DirectoryOperation {
-    mknod,
-    create,
-    lookup,
-    unlink,
-    mkdir,
-    rmdir,
-    link,
-    rename,
-};
+pub static INODE_DIR_OPS: vfs::inode::DirectoryOperation =
+    vfs::inode::DirectoryOperation {
+        mknod,
+        create,
+        lookup,
+        unlink,
+        mkdir,
+        rmdir,
+        link,
+        rename,
+    };
 
 /// Operations that can be performed on a file inode.
-pub static INODE_FILE_OPS: vfs::inode::FileOperation = vfs::inode::FileOperation { truncate };
+pub static INODE_FILE_OPS: vfs::inode::FileOperation =
+    vfs::inode::FileOperation { truncate };
 
 /// Operations that can be performed on a opened regular file.
 pub static REGULAR_FILE_OPS: vfs::file::FileOperation =
@@ -93,13 +95,15 @@ fn read_super(
 }
 
 /// Write the superblock to the device. Since the ramfs is a memory filesystem,
-/// this is a no-op because the superblock is already in memory and is not stored
-/// on a device.
+/// this is a no-op because the superblock is already in memory and is not
+/// stored on a device.
 ///
 /// # Errors
 /// This function never fails since it is a no-op.
 #[allow(clippy::unnecessary_wraps)]
-fn write_super(_: &vfs::mount::Super) -> Result<(), vfs::mount::WriteSuperError> {
+fn write_super(
+    _: &vfs::mount::Super,
+) -> Result<(), vfs::mount::WriteSuperError> {
     Ok(())
 }
 
@@ -110,7 +114,9 @@ fn write_super(_: &vfs::mount::Super) -> Result<(), vfs::mount::WriteSuperError>
 /// # Errors
 /// This function never fails since it is a no-op.
 #[allow(clippy::unnecessary_wraps)]
-fn write_inode(_: &vfs::inode::Inode) -> Result<(), vfs::mount::WriteInodeError> {
+fn write_inode(
+    _: &vfs::inode::Inode,
+) -> Result<(), vfs::mount::WriteInodeError> {
     Ok(())
 }
 
@@ -142,7 +148,10 @@ fn read_inode(
 /// # Errors
 /// This function never fails.
 #[allow(clippy::unnecessary_wraps)]
-fn truncate(inode: &vfs::inode::Inode, size: usize) -> Result<usize, vfs::inode::TruncateError> {
+fn truncate(
+    inode: &vfs::inode::Inode,
+    size: usize,
+) -> Result<usize, vfs::inode::TruncateError> {
     inode
         .data
         .downcast_ref::<Spinlock<InodeFile>>()
@@ -222,7 +231,8 @@ fn create(
 
     // Update the metadata of the parent directory.
     let mut metadata = inode.metadata.lock();
-    metadata.size = locked_dir.entries.len() * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
+    metadata.size = locked_dir.entries.len()
+        * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
     metadata.modification_time = UnixTime::now();
     metadata.change_time = UnixTime::now();
     metadata.links += 1;
@@ -259,7 +269,10 @@ fn lookup(
 ///
 /// # Errors
 /// If the entry does not exist
-fn unlink(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::UnlinkError> {
+fn unlink(
+    inode: &vfs::inode::Inode,
+    name: &str,
+) -> Result<(), vfs::inode::UnlinkError> {
     let superblock = inode.superblock.upgrade().unwrap();
     let ramfs_super = superblock
         .data()
@@ -304,7 +317,8 @@ fn unlink(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::Unlin
 
     // Update the metadata of the parent directory.
     let mut metadata = inode.metadata.lock();
-    metadata.size = locked_dir.entries.len() * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
+    metadata.size = locked_dir.entries.len()
+        * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
     metadata.modification_time = UnixTime::now();
     metadata.change_time = UnixTime::now();
     metadata.links -= 1;
@@ -369,21 +383,25 @@ fn mkdir(
 
     // Update the metadata of the parent directory.
     let mut metadata = inode.metadata.lock();
-    metadata.size = locked_dir.entries.len() * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
+    metadata.size = locked_dir.entries.len()
+        * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
     metadata.access_time = UnixTime::now();
     metadata.change_time = UnixTime::now();
     metadata.links += 1;
     Ok(directory_id)
 }
 
-/// Remove an directory from the directory and decrement the links counter of the
-/// inode. If the counter reaches 0, the inode is removed from memory. The directory
-/// must be empty to be removed.
+/// Remove an directory from the directory and decrement the links counter of
+/// the inode. If the counter reaches 0, the inode is removed from memory. The
+/// directory must be empty to be removed.
 ///
 /// # Errors
 /// If the entry does not exist, if the caller tries to remove the `.` or `..`
 /// entries, or if the directory is not empty, an error is returned.
-fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirError> {
+fn rmdir(
+    inode: &vfs::inode::Inode,
+    name: &str,
+) -> Result<(), vfs::inode::RmdirError> {
     let superblock = inode.superblock.upgrade().unwrap();
     let ramfs_super = superblock
         .data()
@@ -438,7 +456,8 @@ fn rmdir(inode: &vfs::inode::Inode, name: &str) -> Result<(), vfs::inode::RmdirE
 
     // Update the metadata of the parent directory.
     let mut metadata = inode.metadata.lock();
-    metadata.size = locked_dir.entries.len() * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
+    metadata.size = locked_dir.entries.len()
+        * core::mem::size_of::<vfs::dirent::DirectoryEntry>();
     metadata.modification_time = UnixTime::now();
     metadata.change_time = UnixTime::now();
     metadata.links -= 1;
@@ -460,7 +479,11 @@ fn link(
 /// # Errors
 /// If the entry does not exist or if the new name already exists, an error is
 /// returned.
-fn rename(inode: &vfs::inode::Inode, old: &str, new: &str) -> Result<(), vfs::inode::RenameError> {
+fn rename(
+    inode: &vfs::inode::Inode,
+    old: &str,
+    new: &str,
+) -> Result<(), vfs::inode::RenameError> {
     let ramfs_inode = inode
         .data
         .downcast_ref::<Spinlock<InodeDirectory>>()

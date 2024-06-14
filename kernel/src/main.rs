@@ -2,6 +2,13 @@
 //!  - Modify the indentation of all files
 //!  - Remove all the VFS code
 //!  - Async support in the kernel
+//!  - Better syscall return code
+//!     - Maybe two registers for returning code ? Or maybe a struct ?
+//!     - Unified return code for all syscalls to simplify the code
+//! - Use `core::Duration` instead of our messy time units
+//! - Remove Range crate
+//! - Use the zerocopy/bytemuck crate for the conversion between userland and
+//!     kernel
 #![no_std]
 #![no_main]
 #![warn(clippy::all)]
@@ -42,9 +49,10 @@ pub mod user;
 pub mod vfs;
 pub mod x86_64;
 
-/// The prelude of the kernel. It re-exports the prelude of the core standard library and some
-/// imports that are often used in the kernel, allowing to use them without having to import
-/// them in each file and improving the readability of the code.
+/// The prelude of the kernel. It re-exports the prelude of the core standard
+/// library and some imports that are often used in the kernel, allowing to use
+/// them without having to import them in each file and improving the 
+/// readability of the code (at least a little bit).
 #[rustfmt::skip]
 pub mod prelude {
     pub use core::prelude::rust_2021::*;
@@ -59,13 +67,15 @@ pub mod prelude {
 #[prelude_import]
 pub use prelude::*;
 
-/// # The entry point of the kernel. Initialises the kernel and jumps to userland.
+/// # The entry point of the kernel. Initialises the kernel and jumps to
+/// userland.
 ///
 /// # Safety
-/// This function is highly unsafe because we are in a minimal environment and we have to initialize
-/// a lot of things before we can do anything. Since we are in a bare metal environment, a lot of
-/// initialization code is written in assembly or need the use of `unsafe` code to work properly,
-/// this is an necessary evil.
+/// This function is highly unsafe because we are in a minimal environment and
+/// we have to initialize a lot of things before we can do anything. Since we
+/// are in a bare metal environment, a lot of initialization code is written
+/// in assembly or need the use of `unsafe` code to work properly, this is an
+/// necessary evil.
 #[init]
 #[no_mangle]
 pub unsafe extern "C" fn _start() -> ! {
@@ -108,13 +118,13 @@ pub unsafe extern "C" fn _start() -> ! {
     terminate_setup();
 }
 
-/// Reclaim the memory only used during the boot process and jump to userland (or run the
-/// integration tests depending on the `test` feature flag).
+/// Reclaim the memory only used during the boot process and jump to userland
+/// (or run the integration tests depending on the `test` feature flag).
 ///
 /// # Safety
-/// This function is unsafe because it reclaim the memory used by the boot process, which could
-/// result in undefined behavior if the memory is still used (see the [`mm::reclaim_boot_memory`]
-/// function for more details).
+/// This function is unsafe because it reclaim the memory used by the boot
+/// process, which could result in undefined behavior if the memory is still
+/// used (see the [`mm::reclaim_boot_memory`] function for more details).
 #[inline(never)]
 pub unsafe fn terminate_setup() -> ! {
     //mm::reclaim_boot_memory();
@@ -138,14 +148,15 @@ pub enum Stop {
     Failure = 2,
 }
 
-/// Stop the execution of the kernel. Depending on the features flags, it either closes the
-/// emulator or freezes the current CPU. This should be used when the kernel can't continue
-/// its execution or when the kernel has finished its execution during the tests.
+/// Stop the execution of the kernel. Depending on the features flags, it
+/// either closes the emulator or freezes the current CPU. This should be
+/// used when the kernel can't continue its execution or when the kernel
+/// has finished its execution during the tests.
 ///
 /// # Safety
-/// This function is unsafe because depending on some features flags, it either closes the emulator
-/// or freezes the CPU, which could result in undefined behavior if the kernel is not running in
-/// QEMU.
+/// This function is unsafe because depending on some features flags, it
+/// either closes the emulator or freezes the CPU, which could result in
+/// undefined behavior if the kernel is not running in QEMU.
 #[allow(unused_variables)]
 pub unsafe fn stop(code: Stop) -> ! {
     cfg_if::cfg_if! {

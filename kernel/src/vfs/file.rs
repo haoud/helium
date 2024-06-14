@@ -13,8 +13,8 @@ pub struct File {
     pub open_flags: OpenFlags,
 
     /// The current state of this file. It is stored in a separate structure to
-    /// avoid locking the file just to read fields that are never modified, like
-    /// the current associated inode.
+    /// avoid locking the file just to read fields that are never modified,
+    /// like the current associated inode.
     pub state: Spinlock<OpenFileState>,
 
     /// Custom data, freely usable by the filesystem driver.
@@ -139,18 +139,23 @@ pub struct DirectoryOperation {
     /// Reads the directory entry at the given offset.
     ///
     /// # Errors
-    /// If the directory entry could not be read, an error is returned, described
-    /// by the [`ReaddirError`] enum.
-    pub readdir: fn(file: &File, offset: Offset) -> Result<DirectoryEntry, ReaddirError>,
+    /// If the directory entry could not be read, an error is returned,
+    /// described by the [`ReaddirError`] enum.
+    pub readdir:
+        fn(file: &File, offset: Offset) -> Result<DirectoryEntry, ReaddirError>,
 }
 
 impl DirectoryOperation {
     /// Reads the directory entry at the given offset.
     ///
     /// # Errors
-    /// If the directory entry could not be read, an error is returned, described
-    /// by the [`ReaddirError`] enum.
-    pub fn readdir(&self, file: &File, offset: Offset) -> Result<DirectoryEntry, ReaddirError> {
+    /// If the directory entry could not be read, an error is returned,
+    /// described by the [`ReaddirError`] enum.
+    pub fn readdir(
+        &self,
+        file: &File,
+        offset: Offset,
+    ) -> Result<DirectoryEntry, ReaddirError> {
         (self.readdir)(file, offset)
     }
 }
@@ -158,55 +163,84 @@ impl DirectoryOperation {
 /// The operation table for a file.
 #[derive(Debug, PartialEq, Eq)]
 pub struct FileOperation {
-    /// Writes the given buffer to the file at the given offset, and returns the offset
-    /// after the last byte written.
+    /// Writes the given buffer to the file at the given offset, and returns
+    /// the offset after the last byte written.
     ///
     /// # Errors
     /// If the buffer could not be written to the file, an error is returned,
     /// described by the [`WriteError`] enum.
-    pub write: fn(file: &File, buf: &[u8], offset: Offset) -> Result<usize, WriteError>,
+    pub write: fn(
+        file: &File,
+        buf: &[u8],
+        offset: Offset,
+    ) -> Result<usize, WriteError>,
 
-    /// Reads from the file at the given offset into the given buffer, and returns the
-    /// offset after the last byte read.
+    /// Reads from the file at the given offset into the given buffer, and
+    /// returns the offset after the last byte read.
     ///
     /// # Errors
     /// If the buffer could not be read from the file, an error is returned,
     /// described by the [`ReadError`] enum.
-    pub read: fn(file: &File, buf: &mut [u8], offset: Offset) -> Result<usize, ReadError>,
+    pub read: fn(
+        file: &File,
+        buf: &mut [u8],
+        offset: Offset,
+    ) -> Result<usize, ReadError>,
 
     /// Seeks into the file and returns the new offset.
     ///
     /// # Errors
-    /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
-    pub seek: fn(file: &File, offset: isize, whence: Whence) -> Result<Offset, SeekError>,
+    /// If the seek failed, an error is returned, described by the
+    /// [`SeekError`] enum.
+    pub seek: fn(
+        file: &File,
+        offset: isize,
+        whence: Whence,
+    ) -> Result<Offset, SeekError>,
 }
 
 impl FileOperation {
-    /// Writes the given buffer to the file at the given offset, and returns the number
-    /// of bytes written.
+    /// Writes the given buffer to the file at the given offset, and returns
+    /// the number of bytes written.
     ///
     /// # Errors
     /// If the buffer could not be written to the file, an error is returned,
     /// described by the [`WriteError`] enum.
-    pub fn write(&self, file: &File, buf: &[u8], offset: Offset) -> Result<usize, WriteError> {
+    pub fn write(
+        &self,
+        file: &File,
+        buf: &[u8],
+        offset: Offset,
+    ) -> Result<usize, WriteError> {
         (self.write)(file, buf, offset)
     }
 
-    /// Reads from the file at the given offset into the given buffer, and returns the
-    /// number of bytes read.
+    /// Reads from the file at the given offset into the given buffer, and
+    /// returns the number of bytes read.
     ///
     /// # Errors
     /// If the buffer could not be read from the file, an error is returned,
     /// described by the [`ReadError`] enum.
-    pub fn read(&self, file: &File, buf: &mut [u8], offset: Offset) -> Result<usize, ReadError> {
+    pub fn read(
+        &self,
+        file: &File,
+        buf: &mut [u8],
+        offset: Offset,
+    ) -> Result<usize, ReadError> {
         (self.read)(file, buf, offset)
     }
 
     /// Seeks into the file and returns the new offset.
     ///
     /// # Errors
-    /// If the seek failed, an error is returned, described by the [`SeekError`] enum.
-    pub fn seek(&self, file: &File, offset: isize, whence: Whence) -> Result<Offset, SeekError> {
+    /// If the seek failed, an error is returned, described by the
+    /// [`SeekError`] enum.
+    pub fn seek(
+        &self,
+        file: &File,
+        offset: isize,
+        whence: Whence,
+    ) -> Result<Offset, SeekError> {
         (self.seek)(file, offset, whence)
     }
 }

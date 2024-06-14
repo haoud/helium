@@ -1,7 +1,7 @@
 use super::Pipe;
 
-/// A pipe reader. This is a wrapper around a pipe that provides a safe interface
-/// for reading from the pipe.
+/// A pipe reader. This is a wrapper around a pipe that provides a safe
+/// interface for reading from the pipe.
 pub struct PipeReader {
     pipe: Arc<Pipe>,
 }
@@ -48,10 +48,10 @@ impl Clone for PipeReader {
 }
 
 impl Drop for PipeReader {
-    /// When the reader is dropped, the number of readers is decremented and one
-    /// writer is signaled to wake up, potentially unblocking it. This is needed
-    /// if the writer is blocked on an empty pipe and the dropped reader was the
-    /// last reader.
+    /// When the reader is dropped, the number of readers is decremented and
+    /// one writer is signaled to wake up, potentially unblocking it. This is
+    /// needed if the writer is blocked on an empty pipe and the dropped reader
+    /// was the last reader.
     fn drop(&mut self) {
         self.pipe.decrement_readers();
         self.pipe.waiting_writers.wake_up_someone();

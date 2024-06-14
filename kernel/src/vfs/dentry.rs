@@ -40,8 +40,8 @@ impl Dentry {
         }
     }
 
-    /// Create a new root dentry. This is similar to [`Self::new`], but sets the
-    /// parent of the dentry to itself instead of leaving it unset.
+    /// Create a new root dentry. This is similar to [`Self::new`], but sets
+    /// the parent of the dentry to itself instead of leaving it unset.
     #[must_use]
     pub fn root(name: Name, inode: Arc<Inode>) -> Arc<Self> {
         let dentry = Arc::new(Self::new(name, inode));
@@ -51,12 +51,12 @@ impl Dentry {
 
     /// Open the inode associated with this dentry.
     ///
-    /// Please note that this function does not perform any checks: this is the caller
-    /// responsibility to ensure that.
+    /// Please note that this function does not perform any checks: this is the
+    /// caller responsibility to ensure that.
     ///
     /// # Errors
-    /// Currently, this function does not return any error. However, this may change
-    /// in the future.
+    /// Currently, this function does not return any error. However, this may
+    /// change in the future.
     pub fn open(self: &Arc<Self>, flags: OpenFlags) -> Result<File, OpenError> {
         Ok(file::File::new(FileCreateInfo {
             operation: self.inode.file_ops.clone(),
@@ -85,13 +85,13 @@ impl Dentry {
         )
     }
 
-    /// Mark the inode associated with this dentry as dirty. This will cause the
-    /// inode to be written to the disk later, during a sync operation.
+    /// Mark the inode associated with this dentry as dirty. This will cause
+    /// the inode to be written to the disk later, during a sync operation.
     /// This function should be called every time the inode is modified.
     ///
     /// # Panics
-    /// Panics if the inode does not have a superblock. This should never happen
-    /// and is a serious kernel bug.
+    /// Panics if the inode does not have a superblock. This should never
+    /// happen and is a serious kernel bug.
     pub fn dirtying_inode(&self) {
         self.inode.mark_dirty();
     }
@@ -120,29 +120,35 @@ impl Dentry {
         self.tree.lock().name.clone()
     }
 
-    /// Fetch a child of this dentry by name. It will first try to find the child
-    /// in the dentry cache, and if it is not found, it will look it up in the
-    /// filesystem tree. If the child is found in the cache, the inode will be loaded
-    /// into the cache to speed up future lookups.
+    /// Fetch a child of this dentry by name. It will first try to find the
+    /// child in the dentry cache, and if it is not found, it will look it up
+    /// in the filesystem tree. If the child is found in the cache, the inode
+    /// will be loaded into the cache to speed up future lookups.
     ///
     /// # Errors
     /// - `FetchError::NotADirectory`: The inode associated with this dentr
-    /// is not a directory, and therefore cannot have children.
+    ///     is not a directory, and therefore cannot have children.
     /// - `FetchError::NotFound`: The child could not be found, either in the
-    /// dentry cache or in the filesystem tree.
+    ///     dentry cache or in the filesystem tree.
     /// - `FetchError::IoError`: The child could not be fetched because of an
-    /// I/O error.
+    ///     I/O error.
     ///
     /// # Panics
-    /// Panics if the inode cannot be read because the filesystem is corrupted, if the
-    /// inode does not have a superblock or if the dentry could not be connected to its
-    /// parent. The last two cases should never happen and are serious kernel bugs.
-    pub fn fetch(dentry: &Arc<Self>, name: &Name) -> Result<Arc<Self>, FetchError> {
+    /// Panics if the inode cannot be read because the filesystem is corrupted,
+    /// if the inode does not have a superblock or if the dentry could not be
+    /// connected to its parent. The last two cases should never happen and are
+    /// serious kernel bugs.
+    pub fn fetch(
+        dentry: &Arc<Self>,
+        name: &Name,
+    ) -> Result<Arc<Self>, FetchError> {
         loop {
             match dentry.lookup(name) {
                 Ok(dentry) => return Ok(dentry),
                 Err(e) => match e {
-                    LookupError::NotADirectory => return Err(FetchError::NotADirectory),
+                    LookupError::NotADirectory => {
+                        return Err(FetchError::NotADirectory)
+                    }
                     LookupError::NotFound => {}
                 },
             }
@@ -168,7 +174,10 @@ impl Dentry {
             // If an entry with the same name was created in the meantime, we
             // try to fetch it again.
             match Self::create_and_connect_child(dentry, inode, name) {
-                Err(ConnectError::AlreadyConnected | ConnectError::NotADirectory) => {
+                Err(
+                    ConnectError::AlreadyConnected
+                    | ConnectError::NotADirectory,
+                ) => {
                     unreachable!()
                 }
                 Err(ConnectError::AlreadyExists) => continue,
@@ -181,23 +190,27 @@ impl Dentry {
     /// dentry cache and return it.
     ///
     /// # Errors
-    ///  - `CreateFetchError::NotADirectory`: The inode associated with this dentry
-    ///  is not a directory, and therefore cannot have children.
-    /// - `CreateFetchError::AlreadyExists`: A child with the same name already exists.
+    ///  - `CreateFetchError::NotADirectory`: The inode associated with this
+    ///     dentry is not a directory, and therefore cannot have children.
+    /// - `CreateFetchError::AlreadyExists`: A child with the same name already
+    ///     exists.
     ///
     /// # Panics
-    /// Panics if the inode associated with this dentry does not have a superblock, or
-    /// if this function fails to connect the created dentry to this dentry. This should
-    /// never happen and is a serious kernel bug.
+    /// Panics if the inode associated with this dentry does not have a
+    /// superblock, or if this function fails to connect the created dentry
+    /// to this dentry. This should never happen and is a serious kernel bug.
     pub fn create_and_fetch_file(
         dentry: &Arc<Self>,
         name: Name,
     ) -> Result<Arc<Self>, CreateFetchError> {
-        // Search for the file in the dentry cache and in the underlying filesystem.
-        // If a file with the same name already exists, return an error.
+        // Search for the file in the dentry cache and in the underlying
+        // filesystem. If a file with the same name already exists, return
+        // an error.
         match Self::fetch(dentry, &name) {
             Err(FetchError::NotFound) => {}
-            Err(FetchError::NotADirectory) => return Err(CreateFetchError::NotADirectory),
+            Err(FetchError::NotADirectory) => {
+                return Err(CreateFetchError::NotADirectory)
+            }
             Err(FetchError::IoError) => return Err(CreateFetchError::IoError),
             Ok(_) => return Err(CreateFetchError::AlreadyExists),
         }
@@ -220,18 +233,23 @@ impl Dentry {
         // If an entry with the same name was created in the meantime, we
         // simply return an error.
         match Self::connect_child(dentry, Arc::clone(&child)) {
-            Err(ConnectError::AlreadyConnected | ConnectError::NotADirectory) => unreachable!(),
-            Err(ConnectError::AlreadyExists) => Err(CreateFetchError::AlreadyExists),
-            Ok(_) => Ok(child),
+            Err(
+                ConnectError::AlreadyConnected | ConnectError::NotADirectory,
+            ) => unreachable!(),
+            Err(ConnectError::AlreadyExists) => {
+                Err(CreateFetchError::AlreadyExists)
+            }
+            Ok(()) => Ok(child),
         }
     }
 
     /// Find a child of this dentry by name.
     ///
-    /// The dentry cache only contains parts of the filesystem tree. If the child is not found
-    /// in the cache, it MUST be looked up in the filesystem tree to ensure that the entry really
-    /// does not exist. If the child is found in the cache, the inode should be inserted into the
-    /// cache to speed up future lookups.
+    /// The dentry cache only contains parts of the filesystem tree. If the
+    /// child is not found in the cache, it MUST be looked up in the filesystem
+    /// tree to ensure that the entry really does not exist. If the child is
+    /// found in the cache, the inode should be inserted into the cache to
+    /// speed up future lookups.
     /// If you want the behavior described above, use [`Self::fetch`] instead.
     ///
     /// # Errors
@@ -261,10 +279,13 @@ impl Dentry {
     ///
     /// # Errors
     /// - `ConnectError::NotADirectory`: The inode associated with this dentry
-    ///  is not a directory, and therefore cannot have children.
-    /// - `ConnectError::AlreadyExists`: The parent already has a child with the
-    /// same name.
-    pub fn connect_child(dentry: &Arc<Dentry>, child: Arc<Dentry>) -> Result<(), ConnectError> {
+    ///     is not a directory, and therefore cannot have children.
+    /// - `ConnectError::AlreadyExists`: The parent already has a child with
+    ///     the same name.
+    pub fn connect_child(
+        dentry: &Arc<Dentry>,
+        child: Arc<Dentry>,
+    ) -> Result<(), ConnectError> {
         if dentry.inode.kind != inode::Kind::Directory {
             return Err(ConnectError::NotADirectory);
         }
@@ -291,9 +312,9 @@ impl Dentry {
         Ok(())
     }
 
-    /// Create a new dentry with the given name and inode, connect it to this dentry
-    /// and return the created dentry. This is simply a shortcut for creating a new
-    /// dentry and calling [`Self::connect_child`] on it.
+    /// Create a new dentry with the given name and inode, connect it to this
+    /// dentry and return the created dentry. This is simply a shortcut for
+    /// creating a new dentry and calling [`Self::connect_child`] on it.
     ///
     /// # Errors
     /// See [`Self::connect_child`] for the list of errors that can be returned
@@ -329,7 +350,10 @@ impl Dentry {
     ///  - The dentry does not have an alive parent
     ///
     /// All these cases should never happen and are serious kernel bugs.
-    pub fn disconnect_child(&self, name: &Name) -> Result<Arc<Self>, DisconnectError> {
+    pub fn disconnect_child(
+        &self,
+        name: &Name,
+    ) -> Result<Arc<Self>, DisconnectError> {
         let mut tree = self.tree.lock();
         let index = tree
             .children
@@ -398,7 +422,9 @@ pub enum FetchError {
 impl From<mount::ReadInodeError> for FetchError {
     fn from(error: mount::ReadInodeError) -> Self {
         match error {
-            mount::ReadInodeError::DoesNotExist => panic!("Filesystem corrupted"),
+            mount::ReadInodeError::DoesNotExist => {
+                panic!("Filesystem corrupted")
+            }
         }
     }
 }
@@ -419,7 +445,9 @@ pub enum CreateFetchError {
 impl From<inode::CreateError> for CreateFetchError {
     fn from(error: inode::CreateError) -> Self {
         match error {
-            inode::CreateError::AlreadyExists => CreateFetchError::AlreadyExists,
+            inode::CreateError::AlreadyExists => {
+                CreateFetchError::AlreadyExists
+            }
         }
     }
 }
@@ -427,7 +455,9 @@ impl From<inode::CreateError> for CreateFetchError {
 impl From<mount::ReadInodeError> for CreateFetchError {
     fn from(error: mount::ReadInodeError) -> Self {
         match error {
-            mount::ReadInodeError::DoesNotExist => panic!("Filesystem corrupted"),
+            mount::ReadInodeError::DoesNotExist => {
+                panic!("Filesystem corrupted")
+            }
         }
     }
 }
@@ -451,8 +481,8 @@ pub enum DisconnectError {
     NotFound,
 
     /// The dentry is still used and cannot be disconnected. This happens when
-    /// the dentry dentry still contains children, i.e when a user try to remove
-    /// a directory that is not empty.
+    /// the dentry dentry still contains children, i.e when a user try to
+    /// remove a directory that is not empty.
     Busy,
 }
 

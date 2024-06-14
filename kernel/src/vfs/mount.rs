@@ -23,9 +23,9 @@ pub struct Super {
     /// Custom data, freely usable by the filesystem driver.
     data: Box<dyn Any + Send + Sync>,
 
-    /// The list of all used inodes of this filesystem. This improves performances,
-    /// but is also required to prevent the kernel from having multiple instances
-    /// of the same inode in memory.
+    /// The list of all used inodes of this filesystem. This improves
+    /// performances, but is also required to prevent the kernel from having
+    /// multiple instances of the same inode in memory.
     used_inodes: Spinlock<BTreeMap<inode::Identifier, Arc<Inode>>>,
 
     /// The list of all dirty inodes of this filesystem.
@@ -70,11 +70,12 @@ impl Super {
         self.used_inodes.lock().contains_key(&id)
     }
 
-    /// Returns the inode with the given identifier if it is cached by the superblock.
+    /// Returns the inode with the given identifier if it is cached by the
+    /// superblock.
     ///
     /// # Panics
-    /// Panics if the inode is already cached by the superblock. It is a bug in the
-    /// kernel and should be reported.
+    /// Panics if the inode is already cached by the superblock. It is a bug
+    /// in the kernel and should be reported.
     pub fn cache_inode(&self, inode: Arc<Inode>) {
         assert!(self.used_inodes.lock().insert(inode.id, inode).is_none());
     }
@@ -86,7 +87,10 @@ impl Super {
     /// # Errors
     /// If the inode is not cached and could not be read from the device, an
     /// error is returned, described by the [`ReadInodeError`] enum.
-    pub fn get_inode(&self, id: inode::Identifier) -> Result<Arc<Inode>, ReadInodeError> {
+    pub fn get_inode(
+        &self,
+        id: inode::Identifier,
+    ) -> Result<Arc<Inode>, ReadInodeError> {
         // Check if the inode is cached by the superblock.
         if let Some(inode) = self.used_inodes.lock().get(&id) {
             return Ok(Arc::clone(inode));
@@ -98,9 +102,9 @@ impl Super {
         Ok(inode)
     }
 
-    /// Inserts the given inode in the list of dirty inodes of this filesystem. If
-    /// the inode is already in the list, it is not added again and this function
-    /// does nothing.
+    /// Inserts the given inode in the list of dirty inodes of this filesystem.
+    /// If the inode is already in the list, it is not added again and this
+    /// function does nothing.
     pub fn make_inode_dirty(&self, inode: Arc<Inode>) {
         self.dirty_inodes.lock().insert(inode);
     }
@@ -108,16 +112,16 @@ impl Super {
     /// Synchronize all dirty inodes with the underlying device. If an error
     /// occurs, it is logged and the inode is kept in the list of dirty inodes.
     pub fn sync_inodes(&self) {
-        self.dirty_inodes
-            .lock()
-            .retain(|inode| match (self.operation.write_inode)(inode) {
+        self.dirty_inodes.lock().retain(|inode| {
+            match (self.operation.write_inode)(inode) {
                 Err(err) => {
                     log::error!("Failed to write inode: {:?}", err);
                     log::error!("Retrying later...");
                     true
                 }
-                Ok(_) => false,
-            });
+                Ok(()) => false,
+            }
+        });
     }
 
     /// Sync the superblock with the underlying device. If an error occurs, it is
@@ -165,8 +169,10 @@ pub struct Operation {
     /// # Errors
     /// If the inode could not be read from the device, an error is returned,
     /// described by the [`ReadInodeError`] enum.
-    pub read_inode:
-        fn(superbloc: &Super, inode: inode::Identifier) -> Result<Arc<Inode>, ReadInodeError>,
+    pub read_inode: fn(
+        superbloc: &Super,
+        inode: inode::Identifier,
+    ) -> Result<Arc<Inode>, ReadInodeError>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

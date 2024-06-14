@@ -60,7 +60,7 @@ impl<T> Drop for MutexGuard<'_, T> {
     /// Drop the guard first to ensure that the mutex is not locked when
     /// we wake up a waiter. Then wake up a waiter if there is one.
     fn drop(&mut self) {
-        // SAFETY: This is safe because as required by the `ManuallyDrop::drop()`,
+        // SAFETY: This is safe because as required by `ManuallyDrop::drop()`,
         // we ensure that the guard is not used after it is dropped, nor used
         // after the data it points to is dropped.
         unsafe {

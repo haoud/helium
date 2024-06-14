@@ -9,9 +9,9 @@ use crate::{
     vfs,
 };
 
-/// Exit the current task with the given exit code. The task will be terminated and
-/// will not be scheduled again. If there is no other reference to the task, it will
-/// be deallocated.
+/// Exit the current task with the given exit code. The task will be terminated
+/// and will not be scheduled again. If there is no other reference to the
+/// task, it will be deallocated.
 ///
 /// # Panics
 /// This function panics if the current task is rescheduled after it has exited.
@@ -29,25 +29,25 @@ pub fn exit(code: usize) -> ! {
 /// Return the identifier of the current task.
 ///
 /// # Errors
-/// This function will never return an error, but it is declared as returning a `Result` to
-/// be consistent with the other syscalls.
+/// This function will never return an error, but it is declared as returning
+/// a `Result` to be consistent with the other syscalls.
 ///
 /// # Panics
-/// This function panics if there is no current task running on the CPU (which should
-/// never happen and is a bug).
+/// This function panics if there is no current task running on the CPU (which
+/// should never happen and is a bug).
 #[allow(clippy::cast_possible_truncation)]
 pub fn id() -> Result<usize, isize> {
     Ok(CURRENT_TASK.local().borrow().as_ref().unwrap().id().0 as usize)
 }
 
-/// Put the current task to sleep for at least the given number of nanoseconds. The task
-/// will be woken up when the timer expires. Due to the way the timer system works, the
-/// task may not be woken up immediately after the timer expires and may be delayed by
-/// a few milliseconds.
+/// Put the current task to sleep for at least the given number of nanoseconds.
+/// The task will be woken up when the timer expires. Due to the way the timer
+/// system works, the task may not be woken up immediately after the timer
+/// expires and may be delayed by a few milliseconds.
 ///
 /// # Errors
-/// This function will never return an error, but it is declared as returning a `Result`
-/// to be consistent with the other syscalls. It always returns `0`.
+/// This function will never return an error, but it is declared as returning a
+/// `Result` to be consistent with the other syscalls. It always returns `0`.
 pub fn sleep(nano: usize) -> Result<usize, isize> {
     let expiration = uptime_fast() + Nanosecond::new(nano as u64);
 
@@ -66,33 +66,34 @@ pub fn sleep(nano: usize) -> Result<usize, isize> {
     Ok(0)
 }
 
-/// Yield the CPU to another task. If there is no other task ready to run or if there
-/// is only lower priority tasks, the current task will continue to run.
+/// Yield the CPU to another task. If there is no other task ready to run or if
+/// there is only lower priority tasks, the current task will continue to run.
 ///
 /// # Errors
-/// This function will never return an error, but it is declared as returning a `Result`
-/// to be consistent with the other syscalls. It always returns `0`.
+/// This function will never return an error, but it is declared as returning a
+/// `Result` to be consistent with the other syscalls. It always returns `0`.
 pub fn yields() -> Result<usize, isize> {
     unsafe { scheduler::yield_cpu() };
     Ok(0)
 }
 
-/// Spawn a new task from the given ELF file. The ELF file must be a statically linked
-/// executable. The ELF file will be loaded into memory and the task will be created.
-/// The task will be put in the ready queue and will be scheduled to run as soon as
-/// possible.
+/// Spawn a new task from the given ELF file. The ELF file must be a
+/// statically linked executable. The ELF file will be loaded into memory and
+/// the task will be created. The task will be put in the ready queue and will
+/// be scheduled to run as soon as possible.
 ///
 /// # Errors
 /// This syscall can fail in many ways, and each of them is described by the
 /// [`SpawnError`] enum.
 ///
 /// # Optimization
-/// Currently, the whole ELF file is read into memory before being loaded. This is
-/// inefficient and should be changed to map the file into memory and load it on
-/// demand during the execution of the task.
+/// Currently, the whole ELF file is read into memory before being loaded. This
+/// is inefficient and should be changed to map the file into memory and load
+/// it on demand during the execution of the task.
 #[allow(clippy::cast_possible_truncation)]
 pub fn spawn(path: usize) -> Result<usize, SpawnError> {
-    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(SpawnError::BadAddress)?;
+    let ptr = user::Pointer::<SyscallString>::from_usize(path)
+        .ok_or(SpawnError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(SpawnError::BadAddress)?
         .fetch()
@@ -153,9 +154,8 @@ impl From<vfs::ReadAllError> for SpawnError {
             vfs::ReadAllError::LookupError(e) => match e {
                 vfs::LookupError::NotFound(_, _) => SpawnError::NoSuchFile,
                 vfs::LookupError::NotADirectory => SpawnError::InvalidArgument,
-                vfs::LookupError::CorruptedFilesystem | vfs::LookupError::IoError => {
-                    SpawnError::IoError
-                }
+                vfs::LookupError::CorruptedFilesystem
+                | vfs::LookupError::IoError => SpawnError::IoError,
             },
             vfs::ReadAllError::OpenError
             | vfs::ReadAllError::IoError
@@ -173,7 +173,9 @@ impl From<user::task::elf::LoadError> for SpawnError {
             | task::elf::LoadError::InvalidOffset
             | task::elf::LoadError::OverlappingSegments
             | task::elf::LoadError::UnsupportedArchitecture
-            | task::elf::LoadError::UnsupportedEndianness => SpawnError::InvalidElf,
+            | task::elf::LoadError::UnsupportedEndianness => {
+                SpawnError::InvalidElf
+            }
         }
     }
 }

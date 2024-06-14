@@ -4,7 +4,8 @@ use crate::user::task::queue::WaitQueue;
 use circular_buffer::CircularBuffer;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-static PIPE_FILE_OPS: file::FileOperation = file::FileOperation { write, read, seek };
+static PIPE_FILE_OPS: file::FileOperation =
+    file::FileOperation { write, read, seek };
 
 pub mod reader;
 pub mod writer;
@@ -48,8 +49,8 @@ pub struct Pipe {
 }
 
 impl Pipe {
-    /// The size of the pipe buffer in bytes. This is the maximum number of bytes
-    /// that can be stored in the pipe at any given time.
+    /// The size of the pipe buffer in bytes. This is the maximum number of
+    /// bytes that can be stored in the pipe at any given time.
     pub const BUFFER_SIZE: usize = 4096;
 
     /// Creates a new pipe.
@@ -152,7 +153,11 @@ fn create_pair() -> (Arc<file::File>, Arc<file::File>) {
 ///
 /// # Panics
 /// Panics if the file is not a pipe writer.
-fn write(file: &file::File, buf: &[u8], _offset: file::Offset) -> Result<usize, file::WriteError> {
+fn write(
+    file: &file::File,
+    buf: &[u8],
+    _offset: file::Offset,
+) -> Result<usize, file::WriteError> {
     let pipe_writer = file
         .data
         .downcast_ref::<PipeWriter>()
@@ -208,11 +213,11 @@ fn read(
     let mut readed = 0;
     for byte in buf {
         match pipe_reader.read_byte() {
-            // The pipe is empty and there are no writers, meaning that the pipe
-            // will never be written to again and the reader should stop reading.
-            // However, if the reader has already read some bytes, we return the
-            // number of bytes read. The broken pipe error will be returned on
-            // the next read.
+            // The pipe is empty and there are no writers, meaning that the
+            // pipe will never be written to again and the reader should stop
+            // reading. However, if the reader has already read some bytes, we
+            // return the number of bytes read. The broken pipe error will be
+            // returned on the next read.
             Err(reader::ReadError::BrokenPipe) if readed == 0 => {
                 return Err(file::ReadError::BrokenPipe)
             }

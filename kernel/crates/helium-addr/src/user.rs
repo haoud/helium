@@ -1,16 +1,16 @@
 use crate::virt::Virtual;
 use core::{fmt, iter::Step, num::NonZeroUsize};
 
-/// A canonical 64-bit virtual memory address that is guaranteed to be in user space (
-/// 0x0000_0000_0000_0000 to 0x0000_7FFF_FFFF_FFFF).
+/// A canonical 64-bit virtual memory address that is guaranteed to be in user
+/// space (0x0000_0000_0000_0000 to 0x0000_7FFF_FFFF_FFFF).
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct UserVirtual(pub(crate) usize);
 
 /// An invalid virtual address.
 ///
-/// This type is used to represent an invalid virtual address. It is returned by
-/// [`UserVirtual::try_new`] when the given address is not in user space.
+/// This type is used to represent an invalid virtual address. It is returned
+/// by [`UserVirtual::try_new`] when the given address is not in user space.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct InvalidUserVirtual(pub(crate) usize);
@@ -23,7 +23,9 @@ impl UserVirtual {
     #[must_use]
     pub const fn new(address: usize) -> Self {
         match Self::try_new(address) {
-            Err(InvalidUserVirtual(_)) => panic!("Invalid user virtual address: non user space"),
+            Err(InvalidUserVirtual(_)) => {
+                panic!("Invalid user virtual address: non user space")
+            }
             Ok(addr) => addr,
         }
     }
@@ -40,12 +42,13 @@ impl UserVirtual {
         }
     }
 
-    /// Creates a new canonical virtual address without checking if it is canonical.
+    /// Creates a new canonical virtual address without checking if it is
+    /// canonical.
     ///
     /// # Safety
-    /// This function is unsafe because it does not check if the given address is in user space:
-    /// the caller must ensure that the address is in user space. Otherwise, the behavior is
-    /// undefined.
+    /// This function is unsafe because it does not check if the given address
+    /// is in user space: the caller must ensure that the address is in user
+    /// space. Otherwise, the behavior is undefined.
     #[must_use]
     pub const unsafe fn new_unchecked(address: usize) -> Self {
         Self(address)
@@ -57,16 +60,17 @@ impl UserVirtual {
         Self::try_new(address).is_ok()
     }
 
-    /// Checks if the given pointer is in user space. If check if all the addresses that
-    /// contains the object pointed by the pointer are in user space.
+    /// Checks if the given pointer is in user space. If check if all the
+    /// addresses that contains the object pointed by the pointer are in user
+    /// space.
     #[must_use]
     pub fn is_user_ptr<T>(ptr: *const T) -> bool {
         Self::is_user_array(ptr, NonZeroUsize::new(1).unwrap())
     }
 
-    /// Checks if the given array of objects is in user space. If check if all the addresses
-    /// that contains the objects are in user space. If an overflow occurs during the check,
-    /// this function returns false.
+    /// Checks if the given array of objects is in user space. If check if all
+    /// the addresses that contains the objects are in user space. If an
+    /// overflow occurs during the check, this function returns false.
     #[must_use]
     pub fn is_user_array<T>(ptr: *const T, count: NonZeroUsize) -> bool {
         let length = core::mem::size_of::<T>() * count.get();
@@ -91,8 +95,9 @@ impl UserVirtual {
         self.0 as u64
     }
 
-    /// Creates a new canonical virtual address from a pointer. This is a convenience function that
-    /// simply casts the pointer address to a `u64`, and then calls [`Self::new`].
+    /// Creates a new canonical virtual address from a pointer. This is a
+    /// convenience function that simply casts the pointer address to a `u64`,
+    /// and then calls [`Self::new`].
     #[must_use]
     pub fn from_ptr<T>(ptr: *const T) -> Self {
         Self::new(ptr as usize)
@@ -147,12 +152,12 @@ impl UserVirtual {
         self.0 & 0xFFF
     }
 
-    /// Align the address up to the given alignment. If the address is already aligned, this
-    // function does nothing.
+    /// Align the address up to the given alignment. If the address is alread
+    /// aligned, this function does nothing.
     ///
     /// # Panics
-    /// This function panics if the given alignment is not a power of two or if the resulting
-    /// address is not in user space.
+    /// This function panics if the given alignment is not a power of two or
+    /// if the resulting address is not in user space.
     #[must_use]
     pub fn align_up<T>(&self, alignment: T) -> Self
     where
@@ -161,13 +166,14 @@ impl UserVirtual {
         let align: usize = alignment.into();
         assert!(align.is_power_of_two());
         Self::new(
-            (self.0.checked_add(align - 1)).expect("Overflow during aligning up a virtual address")
+            (self.0.checked_add(align - 1))
+                .expect("Overflow during aligning up a virtual address")
                 & !(align - 1),
         )
     }
 
-    /// Align the address down to the given alignment. If the address is already aligned, this
-    /// function does nothing.
+    /// Align the address down to the given alignment. If the address is
+    /// already aligned, this function does nothing.
     ///
     /// # Panics
     /// This function panics if the given alignment is not a power of two
@@ -195,8 +201,8 @@ impl UserVirtual {
         self.0 & (align - 1) == 0
     }
 
-    /// Align the address up to a page boundary (4 KiB). If the address is already aligned,
-    /// this function does nothing.
+    /// Align the address up to a page boundary (4 KiB). If the address is
+    /// already aligned, this function does nothing.
     ///
     /// # Panics
     /// This function panics if the resulting address is not in user space.
@@ -208,8 +214,8 @@ impl UserVirtual {
         })
     }
 
-    /// Align the address down to a page boundary (4 KiB). If the address is already aligned, this
-    /// function does nothing.
+    /// Align the address down to a page boundary (4 KiB). If the address is
+    /// already aligned, this function does nothing.
     #[must_use]
     pub const fn page_align_down(&self) -> Self {
         Self::new(self.0 & !0xFFF)
@@ -227,8 +233,8 @@ impl UserVirtual {
         Self::new(self.page_align_down().0 + 0x1000)
     }
 
-    /// Checked addition with an user virtual address and an offset. Returns `None` if the
-    /// resulting address is not in user space or overflows.
+    /// Checked addition with an user virtual address and an offset. Returns
+    /// `None` if the resulting address is not in user space or overflows.
     #[must_use]
     pub fn checked_add(&self, offset: usize) -> Option<Self> {
         let new = self.0.checked_add(offset)?;
@@ -238,8 +244,8 @@ impl UserVirtual {
         Some(Self::new(new))
     }
 
-    /// Checked subtraction with an user virtual address and an offset. Returns `None` if the
-    /// resulting address is not in user space or underflows.
+    /// Checked subtraction with an user virtual address and an offset. Returns
+    /// `None` if the resulting address is not in user space or underflows.
     #[must_use]
     pub fn checked_sub(&self, offset: usize) -> Option<Self> {
         let new = self.0.checked_sub(offset)?;

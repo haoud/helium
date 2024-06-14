@@ -20,17 +20,18 @@ impl OwnedFrame {
     /// frame will be automatically deallocated.
     ///
     /// # Safety
-    /// This function is unsafe because it takes ownership of the given frame. However,
-    /// it is the caller's responsibility to ensure that the given frame are exclusively
-    /// used by this [`OwnedFrame`] instance after it is created. If the frame are used
-    /// outside of this [`OwnedFrame`] instance, the behavior is undefined.
+    /// This function is unsafe because it takes ownership of the given frame.
+    /// However, it is the caller's responsibility to ensure that the given
+    /// frame are exclusively used by this [`OwnedFrame`] instance after it is
+    /// created. If the frame are used outside of this [`OwnedFrame`] instance,
+    /// the behavior is undefined.
     #[must_use]
     pub unsafe fn new(frame: Frame) -> Self {
         Self { frame }
     }
 
-    /// Consumes this [`OwnedMemory`] and returns the frame that it owns and does
-    /// not deallocate it.
+    /// Consumes this [`OwnedMemory`] and returns the frame that it owns and
+    /// does not deallocate it.
     #[must_use]
     pub fn into_inner(self) -> Frame {
         let mut owned = ManuallyDrop::new(self);
@@ -46,10 +47,10 @@ impl Deref for OwnedFrame {
 }
 
 impl Drop for OwnedFrame {
-    /// Deallocates the frame owned by this [`OwnedMemory`] instance. Since this
-    /// struct should have an exclusive ownership of the frame, this method should
-    /// effectively deallocate the frame in addition to decreasing the reference
-    /// count of the frame.
+    /// Deallocates the frame owned by this [`OwnedMemory`] instance. Since
+    /// this struct should have an exclusive ownership of the frame, this
+    /// method should effectively deallocate the frame in addition to
+    /// decreasing the reference count of the frame.
     fn drop(&mut self) {
         unsafe {
             FRAME_ALLOCATOR
@@ -69,33 +70,37 @@ pub struct OwnedMemory {
 }
 
 impl OwnedMemory {
-    /// Creates a new [`OwnedMemory`] from the given range of frames. When dropped, the
-    /// frames will be automatically deallocated.
+    /// Creates a new [`OwnedMemory`] from the given range of frames. When
+    /// dropped, the frames will be automatically deallocated.
     ///
     /// # Safety
-    /// This function is unsafe because it takes ownership of the given frames. However,
-    /// it is the caller's responsibility to ensure that the given frames are exclusively
-    /// used by this [`OwnedMemory`] instance after it is created. If the frames are used
-    /// outside of this [`OwnedMemory`] instance, the behavior is undefined.
+    /// This function is unsafe because it takes ownership of the given frames.
+    /// However, it is the caller's responsibility to ensure that the given
+    /// frames are exclusively used by this [`OwnedMemory`] instance after it
+    /// is created. If the frames are used outside of this [`OwnedMemory`]
+    /// instance, the behavior is undefined.
     #[must_use]
     pub unsafe fn new(frames: Range<Frame>) -> Self {
         Self { frames }
     }
 
-    /// Consumes this [`OwnedMemory`] and return an owned frame instead if the range of
-    /// frames that it owns contains only one frame. If the range of frames contains more
-    /// than one frame, this method returns `None` and deallocate the frames.
+    /// Consumes this [`OwnedMemory`] and return an owned frame instead if the
+    /// range of frames that it owns contains only one frame. If the range of
+    /// frames contains more than one frame, this method returns `None` and
+    /// deallocate the frames.
     #[must_use]
     pub fn into_owned_frame(self) -> Option<OwnedFrame> {
         if self.frames.end.addr() == self.frames.start.end() {
-            unsafe { Some(OwnedFrame::new(ManuallyDrop::new(self).frames.start)) }
+            unsafe {
+                Some(OwnedFrame::new(ManuallyDrop::new(self).frames.start))
+            }
         } else {
             None
         }
     }
 
-    /// Consumes this [`OwnedMemory`] and returns the range of frames that it owns without
-    /// deallocating them.
+    /// Consumes this [`OwnedMemory`] and returns the range of frames that it
+    /// owns without deallocating them.
     #[must_use]
     pub fn into_inner(self) -> Range<Frame> {
         let mut owned = ManuallyDrop::new(self);
@@ -111,10 +116,10 @@ impl Deref for OwnedMemory {
 }
 
 impl Drop for OwnedMemory {
-    /// Deallocates the frames owned by this [`OwnedMemory`] instance. Since this
-    /// struct should have an exclusive ownership of the frames, this method should
-    /// effectively deallocate the frames in addition to decreasing the reference
-    /// count of the frames.
+    /// Deallocates the frames owned by this [`OwnedMemory`] instance. Since
+    /// this struct should have an exclusive ownership of the frames, this
+    /// method should effectively deallocate the frames in addition to
+    /// decreasing the reference count of the frames.
     fn drop(&mut self) {
         unsafe {
             FRAME_ALLOCATOR

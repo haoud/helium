@@ -24,7 +24,9 @@ impl Physical {
     #[must_use]
     pub const fn new(address: usize) -> Self {
         match Self::try_new(address) {
-            Err(InvalidPhysical(_)) => panic!("Physical address is not valid (must be 52 bits)"),
+            Err(InvalidPhysical(_)) => {
+                panic!("Physical address is not valid (must be 52 bits)")
+            }
             Ok(addr) => addr,
         }
     }
@@ -32,8 +34,8 @@ impl Physical {
     /// Try to create a new physical address.
     ///
     /// # Errors
-    /// If the address is not valid (bits 52-63 must be 0), this function returns an error,
-    /// containing the invalid address.
+    /// If the address is not valid (bits 52-63 must be 0), this function
+    /// returns an error, containing the invalid address.
     pub const fn try_new(address: usize) -> Result<Self, InvalidPhysical> {
         if address > Self::MAX {
             Err(InvalidPhysical(address))
@@ -42,7 +44,8 @@ impl Physical {
         }
     }
 
-    /// Creates a new physical address. Bits 52-63 are truncated to 0 if they are set.
+    /// Creates a new physical address. Bits 52-63 are truncated to 0 if they
+    /// are set.
     #[must_use]
     pub const fn new_truncate(addr: usize) -> Self {
         // Only keep the lower 52 bits
@@ -58,15 +61,15 @@ impl Physical {
     /// Creates a new physical address without checking if it is valid.
     ///
     /// # Safety
-    /// The address must be valid (bits 52-63 must be 0). If the address is not valid, the behavior
-    /// is undefined.
+    /// The address must be valid (bits 52-63 must be 0). If the address is
+    /// not valid, the behavior is undefined.
     #[must_use]
     pub const unsafe fn new_unchecked(address: usize) -> Self {
         Self(address)
     }
 
-    /// Creates a new physical address from a pointer. This is a convenience function for
-    /// `Physical::new(ptr as usize)`.
+    /// Creates a new physical address from a pointer. This is a convenience
+    /// function for `Physical::new(ptr as usize)`.
     #[must_use]
     pub fn from_ptr<T>(ptr: *const T) -> Self {
         Self::new(ptr as usize)
@@ -143,8 +146,8 @@ impl Physical {
         self.0 & (align - 1) == 0
     }
 
-    /// Align the address up to a page boundary (4 KiB). If the address is already aligned, this
-    /// function does nothing.
+    /// Align the address up to a page boundary (4 KiB). If the address is
+    /// already aligned, this function does nothing.
     #[must_use]
     pub const fn page_align_up(&self) -> Self {
         Self::new_truncate(match self.0.checked_add(0xFFF) {
@@ -153,8 +156,8 @@ impl Physical {
         })
     }
 
-    /// Align the address down to a page boundary (4 KiB). If the address is already aligned, this
-    /// function does nothing.
+    /// Align the address down to a page boundary (4 KiB). If the address is
+    /// already aligned, this function does nothing.
     #[must_use]
     pub const fn page_align_down(&self) -> Self {
         Self::new_truncate(self.0 & !0xFFF)
@@ -259,7 +262,9 @@ impl From<usize> for Physical {
 impl From<Virtual> for Physical {
     fn from(addr: Virtual) -> Self {
         if addr.0 < 0xFFFF_8000_0000_0000 || addr.0 > 0xFFFF_8FFF_FFFF_FFFF {
-            panic!("Cannot convert the virtual address {addr} to physical address");
+            panic!(
+                "Cannot convert the virtual address {addr} to physical address"
+            );
         }
         Self::new(addr.0 - 0xFFFF_8000_0000_0000)
     }

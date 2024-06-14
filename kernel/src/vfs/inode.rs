@@ -12,11 +12,10 @@ use core::any::Any;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Identifier(pub u64);
 
-///
-/// The inode structure implements `PartialEq`, `Eq`, `PartialOrd` and `Ord` to
-/// allow the use of the container types provided by the standard library.
-/// The comparison is only done by comparing the inode identifiers, since the VFS
-/// assume that all inodes of a filesystem have a unique identifier.
+/// The inode structure implements `PartialEq`, `Eq`, `PartialOrd` and `Ord`
+/// to allow the use of the container types provided by the standard library.
+/// The comparison is only done by comparing the inode identifiers, since the
+/// VFS assume that all inodes of a filesystem have a unique identifier.
 #[derive(Debug)]
 pub struct Inode {
     /// The identifier of this inode. It is unique among all inodes of the
@@ -76,9 +75,9 @@ impl Inode {
     /// list of dirty inodes of the superblock.
     ///
     /// # Panics
-    /// This function panics if the inode is not associated with a superblock. This
-    /// should never happen because the inode is always associated with a superblock
-    /// when it is created.
+    /// This function panics if the inode is not associated with a superblock.
+    /// This should never happen because the inode is always associated with a
+    /// superblock when it is created.
     pub fn mark_dirty(self: &Arc<Self>) {
         self.superblock
             .upgrade()
@@ -221,29 +220,35 @@ impl Operation {
 
 #[derive(Debug)]
 pub struct DirectoryOperation {
-    /// Creates a new device inode with the given name and device identifier in the given
-    /// directory, and returns the identifier of the new inode.
+    /// Creates a new device inode with the given name and device identifier in
+    /// the given directory, and returns the identifier of the new inode.
     ///
     /// # Errors
     /// If the inode could not be created, an error is returned, described by
     /// the [`MknodError`] enum.
-    pub mknod: fn(inode: &Inode, name: &str, device: Device) -> Result<Identifier, CreateError>,
+    pub mknod: fn(
+        inode: &Inode,
+        name: &str,
+        device: Device,
+    ) -> Result<Identifier, CreateError>,
 
-    /// Creates a new regular file with the given name in the given directory, and returns
-    /// the identifier of the new inode.
+    /// Creates a new regular file with the given name in the given directory,
+    /// and returns the identifier of the new inode.
     ///
     /// # Errors
     /// If the inode could not be created, an error is returned, described by
     /// the [`CreateError`] enum.
-    pub create: fn(inode: &Inode, name: &str) -> Result<Identifier, CreateError>,
+    pub create:
+        fn(inode: &Inode, name: &str) -> Result<Identifier, CreateError>,
 
-    /// Looks up the inode with the given name in the given directory, and returns its
-    /// identifier.
+    /// Looks up the inode with the given name in the given directory, and
+    /// returns its identifier.
     ///
     /// # Errors
     /// If the inode could not be found, an error is returned, described by
     /// the [`LookupError`] enum.
-    pub lookup: fn(inode: &Inode, name: &str) -> Result<Identifier, LookupError>,
+    pub lookup:
+        fn(inode: &Inode, name: &str) -> Result<Identifier, LookupError>,
 
     /// Removes the inode with the given name from the given directory.
     ///
@@ -252,8 +257,8 @@ pub struct DirectoryOperation {
     /// the [`LookupError`] enum.
     pub unlink: fn(inode: &Inode, name: &str) -> Result<(), UnlinkError>,
 
-    /// Creates a new directory with the given name in the given directory, and returns
-    /// the identifier of the new inode.
+    /// Creates a new directory with the given name in the given directory, and
+    /// returns the identifier of the new inode.
     ///
     /// # Errors
     /// If the inode could not be created, an error is returned, described by
@@ -267,25 +272,28 @@ pub struct DirectoryOperation {
     /// the [`RmdirError`] enum.
     pub rmdir: fn(inode: &Inode, name: &str) -> Result<(), RmdirError>,
 
-    /// Creates a new hard link with the given name in the given directory, pointing to the
-    /// given inode.
+    /// Creates a new hard link with the given name in the given directory,
+    /// pointing to the given inode.
     ///
     /// # Errors
     /// If the link could not be created, an error is returned, described by
     /// the [`LinkError`] enum.
-    pub link: fn(inode: &Inode, name: &str, target: &Inode) -> Result<(), LinkError>,
+    pub link:
+        fn(inode: &Inode, name: &str, target: &Inode) -> Result<(), LinkError>,
 
-    /// Renames the inode with the given name in the given directory to the given name.
+    /// Renames the inode with the given name in the given directory to the
+    /// given name.
     ///
     /// # Errors
     /// If the inode could not be renamed, an error is returned, described by
     /// the [`RenameError`] enum.
-    pub rename: fn(inode: &Inode, old: &str, new: &str) -> Result<(), RenameError>,
+    pub rename:
+        fn(inode: &Inode, old: &str, new: &str) -> Result<(), RenameError>,
 }
 
 impl DirectoryOperation {
-    /// Creates a new device inode with the given name and device identifier in the given
-    /// directory, and returns the identifier of the new inode.
+    /// Creates a new device inode with the given name and device identifier in
+    /// the given directory, and returns the identifier of the new inode.
     ///
     /// # Errors
     /// If the inode could not be created, an error is returned, described by
@@ -299,23 +307,31 @@ impl DirectoryOperation {
         (self.mknod)(inode, name, device)
     }
 
-    /// Creates a new regular file with the given name in the given directory, and returns
-    /// the identifier of the new inode.
+    /// Creates a new regular file with the given name in the given directory,
+    /// and returns the identifier of the new inode.
     ///
     /// # Errors
     /// If the inode could not be created, an error is returned, described by
     /// the [`CreateError`] enum.
-    pub fn create(&self, inode: &Inode, name: &str) -> Result<Identifier, CreateError> {
+    pub fn create(
+        &self,
+        inode: &Inode,
+        name: &str,
+    ) -> Result<Identifier, CreateError> {
         (self.create)(inode, name)
     }
 
-    /// Looks up the inode with the given name in the given directory, and returns its
-    /// identifier.
+    /// Looks up the inode with the given name in the given directory, and
+    /// returns its identifier.
     ///
     /// # Errors
     /// If the inode could not be found, an error is returned, described by
     /// the [`LookupError`] enum.
-    pub fn lookup(&self, inode: &Inode, name: &str) -> Result<Identifier, LookupError> {
+    pub fn lookup(
+        &self,
+        inode: &Inode,
+        name: &str,
+    ) -> Result<Identifier, LookupError> {
         (self.lookup)(inode, name)
     }
 
@@ -328,66 +344,88 @@ impl DirectoryOperation {
         (self.unlink)(inode, name)
     }
 
-    /// Creates a new directory with the given name in the given directory, and returns
-    /// the identifier of the new inode.
+    /// Creates a new directory with the given name in the given directory, and
+    /// returns the identifier of the new inode.
     ///
     /// # Errors
     /// If the inode could not be created, an error is returned, described by
     /// the [`MkdirError`] enum.
-    pub fn mkdir(&self, inode: &Inode, name: &str) -> Result<Identifier, MkdirError> {
+    pub fn mkdir(
+        &self,
+        inode: &Inode,
+        name: &str,
+    ) -> Result<Identifier, MkdirError> {
         (self.mkdir)(inode, name)
     }
 
     /// Removes the directory with the given name from the given directory.
     ///
     /// # Errors
-    /// If the directory could not be removed, an error is returned, described by
-    /// the [`RmdirError`] enum.
+    /// If the directory could not be removed, an error is returned, described
+    /// by the [`RmdirError`] enum.
     pub fn rmdir(&self, inode: &Inode, name: &str) -> Result<(), RmdirError> {
         (self.rmdir)(inode, name)
     }
 
-    /// Creates a new hard link with the given name in the given directory, pointing to the
-    /// given inode.
+    /// Creates a new hard link with the given name in the given directory,
+    /// pointing to the given inode.
     ///
     /// # Errors
     /// If the link could not be created, an error is returned, described by
     /// the [`LinkError`] enum.
-    pub fn link(&self, inode: &Inode, name: &str, target: &Inode) -> Result<(), LinkError> {
+    pub fn link(
+        &self,
+        inode: &Inode,
+        name: &str,
+        target: &Inode,
+    ) -> Result<(), LinkError> {
         (self.link)(inode, name, target)
     }
 
-    /// Renames the inode with the given name in the given directory to the given name.
+    /// Renames the inode with the given name in the given directory to the
+    /// given name.
     ///
     /// # Errors
     /// If the inode could not be renamed, an error is returned, described by
     /// the [`RenameError`] enum.
-    pub fn rename(&self, inode: &Inode, old: &str, new: &str) -> Result<(), RenameError> {
+    pub fn rename(
+        &self,
+        inode: &Inode,
+        old: &str,
+        new: &str,
+    ) -> Result<(), RenameError> {
         (self.rename)(inode, old, new)
     }
 }
 
 #[derive(Debug)]
 pub struct FileOperation {
-    /// Truncates the inode data to the given size. If the size is greater than the current
-    /// size of the inode, the inode data is extended and the new bytes are filled with zeros.
-    /// If the size is less than the current size of the inode, the inode data is truncated.
+    /// Truncates the inode data to the given size. If the size is greater than
+    /// the current size of the inode, the inode data is extended and the new
+    /// bytes are filled with zeros. If the size is less than the current size
+    /// of the inode, the inode data is truncated.
     ///
     /// # Errors
     /// If the inode could not be truncated, an error is returned, described by
     /// the [`TruncateError`] enum.
-    pub truncate: fn(inode: &Inode, size: usize) -> Result<usize, TruncateError>,
+    pub truncate:
+        fn(inode: &Inode, size: usize) -> Result<usize, TruncateError>,
 }
 
 impl FileOperation {
-    /// Truncates the inode data to the given size. If the size is greater than the current
-    /// size of the inode, the inode data is extended and the new bytes are filled with zeros.
-    /// If the size is less than the current size of the inode, the inode data is truncated.
+    /// Truncates the inode data to the given size. If the size is greater than
+    /// the current size of the inode, the inode data is extended and the new
+    /// bytes are filled with zeros. If the size is less than the current size
+    /// of the inode, the inode data is truncated.
     ///
     /// # Errors
     /// If the inode could not be truncated, an error is returned, described by
     /// the [`TruncateError`] enum.
-    pub fn truncate(&self, inode: &Inode, size: usize) -> Result<usize, TruncateError> {
+    pub fn truncate(
+        &self,
+        inode: &Inode,
+        size: usize,
+    ) -> Result<usize, TruncateError> {
         (self.truncate)(inode, size)
     }
 }
@@ -457,8 +495,8 @@ pub enum UnlinkError {
     /// of a directory in some filesystems.
     ReservedEntry,
 
-    /// The entry is a directory that must be removed with the `rmdir` operation
-    /// and not the `unlink` operation.
+    /// The entry is a directory that must be removed with the `rmdir`
+    /// operation and not the `unlink` operation.
     IsADirectory,
 
     /// The entry does not exist in the directory.

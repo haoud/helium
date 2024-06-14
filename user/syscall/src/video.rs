@@ -24,10 +24,10 @@ impl From<Errno> for ReadInfoError {
 }
 
 /// Information about the framebuffer. It is a very simple structure that only
-/// describes the height, width and bits per pixel of the framebuffer. Assumptions
-/// must be made about the framebuffer format, such as the order of the color
-/// channels and the number of bits per channel. This is still sufficient for
-/// now
+/// describes the height, width and bits per pixel of the framebuffer.
+/// Assumptions must be made about the framebuffer format, such as the order of
+/// the color channels and the number of bits per channel. This is still
+/// sufficient for now
 #[repr(C)]
 pub struct FramebufferInfo {
     pub height: u64,

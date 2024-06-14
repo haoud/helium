@@ -17,14 +17,18 @@ use super::clock::Timespec;
 /// [`OpenError`] enum.
 ///
 /// # Panics
-/// This function panics an inode does not have a corresponding superblock. This
-/// should never happen, and is a serious bug in the kernel if it does.
-pub fn open(dirfd: usize, path: usize, flags: usize) -> Result<usize, OpenError> {
+/// This function panics an inode does not have a corresponding superblock.
+/// This should never happen, and is a serious bug in the kernel if it does.
+pub fn open(
+    dirfd: usize,
+    path: usize,
+    flags: usize,
+) -> Result<usize, OpenError> {
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
 
-    // This is the dentry pointed by the file descriptor `dirfd`. If `dirfd` is
-    // `AT_FDCWD`, the current working directory is used.
+    // This is the dentry pointed by the file descriptor `dirfd`. If `dirfd`
+    // is `AT_FDCWD`, the current working directory is used.
     let cwd = match dirfd {
         vfs::fd::Descriptor::AT_FDCWD => current_task.cwd(),
         _ => current_task
@@ -37,47 +41,52 @@ pub fn open(dirfd: usize, path: usize, flags: usize) -> Result<usize, OpenError>
             .ok_or(OpenError::NotADirectory)?,
     };
 
-    let flags = vfs::file::OpenFlags::from_bits(flags).ok_or(OpenError::InvalidFlag)?;
-    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(OpenError::BadAddress)?;
+    let flags =
+        vfs::file::OpenFlags::from_bits(flags).ok_or(OpenError::InvalidFlag)?;
+    let ptr = user::Pointer::<SyscallString>::from_usize(path)
+        .ok_or(OpenError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(OpenError::BadAddress)?
         .fetch()
         .map_err(|_| OpenError::BadAddress)?;
     let path = vfs::Path::new(&path)?;
 
-    let dentry = match vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty()) {
-        Ok(dentry) => {
-            // If the file exists and the `MUST_CREATE` flag is set, we return an error,
-            // because the user has specified that the file must be created during the
-            // open call.
-            if flags.contains(vfs::file::OpenFlags::MUST_CREATE) {
-                return Err(OpenError::AlreadyExists);
-            }
-            dentry
-        }
-        Err(e) => {
-            // The path could not be resolved entirely. This variant contains the
-            // last inode that could be resolved and the path that could not be
-            // resolved.
-            // If only the last component of the path could not be resolved and
-            // the `CREATE` flag is set, the kernel will attempt to create a file
-            // with the given name in the parent directory
-            if let vfs::LookupError::NotFound(parent, path) = e {
-                // If the user has not specified the `CREATE` or `MUST_CREATE` flag,
-                // we return an error if the file does not exist.
-                if !flags.contains(vfs::file::OpenFlags::CREATE)
-                    && !flags.contains(vfs::file::OpenFlags::MUST_CREATE)
-                {
-                    return Err(OpenError::NoSuchFile);
+    let dentry =
+        match vfs::lookup(&path, &root, &cwd, vfs::LookupFlags::empty()) {
+            Ok(dentry) => {
+                // If the file exists and the `MUST_CREATE` flag is set, we
+                // return an error, because the user has specified that the
+                // file must be created during the open call.
+                if flags.contains(vfs::file::OpenFlags::MUST_CREATE) {
+                    return Err(OpenError::AlreadyExists);
                 }
-
-                let name = path.as_name().ok_or(OpenError::NoSuchFile)?.clone();
-                Dentry::create_and_fetch_file(&parent, name)?
-            } else {
-                return Err(OpenError::from(e));
+                dentry
             }
-        }
-    };
+            Err(e) => {
+                // The path could not be resolved entirely. This variant
+                // contains the last inode that could be resolved and the path
+                // that could not be resolved.
+                // If only the last component of the path could not be resolved
+                // and the `CREATE` flag is set, the kernel will attempt to
+                // create a file with the given name in the parent directory
+                if let vfs::LookupError::NotFound(parent, path) = e {
+                    // If the user has not specified the `CREATE` or
+                    // `MUST_CREATE` flag, we return an error if the file does
+                    // not exist.
+                    if !flags.contains(vfs::file::OpenFlags::CREATE)
+                        && !flags.contains(vfs::file::OpenFlags::MUST_CREATE)
+                    {
+                        return Err(OpenError::NoSuchFile);
+                    }
+
+                    let name =
+                        path.as_name().ok_or(OpenError::NoSuchFile)?.clone();
+                    Dentry::create_and_fetch_file(&parent, name)?
+                } else {
+                    return Err(OpenError::from(e));
+                }
+            }
+        };
 
     log::debug!("Opening file inode id {}", dentry.inode().id.0);
     log::debug!("name: {:?}", dentry.name());
@@ -113,7 +122,7 @@ pub enum OpenError {
     /// The file does not exist
     NoSuchFile,
 
-    // One of the components of the path is not a directory
+    /// One of the components of the path is not a directory
     NotADirectory,
 
     /// The path does not point to a file
@@ -155,8 +164,12 @@ impl From<vfs::LookupError> for OpenError {
 impl From<vfs::dentry::CreateFetchError> for OpenError {
     fn from(error: vfs::dentry::CreateFetchError) -> Self {
         match error {
-            vfs::dentry::CreateFetchError::NotADirectory => OpenError::NotADirectory,
-            vfs::dentry::CreateFetchError::AlreadyExists => OpenError::AlreadyExists,
+            vfs::dentry::CreateFetchError::NotADirectory => {
+                OpenError::NotADirectory
+            }
+            vfs::dentry::CreateFetchError::AlreadyExists => {
+                OpenError::AlreadyExists
+            }
             vfs::dentry::CreateFetchError::IoError => OpenError::IoError,
         }
     }
@@ -214,8 +227,8 @@ impl From<CloseError> for isize {
 /// See [`ReadError`] for more details.
 ///
 /// # Panics
-/// This function panics if this function try to write more bytes than the user buffer
-/// can hold. This is a serious bug in this function if it happens.
+/// This function panics if this function try to write more bytes than the user
+/// buffer can hold. This is a serious bug in this function if it happens.
 pub fn read(fd: usize, buf: usize, len: usize) -> Result<usize, ReadError> {
     let current_task = SCHEDULER.current_task();
     let file = current_task
@@ -239,10 +252,11 @@ pub fn read(fd: usize, buf: usize, len: usize) -> Result<usize, ReadError> {
     let mut readed = 0;
 
     while remaning > 0 {
-        let bytes_read =
-            file.as_file()
-                .ok_or(ReadError::NotAFile)?
-                .read(&file, &mut read_buffer, offset)?;
+        let bytes_read = file.as_file().ok_or(ReadError::NotAFile)?.read(
+            &file,
+            &mut read_buffer,
+            offset,
+        )?;
 
         // If there is nothing left to read, we break out of the loop
         if bytes_read == 0 {
@@ -278,12 +292,12 @@ pub enum ReadError {
     /// The file is not a file
     NotAFile,
 
-    /// The file was not opened with the `Read` flag or the read operation is not
-    /// supported for this file
+    /// The file was not opened with the `Read` flag or the read operation is
+    /// not supported for this file
     NotReadable,
 
-    /// The pipe is broken: there is no process with the write end of the pipe open
-    /// anymore
+    /// The pipe is broken: there is no process with the write end of the pipe
+    /// open anymore
     BrokenPipe,
 
     /// An unknown error occurred
@@ -319,8 +333,8 @@ impl From<ReadError> for isize {
 /// See [`WriteError`] for more details.
 ///
 /// # Panics
-/// This function panics if a partial write occurs in the filesystem: this is not yet
-/// supported by this syscall.
+/// This function panics if a partial write occurs in the filesystem: this is
+/// not yet supported by this syscall.
 pub fn write(fd: usize, buf: usize, len: usize) -> Result<usize, WriteError> {
     let current_task = SCHEDULER.current_task();
     let file = current_task
@@ -355,8 +369,8 @@ pub fn write(fd: usize, buf: usize, len: usize) -> Result<usize, WriteError> {
         written += bytes_written;
     }
 
-    // If the file is associated with an inode, mark it as dirty since the inode
-    // may has been modified
+    // If the file is associated with an inode, mark it as dirty since the
+    // inode may has been modified
     if let Some(dentry) = &file.dentry {
         dentry.dirtying_inode();
     }
@@ -380,12 +394,12 @@ pub enum WriteError {
     /// The file is not a file
     NotAFile,
 
-    /// The file was not opened with the `WRITE` flag or the write operation is not
-    /// supported for this file
+    /// The file was not opened with the `WRITE` flag or the write operation is
+    /// not supported for this file
     NotWritable,
 
-    /// The pipe is broken: there is no process with the read end of the pipe open
-    /// anymore
+    /// The pipe is broken: there is no process with the read end of the pipe
+    /// open anymore
     BrokenPipe,
 
     /// An unknown error occurred
@@ -415,17 +429,24 @@ impl From<WriteError> for isize {
     }
 }
 
-/// Repositions the file offset of the open file description associated with the file
-/// descriptor `fd` to the argument `offset` according to the directive `whence` as
-/// follows:
-///  - `Whence::Current`: The offset is set to its current location plus `offset` bytes.
-///  - `Whence::End`: The offset is set to the size of the file plus `offset` bytes.
+/// Repositions the file offset of the open file description associated with
+/// the file descriptor `fd` to the argument `offset` according to the
+/// directive `whence` as follows:
+///  - `Whence::Current`: The offset is set to its current location plus
+///     `offset` bytes.
+///  - `Whence::End`: The offset is set to the size of the file plus `offset`
+///     bytes.
 ///  - `Whence::Set`: The offset is set to `offset` bytes.
 ///
 /// # Errors
 /// See [`SeekError`] for more details.
-pub fn seek(fd: usize, offset: usize, whence: usize) -> Result<usize, SeekError> {
-    let whence = vfs::file::Whence::try_from(whence).map_err(|_| SeekError::InvalidWhence)?;
+pub fn seek(
+    fd: usize,
+    offset: usize,
+    whence: usize,
+) -> Result<usize, SeekError> {
+    let whence = vfs::file::Whence::try_from(whence)
+        .map_err(|()| SeekError::InvalidWhence)?;
     let current_task = SCHEDULER.current_task();
     let file = current_task
         .files()
@@ -436,10 +457,11 @@ pub fn seek(fd: usize, offset: usize, whence: usize) -> Result<usize, SeekError>
 
     let mut state = file.state.lock();
     #[allow(clippy::cast_possible_wrap)]
-    let offset =
-        file.as_file()
-            .ok_or(SeekError::NotSeekable)?
-            .seek(&file, offset as isize, whence)?;
+    let offset = file.as_file().ok_or(SeekError::NotSeekable)?.seek(
+        &file,
+        offset as isize,
+        whence,
+    )?;
 
     state.offset = offset;
     Ok(offset.0)
@@ -485,8 +507,8 @@ impl From<SeekError> for isize {
     }
 }
 
-/// Get the current working directory of the current process. The path is written to
-/// the buffer `buf` and the length of the path is returned.
+/// Get the current working directory of the current process. The path is
+/// written to the buffer `buf` and the length of the path is returned.
 ///
 /// # Errors
 /// - [`GetCwdError::BadAddress`]: The buffer passed as an argument is invalid
@@ -537,7 +559,7 @@ pub enum GetCwdError {
     /// The buffer passed as an argument is invalid
     BadAddress,
 
-    // The buffer is too small to hold the path
+    /// The buffer is too small to hold the path
     BufferTooSmall,
 
     /// An unknown error occurred
@@ -558,13 +580,14 @@ impl From<GetCwdError> for isize {
     }
 }
 
-/// Change the current working directory of the current process to the directory. The
-/// directory is specified by its path.
+/// Change the current working directory of the current process to the
+/// directory. The directory is specified by its path.
 ///
 /// # Errors
 /// See [`ChangeCwdError`] for more details.
 pub fn change_cwd(path: usize) -> Result<usize, ChangeCwdError> {
-    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(ChangeCwdError::BadAddress)?;
+    let ptr = user::Pointer::<SyscallString>::from_usize(path)
+        .ok_or(ChangeCwdError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(ChangeCwdError::BadAddress)?
         .fetch()?;
@@ -621,7 +644,8 @@ impl From<vfs::LookupError> for ChangeCwdError {
         match error {
             vfs::LookupError::NotADirectory => ChangeCwdError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => ChangeCwdError::NoSuchEntry,
-            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+            vfs::LookupError::IoError
+            | vfs::LookupError::CorruptedFilesystem => {
                 ChangeCwdError::UnknownError
             }
         }
@@ -631,9 +655,15 @@ impl From<vfs::LookupError> for ChangeCwdError {
 impl From<user::string::FetchError> for ChangeCwdError {
     fn from(e: user::string::FetchError) -> Self {
         match e {
-            user::string::FetchError::InvalidMemory => ChangeCwdError::BadAddress,
-            user::string::FetchError::StringTooLong => ChangeCwdError::PathTooLong,
-            user::string::FetchError::StringNotUtf8 => ChangeCwdError::InvalidUtf8,
+            user::string::FetchError::InvalidMemory => {
+                ChangeCwdError::BadAddress
+            }
+            user::string::FetchError::StringTooLong => {
+                ChangeCwdError::PathTooLong
+            }
+            user::string::FetchError::StringNotUtf8 => {
+                ChangeCwdError::InvalidUtf8
+            }
         }
     }
 }
@@ -644,17 +674,20 @@ impl From<ChangeCwdError> for isize {
     }
 }
 
-/// Repositions the file offset of the open file description associated with the file
-/// descriptor `fd` to the argument `offset` according to the directive `whence` as
-/// follows:
-///  - `Whence::Current`: The offset is set to its current location plus `offset` bytes.
-///  - `Whence::End`: The offset is set to the size of the file plus `offset` bytes.
+/// Repositions the file offset of the open file description associated with
+/// the file descriptor `fd` to the argument `offset` according to the
+/// directive `whence` as follows:
+///  - `Whence::Current`: The offset is set to its current location plus
+///     `offset` bytes.
+///  - `Whence::End`: The offset is set to the size of the file plus
+///     `offset` bytes.
 ///  - `Whence::Set`: The offset is set to `offset` bytes.
 ///
 /// # Errors
 /// See [`SeekError`] for more details.
 pub fn mkdir(dirfd: usize, path: usize) -> Result<usize, MkdirError> {
-    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(MkdirError::BadAddress)?;
+    let ptr = user::Pointer::<SyscallString>::from_usize(path)
+        .ok_or(MkdirError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(MkdirError::BadAddress)?
         .fetch()?;
@@ -744,9 +777,8 @@ impl From<vfs::LookupError> for MkdirError {
         match error {
             vfs::LookupError::NotADirectory => MkdirError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => MkdirError::NoSuchEntry,
-            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
-                MkdirError::UnknownError
-            }
+            vfs::LookupError::IoError
+            | vfs::LookupError::CorruptedFilesystem => MkdirError::UnknownError,
         }
     }
 }
@@ -781,10 +813,11 @@ impl From<MkdirError> for isize {
 /// See [`RmdirError`] for more details.
 ///
 /// # Panics
-/// This function panics if the directory has no parent. This should never happen, and is a
-/// serious bug in the kernel if it does.
+/// This function panics if the directory has no parent. This should never
+/// happen, and is a serious bug in the kernel if it does.
 pub fn rmdir(dirfd: usize, path: usize) -> Result<usize, RmdirError> {
-    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(RmdirError::BadAddress)?;
+    let ptr = user::Pointer::<SyscallString>::from_usize(path)
+        .ok_or(RmdirError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(RmdirError::BadAddress)?
         .fetch()?;
@@ -870,9 +903,8 @@ impl From<vfs::LookupError> for RmdirError {
         match error {
             vfs::LookupError::NotADirectory => RmdirError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => RmdirError::NoSuchEntry,
-            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
-                RmdirError::UnknownError
-            }
+            vfs::LookupError::IoError
+            | vfs::LookupError::CorruptedFilesystem => RmdirError::UnknownError,
         }
     }
 }
@@ -961,9 +993,12 @@ impl From<vfs::InvalidPath> for UnlinkError {
 impl From<vfs::LookupError> for UnlinkError {
     fn from(error: vfs::LookupError) -> Self {
         match error {
-            vfs::LookupError::NotADirectory => UnlinkError::ComponentNotADirectory,
+            vfs::LookupError::NotADirectory => {
+                UnlinkError::ComponentNotADirectory
+            }
             vfs::LookupError::NotFound(_, _) => UnlinkError::NoSuchEntry,
-            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+            vfs::LookupError::IoError
+            | vfs::LookupError::CorruptedFilesystem => {
                 UnlinkError::UnknownError
             }
         }
@@ -1011,10 +1046,11 @@ impl From<UnlinkError> for isize {
 /// See [`UnlinkError`] for more details.
 ///
 /// # Panics
-/// This function panics if the entry has no parent. This should never happen, and is a
-/// serious bug in the kernel if it does.
+/// This function panics if the entry has no parent. This should never happen,
+/// and is a serious bug in the kernel if it does.
 pub fn unlink(dirfd: usize, path: usize) -> Result<usize, UnlinkError> {
-    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(UnlinkError::BadAddress)?;
+    let ptr = user::Pointer::<SyscallString>::from_usize(path)
+        .ok_or(UnlinkError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(UnlinkError::BadAddress)?
         .fetch()?;
@@ -1057,7 +1093,8 @@ pub fn unlink(dirfd: usize, path: usize) -> Result<usize, UnlinkError> {
 /// # Errors
 /// See [`TruncateError`] for more details.
 pub fn truncate(path: usize, len: usize) -> Result<usize, TruncateError> {
-    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(TruncateError::BadAddress)?;
+    let ptr = user::Pointer::<SyscallString>::from_usize(path)
+        .ok_or(TruncateError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(TruncateError::BadAddress)?
         .fetch()?;
@@ -1124,7 +1161,8 @@ impl From<vfs::LookupError> for TruncateError {
         match error {
             vfs::LookupError::NotADirectory => TruncateError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => TruncateError::NoSuchEntry,
-            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
+            vfs::LookupError::IoError
+            | vfs::LookupError::CorruptedFilesystem => {
                 TruncateError::UnknownError
             }
         }
@@ -1134,9 +1172,15 @@ impl From<vfs::LookupError> for TruncateError {
 impl From<user::string::FetchError> for TruncateError {
     fn from(e: user::string::FetchError) -> Self {
         match e {
-            user::string::FetchError::InvalidMemory => TruncateError::BadAddress,
-            user::string::FetchError::StringTooLong => TruncateError::PathTooLong,
-            user::string::FetchError::StringNotUtf8 => TruncateError::InvalidUtf8,
+            user::string::FetchError::InvalidMemory => {
+                TruncateError::BadAddress
+            }
+            user::string::FetchError::StringTooLong => {
+                TruncateError::PathTooLong
+            }
+            user::string::FetchError::StringNotUtf8 => {
+                TruncateError::InvalidUtf8
+            }
         }
     }
 }
@@ -1184,14 +1228,20 @@ pub struct Stat {
 ///
 /// # Errors
 /// See [`StatError`] for more details.
-pub fn stat(dirfd: usize, path: usize, stat: usize) -> Result<usize, StatError> {
-    let ptr = user::Pointer::<SyscallString>::from_usize(path).ok_or(StatError::BadAddress)?;
+pub fn stat(
+    dirfd: usize,
+    path: usize,
+    stat: usize,
+) -> Result<usize, StatError> {
+    let ptr = user::Pointer::<SyscallString>::from_usize(path)
+        .ok_or(StatError::BadAddress)?;
     let path = user::String::from_raw_ptr(&ptr)
         .ok_or(StatError::BadAddress)?
         .fetch()?;
     let path = vfs::Path::new(&path)?;
 
-    let ptr = user::Pointer::<Stat>::from_usize(stat).ok_or(StatError::BadAddress)?;
+    let ptr =
+        user::Pointer::<Stat>::from_usize(stat).ok_or(StatError::BadAddress)?;
 
     let current_task = SCHEDULER.current_task();
     let root = current_task.root();
@@ -1285,9 +1335,8 @@ impl From<vfs::LookupError> for StatError {
         match error {
             vfs::LookupError::NotADirectory => StatError::NotADirectory,
             vfs::LookupError::NotFound(_, _) => StatError::NoSuchEntry,
-            vfs::LookupError::IoError | vfs::LookupError::CorruptedFilesystem => {
-                StatError::UnknownError
-            }
+            vfs::LookupError::IoError
+            | vfs::LookupError::CorruptedFilesystem => StatError::UnknownError,
         }
     }
 }
@@ -1348,7 +1397,8 @@ pub fn readdir(fd: usize, dirent: usize) -> Result<usize, ReaddirError> {
         .ok_or(ReaddirError::InvalidFileDescriptor)?
         .clone();
 
-    let ptr = user::Pointer::<Dirent>::from_usize(dirent).ok_or(ReaddirError::BadAddress)?;
+    let ptr = user::Pointer::<Dirent>::from_usize(dirent)
+        .ok_or(ReaddirError::BadAddress)?;
 
     // Check that the file was opened for reading
     if !file.open_flags.contains(vfs::file::OpenFlags::READ) {
@@ -1405,7 +1455,9 @@ pub enum ReaddirError {
 impl From<vfs::file::ReaddirError> for ReaddirError {
     fn from(error: vfs::file::ReaddirError) -> Self {
         match error {
-            vfs::file::ReaddirError::EndOfDirectory => ReaddirError::EndOfDirectory,
+            vfs::file::ReaddirError::EndOfDirectory => {
+                ReaddirError::EndOfDirectory
+            }
         }
     }
 }

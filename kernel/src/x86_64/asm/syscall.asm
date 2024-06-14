@@ -1,8 +1,9 @@
-# This is the function called when a syscall is made from user mode. It is written in assembly 
-# because the syscall instruction is a bit special because of some optimizations that are done
-# by the CPU. The most important one is that the CPU will not save the user stack pointer nor
-# switch to the kernel stack. Of course, it does not save any register either. So we have to
-# do all of this manually, and this cannot be done in Rust.
+# This is the function called when a syscall is made from user mode. It is 
+# written in assembly because the syscall instruction is a bit special because
+# of some optimizations that are done by the CPU. The most important one is 
+# that the CPU will not save the user stack pointer nor switch to the kernel
+# stack. Of course, it does not save any register either. So we have to do all
+# of this manually, and this cannot be done in Rust.
 #
 # Parameters: 
 # - RAX: syscall number

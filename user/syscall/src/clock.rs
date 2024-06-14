@@ -33,9 +33,9 @@ impl From<Errno> for GetTimeError {
 /// Get the current time since the Unix epoch.
 ///
 /// # Errors
-/// - `GetTimeError::BadAddress`: The given address for the timespec is not a valid address.
-/// This should never happen, as the address is always valid and directly provided by this
-/// function.
+/// - `GetTimeError::BadAddress`: The given address for the timespec is not a
+/// valid address. This should never happen, as the address is always valid
+/// and directly provided by this function.
 pub fn get_time() -> Result<Timespec, GetTimeError> {
     let mut timespec = Timespec {
         seconds: 0,
@@ -53,8 +53,8 @@ pub fn get_time() -> Result<Timespec, GetTimeError> {
         );
     }
 
-    // Transmute the return value to ReadInfoError if a valid error code was returned.
-    // If the error code is unknown, return an UnknownError.
+    // Transmute the return value to ReadInfoError if a valid error code was
+    // returned. If the error code is unknown, return an UnknownError.
     match syscall_return(ret) {
         Err(errno) => Err(GetTimeError::from(errno)),
         Ok(_) => Ok(timespec),

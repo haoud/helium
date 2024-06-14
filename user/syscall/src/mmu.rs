@@ -58,16 +58,18 @@ impl From<Errno> for UnmapError {
 ///     - The resulting range is not in user space
 ///     - An invalid access or flag is given
 ///     - An invalid combination of flags is given
-///  - `Errno::OutOfMemory`: The kernel ran out of memory while trying to map the region.
-///  - `Errno::AlreadyExists`: The range already contains a mapping and the `FIXED` flag
-///    was set.
+///  - `Errno::OutOfMemory`: The kernel ran out of memory while trying to map
+///     the region.
+///  - `Errno::AlreadyExists`: The range already contains a mapping and the
+///     `FIXED` flag was set.
 ///
 /// # Safety
-/// This function is unsafe because the design of memory mapped data is totally against Rust
-/// memory safety. The caller must ensure that it will not break Rust memory safety by
-/// mapping a region of memory. It gets even worse if the caller maps a shared region of
-/// a file, as the file may be modified by another process at any time. You shoud be VERY careful
-/// when using this function. Maybe there is a better way to do what you want to do ?
+/// This function is unsafe because the design of memory mapped data is totally
+/// against Rust memory safety. The caller must ensure that it will not break
+/// Rust memory safety by mapping a region of memory. It gets even worse if the
+/// caller maps a shared region of a file, as the file may be modified by
+/// another process at any time. You shoud be VERY careful when using this
+/// function. Maybe there is a better way to do what you want to do ?
 pub unsafe fn map(base: usize, len: usize, access: usize, flags: usize) -> Result<usize, MapError> {
     let ret: usize;
     core::arch::asm!(
@@ -85,20 +87,21 @@ pub unsafe fn map(base: usize, len: usize, access: usize, flags: usize) -> Resul
     }
 }
 
-/// Unmap a region of memory. If the region is not mapped, this function will do nothing.
-/// If multiple mappings exist for the same region, all parts included in the given range
-/// will be unmapped.
+/// Unmap a region of memory. If the region is not mapped, this function will
+/// do nothing. If multiple mappings exist for the same region, all parts
+/// included in the given range will be unmapped.
 ///
 /// # Errors
 ///  Possible errors are:
 ///  - `Errno::BadAddress`: The given address is not a valid address.
-///  - `Errno::InvalidArgument`: The given length is 0 or the resulting range is not in
-///     user space.
+///  - `Errno::InvalidArgument`: The given length is 0 or the resulting range
+///  is not in user space.
 ///
 /// # Safety
-/// This function is unsafe because the design of memory mapped data is totally against Rust
-/// memory safety. The caller must ensure that no reference to the unmapped region is kept
-/// after this function returns. Failure to do so will result in undefined behavior.
+/// This function is unsafe because the design of memory mapped data is totally
+/// against Rust memory safety. The caller must ensure that no reference to the
+/// unmapped region is kept after this function returns. Failure to do so will
+/// result in undefined behavior.
 pub unsafe fn unmap(base: usize, len: usize) -> Result<(), UnmapError> {
     let ret: usize;
     core::arch::asm!(

@@ -7,14 +7,14 @@ pub mod task;
 pub mod vfs;
 pub mod video;
 
-/// A string that is stored in the userland address space. It is a structure that are created by
-/// the rust syscall library and passed to the kernel, so the kernel can then fetch the string from
-/// the userland address space.
+/// A string that is stored in the userland address space. It is a structure
+/// that are created by the rust syscall library and passed to the kernel, so
+/// the kernel can then fetch the string from the userland address space.
 ///
-/// We cannot directly pass an `String` to the kernel, because the layout of an `String` is
-/// unspecified and may change between different versions of Rust. Therefore, we use this custom
-/// structure that has an fixed layout, allowing us to safely read it from the userland address
-/// in the kernel.
+/// We cannot directly pass an `String` to the kernel, because the layout of an
+/// `String` is unspecified and may change between different versions of Rust.
+/// Therefore, we use this custom structure that has an fixed layout, allowing
+/// us to safely read it from the userland address in the kernel.
 #[repr(C)]
 pub(crate) struct SyscallString {
     pub data: *mut u8,
@@ -30,12 +30,13 @@ impl From<&str> for SyscallString {
     }
 }
 
-/// A syscall error code. It is returned by the kernel when a syscall fails. The kernel
-/// provides different error codes for each syscall, so errno cannot be used as it.
+/// A syscall error code. It is returned by the kernel when a syscall fails.
+/// The kernel provides different error codes for each syscall, so errno cannot
+/// be used as it.
 ///
-/// This structure guarantees that the error code is always a valid error code (between
-/// -4095 and -1), but does not guarantee that the error code is valid for the syscall
-/// that was called.
+/// This structure guarantees that the error code is always a valid error code
+/// (between -4095 and -1), but does not guarantee that the error code is valid
+/// for the syscall that was called.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Errno(isize);
 

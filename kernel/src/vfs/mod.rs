@@ -26,14 +26,14 @@ bitflags::bitflags! {
     /// Flags to control the behavior of the lookup operation.
     #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct LookupFlags: u32 {
-        /// Return the parent of the last component of the path. If the path has
-        /// only one component, return the parent of the current directory. If the
-        /// parent cannot be resolved, return an error.
+        /// Return the parent of the last component of the path. If the path
+        /// has only one component, return the parent of the current directory.
+        /// If the parent cannot be resolved, return an error.
         const PARENT = 1 << 0;
 
         /// The dentry resolved must be a directory. This is useful used in
-        /// combination with the `PARENT` flag to ensure that the parent of the
-        /// last component of the path is a directory.
+        /// combination with the `PARENT` flag to ensure that the parent of
+        /// the last component of the path is a directory.
         const DIRECTORY = 1 << 1;
     }
 }
@@ -88,7 +88,9 @@ pub fn lookup(
         parent = dentry;
     }
 
-    if flags.contains(LookupFlags::DIRECTORY) && parent.inode().kind != inode::Kind::Directory {
+    if flags.contains(LookupFlags::DIRECTORY)
+        && parent.inode().kind != inode::Kind::Directory
+    {
         return Err(LookupError::NotADirectory);
     }
 
@@ -109,8 +111,8 @@ pub fn read_all(
     root: &Arc<Dentry>,
     cwd: &Arc<Dentry>,
 ) -> Result<Box<[u8]>, ReadAllError> {
-    let dentry =
-        lookup(path, root, cwd, LookupFlags::empty()).map_err(ReadAllError::LookupError)?;
+    let dentry = lookup(path, root, cwd, LookupFlags::empty())
+        .map_err(ReadAllError::LookupError)?;
     let file = dentry
         .open(file::OpenFlags::READ)
         .map_err(|_| ReadAllError::OpenError)?;
@@ -176,9 +178,9 @@ pub enum LookupError {
 impl From<ReadInodeError> for LookupError {
     fn from(e: ReadInodeError) -> Self {
         match e {
-            // If the inode cannot be read because the filesystem says it does not
-            // exist, it means the filesystem is corrupted because the inode
-            // identifier was found searching the parent directory.
+            // If the inode cannot be read because the filesystem says it does
+            // not exist, it means the filesystem is corrupted because the
+            // inode identifier was found searching the parent directory.
             ReadInodeError::DoesNotExist => LookupError::CorruptedFilesystem,
         }
     }

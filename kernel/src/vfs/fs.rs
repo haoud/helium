@@ -34,13 +34,17 @@ impl Filesystem {
         }
     }
 
-    /// Reads the superblock of this filesystem from the given device, add it to
-    /// the list of mounted filesystems of this type, and return a VFS superblock.
+    /// Reads the superblock of this filesystem from the given device, add it
+    /// to the list of mounted filesystems of this type, and return a VFS
+    /// superblock.
     ///
     /// # Errors
     /// If the superblock could not be read from the device, an error is
     /// returned, described by the [`ReadSuperError`] enum.
-    pub fn read_super(&self, device: Device) -> Result<Arc<Super>, ReadSuperError> {
+    pub fn read_super(
+        &self,
+        device: Device,
+    ) -> Result<Arc<Super>, ReadSuperError> {
         (self.operation.read_super)(self, device).map(|superblock| {
             self.supers.lock().push(Arc::clone(&superblock));
             superblock
@@ -56,7 +60,10 @@ pub struct Operation {
     /// # Errors
     /// If the superblock could not be read from the device, an error is
     /// returned, described by the [`ReadSuperError`] enum.
-    pub read_super: fn(fs: &Filesystem, device: Device) -> Result<Arc<Super>, ReadSuperError>,
+    pub read_super: fn(
+        fs: &Filesystem,
+        device: Device,
+    ) -> Result<Arc<Super>, ReadSuperError>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

@@ -6,23 +6,29 @@ use addr::user::{InvalidUserVirtual, UserVirtual};
 /// Map a range of virtual addresses.
 ///
 /// # Errors
-/// On success, the syscall returns the start address of the mapped area. If the
-/// syscall fails, it can return the following errors:
-/// - `InvalidArgument`: the `addr` is not page-aligned, the length is zero, the range
-///                      is outside of the user virtual address space or if `access`
-///                      or `flags` contain unsupported/invalid bits or invalid
-///                      combinations of bits
-///
+/// On success, the syscall returns the start address of the mapped area. If
+/// the syscall fails, it can return the following errors:
+/// - `InvalidArgument`: the `addr` is not page-aligned, the length is zero,
+///     the range is outside of the user virtual address space or if `access`
+///     or `flags` contain unsupported/invalid bits or invalid combinations of
+///     bits
 /// - `AlreadyExists`: the range overlaps with an existing area and the `FIXED`
-///                    flag was set
+///     flag was set
 /// - `OutOfMemory`: the task has no more virtual or physical memory available
 ///
 /// # Panics
 /// This function may panic if the current task does not have a VMM (probably
 /// a kernel task that tried to make a syscall).
-pub fn map(addr: usize, len: usize, access: usize, flags: usize) -> Result<usize, MmapError> {
-    let access = area::Access::from_bits(access as u64).ok_or(MmapError::InvalidFlags)?;
-    let flags = area::Flags::from_bits(flags as u64).ok_or(MmapError::InvalidFlags)?;
+pub fn map(
+    addr: usize,
+    len: usize,
+    access: usize,
+    flags: usize,
+) -> Result<usize, MmapError> {
+    let access = area::Access::from_bits(access as u64)
+        .ok_or(MmapError::InvalidFlags)?;
+    let flags =
+        area::Flags::from_bits(flags as u64).ok_or(MmapError::InvalidFlags)?;
     let end = UserVirtual::try_new(addr + len)?;
     let start = UserVirtual::try_new(addr)?;
 
@@ -102,8 +108,8 @@ impl From<MmapError> for isize {
 /// # Errors
 /// On success, the syscall returns 0. If the syscall fails, it can return the
 /// following errors:
-/// - `InvalidArgument`: the `addr` is not page-aligned, the length is zero or if
-///                      the range is outside of the user virtual address space
+/// - `InvalidArgument`: the `addr` is not page-aligned, the length is zero or
+///     if the range is outside of the user virtual address space
 ///
 /// # Panics
 /// This function may panic if the current task does not have a VMM (probably

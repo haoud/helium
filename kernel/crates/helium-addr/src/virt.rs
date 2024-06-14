@@ -7,16 +7,18 @@ use core::{
 
 /// A canonical 64-bit virtual memory address.
 ///
-/// On `x86_64`, only the 48 lower bits of a virtual address can be used. This type guarantees that
-/// the address is always canonical, i.e. that the top 17 bits are either all 0 or all 1.
+/// On `x86_64`, only the 48 lower bits of a virtual address can be used. This
+/// type guarantees that the address is always canonical, i.e. that the top 17
+/// bits are either all 0 or all 1.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct Virtual(pub(crate) usize);
 
 /// An invalid virtual address.
 ///
-/// This type is used to represent an invalid virtual address. It is returned by [`Virtual::try_new`]
-/// when the given address is not canonical (see [`Virtual`] for more information).
+/// This type is used to represent an invalid virtual address. It is returned
+/// by [`Virtual::try_new`] when the given address is not canonical (see
+/// [`Virtual`] for more information).
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct InvalidVirtual(pub(crate) usize);
@@ -30,15 +32,18 @@ impl Virtual {
     pub const fn new(address: usize) -> Self {
         match Self::try_new(address) {
             Ok(addr) => addr,
-            Err(InvalidVirtual(_)) => panic!("Invalid virtual address: non canonical"),
+            Err(InvalidVirtual(_)) => {
+                panic!("Invalid virtual address: non canonical")
+            }
         }
     }
 
     /// Tries to create a new canonical virtual address.
     ///
     /// # Errors
-    /// This function returns an [`InvalidVirtual`] error if the given address is not canonical, or
-    /// a sign extension is performed if 48th bit is set and all bits from 49 to 63 are set to 0.
+    /// This function returns an [`InvalidVirtual`] error if the given address
+    /// is not canonical, or a sign extension is performed if 48th bit is set
+    /// and all bits from 49 to 63 are set to 0.
     pub const fn try_new(address: usize) -> Result<Self, InvalidVirtual> {
         match (address & 0xFFFF_8000_0000_0000) >> 47 {
             0 | 0x1FFFF => Ok(Self(address)),
@@ -47,23 +52,26 @@ impl Virtual {
         }
     }
 
-    /// Creates a new canonical virtual address, truncating the address if necessary.
-    /// A sign extension is performed if 48th bit is set and all bits from 49 to 63 are set to 0,
-    /// and set those bits to 1 in order to make the address canonical.
+    /// Creates a new canonical virtual address, truncating the address if
+    /// necessary. A sign extension is performed if 48th bit is set and all
+    /// bits from 49 to 63 are set to 0, and set those bits to 1 in order to
+    /// make the address canonical.
     #[must_use]
     #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     pub const fn new_truncate(addr: usize) -> Self {
         // Some magic with sign extension on signed 64-bit integer
-        // It set the sign bit to the 48th bit, and then shift to the right by 16 bits: all bits
-        // from 48 to 63 are set to the sign bit
+        // It set the sign bit to the 48th bit, and then shift to the right
+        // by 16 bits: all bits from 48 to 63 are set to the sign bit
         Self(((addr << 16) as isize >> 16) as usize)
     }
 
-    /// Creates a new canonical virtual address without checking if it is canonical.
+    /// Creates a new canonical virtual address without checking if it is
+    /// canonical.
     ///
     /// # Safety
-    /// This function is unsafe because it does not check if the given address is canonical. If the
-    /// address is not canonical, the behavior is undefined.
+    /// This function is unsafe because it does not check if the given address
+    /// is canonical. If the address is not canonical, the behavior is
+    /// undefined.
     #[must_use]
     pub const unsafe fn new_unchecked(address: usize) -> Self {
         Self(address)
@@ -75,8 +83,9 @@ impl Virtual {
         matches!((address & 0xFFFF_8000_0000_0000) >> 47, 0 | 0x1FFFF)
     }
 
-    /// Creates a new canonical virtual address from a pointer. This is a convenience function that
-    /// simply casts the pointer address to a `u64`, and then calls [`Self::new`].
+    /// Creates a new canonical virtual address from a pointer. This is a
+    /// convenience function that simply casts the pointer address to a `u64`,
+    /// and then calls [`Self::new`].
     #[must_use]
     pub fn from_ptr<T>(ptr: *const T) -> Self {
         Self::new(ptr as usize)
@@ -119,8 +128,8 @@ impl Virtual {
         self.0 == 0
     }
 
-    /// Align the address up to the given alignment. If the address is already aligned, this function
-    /// does nothing.
+    /// Align the address up to the given alignment. If the address is already
+    /// aligned, this function does nothing.
     ///
     /// # Panics
     /// This function panics if the given alignment is not a power of two.
@@ -132,13 +141,14 @@ impl Virtual {
         let align: usize = alignment.into();
         assert!(align.is_power_of_two());
         Self::new_truncate(
-            (self.0.checked_add(align - 1)).expect("Overflow during aligning up a virtual address")
+            (self.0.checked_add(align - 1))
+                .expect("Overflow during aligning up a virtual address")
                 & !(align - 1),
         )
     }
 
-    /// Align the address down to the given alignment. If the address is already aligned, this
-    /// function does nothing.
+    /// Align the address down to the given alignment. If the address is
+    /// already aligned, this function does nothing.
     ///
     /// # Panics
     /// This function panics if the given alignment is not a power of two.
@@ -166,8 +176,8 @@ impl Virtual {
         self.0 & (align - 1) == 0
     }
 
-    /// Align the address up to a page boundary (4 KiB). If the address is already aligned, this
-    /// function does nothing.
+    /// Align the address up to a page boundary (4 KiB). If the address is
+    /// already aligned, this function does nothing.
     #[must_use]
     pub const fn page_align_up(&self) -> Self {
         Self::new_truncate(match self.0.checked_add(0xFFF) {
@@ -176,8 +186,8 @@ impl Virtual {
         })
     }
 
-    /// Align the address down to a page boundary (4 KiB). If the address is already aligned, this
-    /// function does nothing.
+    /// Align the address down to a page boundary (4 KiB). If the address is
+    /// already aligned, this function does nothing.
     #[must_use]
     pub const fn page_align_down(&self) -> Self {
         Self::new_truncate(self.0 & !0xFFF)
@@ -326,9 +336,10 @@ impl From<usize> for Virtual {
 
 impl From<Physical> for Virtual {
     fn from(address: Physical) -> Self {
-        // The kernel map all the physical memory at 0xFFFF_8000_0000_0000. To convert a physical
-        // address to a virtual address, we just need to add 0xFFFF_8000_0000_0000 to the physical
-        // address, and then we can access the physical memory from the returned virtual address.
+        // The kernel map all the physical memory at 0xFFFF_8000_0000_0000.
+        // To convert a physical address to a virtual address, we just need
+        // to add 0xFFFF_8000_0000_0000 to the physical address, and then we
+        // can access the physical memory from the returned virtual address.
         Self::new(0xFFFF_8000_0000_0000 + address.0)
     }
 }

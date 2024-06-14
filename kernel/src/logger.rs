@@ -22,17 +22,20 @@ impl log::Log for Logger {
             };
 
             // Write the log message to the serial port, ignoring any error
-            _ = SERIAL
-                .lock()
-                .write_fmt(format_args!("{} {}\n", level, record.args()));
+            _ = SERIAL.lock().write_fmt(format_args!(
+                "{} {}\n",
+                level,
+                record.args()
+            ));
         }
     }
 
     fn flush(&self) {}
 }
 
-/// Initialize the logger. This function should be called before any other logging function.
-/// Currently, this function initialize the serial port and set it as the logger.
+/// Initialize the logger. This function should be called before any other
+/// logging function. Currently, this function initialize the serial port
+/// and set it as the logger.
 ///
 /// # Panics
 /// Panics if the logger is already set.
@@ -42,15 +45,17 @@ pub fn setup() {
     log::set_max_level(log::LevelFilter::Debug);
 }
 
-/// Called when the kernel panics. This function force the unlock of the serial port, because the
-/// panic handle could be called while the serial port is locked, which would cause a deadlock and
-/// prevent the panic message from being printed
+/// Called when the kernel panics. This function force the unlock of the
+/// serial port, because the panic handle could be called while the serial
+/// port is locked, which would cause a deadlock and prevent the panic message
+/// from being printed
 ///
 /// # Safety
-/// This function is unsafe because it force the unlock of the serial port, which could cause a
-/// undefined behavior if the serial port is used by several threads after this function call.
-/// This is the caller responsability to ensure that thelogging system will only be used by one
-/// thread after this function call.
+/// This function is unsafe because it force the unlock of the serial port,
+/// which could cause a undefined behavior if the serial port is used by
+/// several threads after this function call. This is the caller responsability
+/// to ensure that thelogging system will only be used by one thread after this
+/// function call.
 #[cold]
 pub unsafe fn on_panic() {
     SERIAL.force_unlock();

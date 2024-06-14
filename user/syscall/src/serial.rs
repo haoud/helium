@@ -8,7 +8,8 @@ pub enum WriteError {
     /// There is no serial port on the system
     NoSerialPort,
 
-    /// The buffer is not in the user address space or the buffer is not writable
+    /// The buffer is not in the user address space or the buffer is not
+    /// writable
     BadAddress,
 
     UnknownError,
@@ -32,7 +33,8 @@ pub enum ReadError {
     /// There is no serial port on the system
     NoSerialPort,
 
-    /// The buffer is not in the user address space or the buffer is not writable
+    /// The buffer is not in the user address space or the buffer is not
+    /// writable
     BadAddress,
 
     UnknownError,
@@ -48,8 +50,8 @@ impl From<Errno> for ReadError {
     }
 }
 
-/// Print a string to the serial port. This is a temporary function until we have
-/// a proper way to print to the screen.
+/// Print a string to the serial port. This is a temporary function until we
+/// have a proper way to print to the screen.
 pub fn print(str: &str) {
     unsafe {
         core::arch::asm!(

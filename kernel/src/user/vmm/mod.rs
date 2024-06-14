@@ -29,21 +29,21 @@ pub struct Manager {
 }
 
 impl Manager {
-    /// Create a new area manager. This manager contains two areas, both of which
-    /// are permanent and one page long. The first area is mapped at the beginning
-    /// of the virtual address space and the second area is mapped at the end of
-    /// the virtual address space (almost at the end, since the last page is not
-    /// even considered mappable by the manager)
+    /// Create a new area manager. This manager contains two areas, both of
+    /// which are permanent and one page long. The first area is mapped at the
+    /// beginning of the virtual address space and the second area is mapped at
+    /// the end of the virtual address space (almost at the end, since the last
+    /// page is not even considered mappable by the manager)
     ///
-    /// These two areas are used to prevent the user to dereference a null pointer
-    /// a grant them a valid address to dereference, which would likely be a bug.
-    /// It also prevents various attacks from the user that imply dereferencing
-    /// null pointers or allocating memory just before the start of the canonical
-    /// hole (for exemple, the SYSRET bug in Intel processors)
+    /// These two areas are used to prevent the user to dereference a null
+    /// pointer a grant them a valid address to dereference, which would likely
+    /// be a bug. It also prevents various attacks from the user that imply
+    /// dereferencing null pointers or allocating memory just before the start
+    /// of the canonical hole (for exemple, the SYSRET bug in Intel processors)
     ///
-    /// It also allows some optimizations in the kernel and make some things easier,
-    /// for example when trying to find a free range of virtual addresses or when
-    /// page aligning an user virtual address.
+    /// It also allows some optimizations in the kernel and make some things
+    /// easier, for example when trying to find a free range of virtual
+    /// addresses or when page aligning an user virtual address.
     #[must_use]
     pub fn new() -> Self {
         let mut areas = BTreeMap::new();
@@ -79,8 +79,9 @@ impl Manager {
         }
     }
 
-    /// Create a new area manager for kernel tasks. This manager does not contain
-    /// any area and is only used to have access to the kernel page table.
+    /// Create a new area manager for kernel tasks. This manager does not
+    /// contain any area and is only used to have access to the kernel page
+    /// table.
     #[must_use]
     pub fn kernel() -> Self {
         Self {
@@ -89,25 +90,30 @@ impl Manager {
         }
     }
 
-    /// Map a area of virtual memory. The memory is not allocated until it is accessed
-    /// by the user (lazy allocation), this function simply reserve the virtual memory
-    /// to avoid that the user maps multiple areas at the same location.
+    /// Map a area of virtual memory. The memory is not allocated until it is
+    /// accessed by the user (lazy allocation), this function simply reserve
+    /// the virtual memory to avoid that the user maps multiple areas at the
+    /// same location.
     ///
     /// # Errors
-    /// If the area was sucdessfully mapped, then this function returns the range
-    /// of virtual addresses that were mapped, that can be different from the specified
-    /// range if the FIXED flag was not set.
-    /// Otherwise, this function can return the following errors:
-    /// - `InvalidRange`: the range is not page aligned, has a length of zero or has an end
-    ///                   address that is greater than `UserVirtual::second_last_page_aligned()`.
-    /// - `InvalidFlags`: the area has the `PERMANENT flag`: this flag is only for
-    ///                   kernel use and for specific areas.
-    /// - `WouldOverlap`: the area overlaps with an existing area and the FIXED flag
-    ///                   was set.
-    /// - `OutOfVirtualMemory`: there is not enough contiguous virtual memory to map
-    ///                         the area.
+    /// If the area was sucdessfully mapped, then this function returns the
+    /// range of virtual addresses that were mapped, that can be different
+    /// from the specified range if the FIXED flag was not set.
     ///
-    pub fn mmap(&mut self, mut area: Area) -> Result<Range<UserVirtual>, MmapError> {
+    /// Otherwise, this function can return the following errors:
+    /// - `InvalidRange`: the range is not page aligned, has a length of zero
+    ///     or has an end address that is greater than
+    ///     `UserVirtual::second_last_page_aligned()`.
+    /// - `InvalidFlags`: the area has the `PERMANENT flag`: this flag is only
+    ///     for kernel use and for specific areas.
+    /// - `WouldOverlap`: the area overlaps with an existing area and the FIXED
+    ///     flag was set.
+    /// - `OutOfVirtualMemory`: there is not enough contiguous virtual memory
+    ///     to map the area.
+    pub fn mmap(
+        &mut self,
+        mut area: Area,
+    ) -> Result<Range<UserVirtual>, MmapError> {
         // If the area is not page aligned or has a length of zero, then return
         // an error because it is invalid.
         if !valid_range(area.range()) {
@@ -120,9 +126,9 @@ impl Manager {
             return Err(MmapError::InvalidFlags);
         }
 
-        // If the area does not have a defined range or overlaps with an existing
-        // area, then try to find a free range for it. If no free range is found,
-        // then return an error.
+        // If the area does not have a defined range or overlaps with an
+        // existing area, then try to find a free range for it. If no free
+        // range is found, then return an error.
         if area.base().is_null() || self.overlaps_with_existing(area.range()) {
             if area.flags().contains(area::Flags::FIXED) {
                 return Err(MmapError::WouldOverlap);
@@ -139,20 +145,25 @@ impl Manager {
         Ok(range)
     }
 
-    /// Unmap a range of virtual memory. This function will unmap all the mappings
-    /// contained in the given range (aligned to the page size). If there is no
-    /// mapping in the given range, then this function does nothing.
+    /// Unmap a range of virtual memory. This function will unmap all the
+    /// mappingscontained in the given range (aligned to the page size). If
+    /// there is no mapping in the given range, then this function does
+    /// nothing.
     ///
     /// # Errors
-    /// If the range was successfully unmapped, then this function returns `Ok(())`.
-    /// Otherwise, this function can return the following errors:
-    /// - `InvalidRange`: the range is not page aligned, has a length of zero or has an end
-    ///                  address that is greater than `UserVirtual::second_last_page_aligned()`.
+    /// If the range was successfully unmapped, then this function returns
+    /// `Ok(())`. Otherwise, this function can return the following errors:
+    /// - `InvalidRange`: the range is not page aligned, has a length of zero
+    ///     or has an end address that is greater than
+    ///     `UserVirtual::second_last_page_aligned()`.
     ///
     /// # Panics
-    /// Panics if the function detects an algorithm implementation error. This is a
-    /// serious bug and should never happen.
-    pub fn munmap(&mut self, range: Range<UserVirtual>) -> Result<(), UnmapError> {
+    /// Panics if the function detects an algorithm implementation error. This
+    /// is a serious bug and should never happen.
+    pub fn munmap(
+        &mut self,
+        range: Range<UserVirtual>,
+    ) -> Result<(), UnmapError> {
         if !valid_range(&range) {
             return Err(UnmapError::InvalidRange);
         }
@@ -173,9 +184,9 @@ impl Manager {
             .map(|(_, area)| area)
             .collect::<Vec<_>>();
 
-        // Process each area that we collected for unmapping. Depending on how
-        // the range to unmap overlaps with the area, those areas will be deleted,
-        // modified or split into two areas.
+        // Process each area that we collected for unmapping. Depending on
+        // how the range to unmap overlaps with the area, those areas will
+        // be deleted, modified or split into two areas.
         for mut area in areas {
             let area_start = area.range().start;
             let area_end = area.range().end;
@@ -211,7 +222,9 @@ impl Manager {
                     area.set_range(area_start..range_start);
                     range_start..area_end
                 } else {
-                    unreachable!("Unmap: overlap algorithm implementation error");
+                    unreachable!(
+                        "Unmap: overlap algorithm implementation error"
+                    );
                 };
 
                 self.insert_area(area);
@@ -228,11 +241,11 @@ impl Manager {
         Ok(())
     }
 
-    /// Map an page of virtual memory that the user want to access. Since the `mmap`
-    /// function performs a lazy allocation, accessing any page in the returned range
-    /// will cause a page fault. This function simply maps the page that the user want
-    /// to access, performing some checks to ensure that the user has the right to
-    /// access the page.
+    /// Map an page of virtual memory that the user want to access. Since the
+    /// `mmap` function performs a lazy allocation, accessing any page in the
+    /// returned range will cause a page fault. This function simply maps the
+    /// page that the user want to access, performing some checks to ensure
+    /// that the user has the right to access the page.
     ///
     /// # Errors
     /// - `AccessDenied`: the user attempted to access a page with an access
@@ -243,7 +256,11 @@ impl Manager {
     /// # Panics
     /// This function panics if the given address is already mapped. This is a
     /// kernel bug and should never happen and must be fixed.
-    pub fn page_in(&mut self, address: UserVirtual, access: Access) -> Result<(), PageInError> {
+    pub fn page_in(
+        &mut self,
+        address: UserVirtual,
+        access: Access,
+    ) -> Result<(), PageInError> {
         // Find the area that contains the given address
         let area = self.find_area(address).ok_or(PageInError::NotMapped)?;
 
@@ -264,7 +281,8 @@ impl Manager {
                     .ok_or(PageInError::OutOfMemory)?
                     .into_inner();
 
-                let flags = PageEntryFlags::from(area.access()) | PageEntryFlags::USER;
+                let flags =
+                    PageEntryFlags::from(area.access()) | PageEntryFlags::USER;
                 let virt = Virtual::from(address);
 
                 paging::map(&self.table, virt, frame, flags)?;
@@ -272,8 +290,9 @@ impl Manager {
             Type::File(_file) => {
                 // Allocate a frame
                 // Compute the offset of the page in the file
-                // Read the page from the file. If the page is not fully filled because
-                // the file is not large enough, then zero the remaining bytes.
+                // Read the page from the file. If the page is not fully filled
+                // because the file is not large enough, then zero the
+                // remaining bytes.
                 unimplemented!("File mapping not implemented yet");
             }
         }
@@ -281,23 +300,24 @@ impl Manager {
         Ok(())
     }
 
-    /// Unmap the range of user virtual addresses and deallocate the frames that
-    /// were mapped at these addresses.
+    /// Unmap the range of user virtual addresses and deallocate the frames
+    /// that were mapped at these addresses.
     fn unmap_range(&mut self, range: Range<UserVirtual>) {
         range.step_by(PAGE_SIZE).for_each(|address| unsafe {
-            if let Ok(frame) = paging::unmap(&self.table, Virtual::from(address)) {
+            if let Ok(frame) =
+                paging::unmap(&self.table, Virtual::from(address))
+            {
                 FRAME_ALLOCATOR.lock().deallocate_frame(frame);
             }
         });
     }
 
-    /// Find a free range of virtual addresses that can contain the given size. If
-    /// no free range is found, then this function returns None.
+    /// Find a free range of virtual addresses that can contain the given size.
+    /// If no free range is found, then this function returns None.
     fn find_free_range(&self, size: usize) -> Option<Range<UserVirtual>> {
         let area = self.areas.as_ref().unwrap();
-        area.iter()
-            .zip(area.iter().skip(1))
-            .find_map(|((_, area), (_, next))| {
+        area.iter().zip(area.iter().skip(1)).find_map(
+            |((_, area), (_, next))| {
                 let start = usize::from(area.range().end.page_align_up());
                 let end = usize::from(next.range().start);
                 if end.saturating_sub(start) >= size {
@@ -307,7 +327,8 @@ impl Manager {
                 } else {
                     None
                 }
-            })
+            },
+        )
     }
 
     /// Verify if the range overlaps with any existing area.
@@ -404,9 +425,9 @@ fn range_contains(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
     a_start < b_start && a_end > b_end
 }
 
-/// Return true if the first range is contained in the second range. If they share
-/// a border, then this function still returns true. If the end of the range is
-/// not page aligned, then it is aligned up before the comparison.
+/// Return true if the first range is contained in the second range. If they
+/// share a border, then this function still returns true. If the end of the
+/// range is not page aligned, then it is aligned up before the comparison.
 fn range_contained(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
     let a_end = usize::from(a.end.page_align_up());
     let b_end = usize::from(b.end.page_align_up());
@@ -422,12 +443,12 @@ fn range_contained(a: &Range<UserVirtual>, b: &Range<UserVirtual>) -> bool {
 /// - Has a length of zero
 ///
 /// # Explanation
-/// - Rejecting any address equal or beyond `UserVirtual::last_page_aligned()` is
-///   a security measure to prevent the user to map the last page of the virtual
-///   address space, involved in some attacks and hardware bugs.
-///   Furthermore, this allow some optimizations: it is possible to safely page
-///   align-up any validated user virtual addresses without checking if they are
-///   still in user space and not in the canonical hole.
+/// Rejecting any address equal or beyond `UserVirtual::last_page_aligned()` is
+/// a security measure to prevent the user to map the last page of the virtual
+/// address space, involved in some attacks and hardware bugs.
+/// Furthermore, this allow some optimizations: it is possible to safely page
+/// align-up any validated user virtual addresses without checking if they are
+/// still in user space and not in the canonical hole.
 fn valid_range(range: &Range<UserVirtual>) -> bool {
     Virtual::from(range.start).is_page_aligned()
         && range.end <= UserVirtual::last_aligned_page()

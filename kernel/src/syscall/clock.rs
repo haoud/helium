@@ -18,7 +18,8 @@ pub struct Timespec {
 /// # Errors
 /// See [`GetTimeError`] for details.
 pub fn get_time(buffer: usize) -> Result<usize, GetTimeError> {
-    let ptr = user::Pointer::new(buffer as *mut Timespec).ok_or(GetTimeError::BadAddress)?;
+    let ptr = user::Pointer::new(buffer as *mut Timespec)
+        .ok_or(GetTimeError::BadAddress)?;
 
     let time = time::uptime();
     let second = Second::from(time);

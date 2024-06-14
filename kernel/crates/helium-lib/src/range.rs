@@ -16,8 +16,8 @@ impl Range {
         }
     }
 
-    /// Tries to create a new range from a base and a length. Returns `None` if the resulting
-    /// range would overflow.
+    /// Tries to create a new range from a base and a length. Returns `None`
+    /// if the resulting range would overflow.
     #[must_use]
     pub fn try_new(base: usize, len: usize) -> Option<Self> {
         base.checked_add(len).map(|_| Self { base, len })

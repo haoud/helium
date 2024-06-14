@@ -5,12 +5,13 @@ pub mod task;
 pub mod vfs;
 pub mod video;
 
-/// The type of the return value of a syscall. All syscalls must return a value that fits
-/// in an usize. However, some values are reserved for indicating an error: values between
-/// -1 and -4095 are reserved for indicating an error (see `SyscallError` for more details).
+/// The type of the return value of a syscall. All syscalls must return a value
+/// that fits in an usize. However, some values are reserved for indicating an
+/// error: values between -1 and -4095 are reserved for indicating an error
+/// (see `SyscallError` for more details).
 pub type SyscallValue = usize;
 
-// A struct that contains all the syscall numbers used by the kernel.
+/// A struct that contains all the syscall numbers used by the kernel.
 #[non_exhaustive]
 #[repr(u64)]
 pub enum Syscall {
@@ -41,8 +42,8 @@ pub enum Syscall {
 }
 
 impl Syscall {
-    /// Create a new Syscall from a u64. If the u64 is not a valid syscall number, it
-    /// returns None.
+    /// Create a new Syscall from a u64. If the u64 is not a valid syscall
+    /// number, it returns None.
     #[must_use]
     pub fn from(id: usize) -> Option<Syscall> {
         match id {
@@ -79,13 +80,20 @@ pub trait Errno {
     fn errno(&self) -> isize;
 }
 
-/// Handle a syscall. This function is called from the syscall interrupt handler, written in
-/// assembly and is responsible for dispatching the syscall to the appropriate handler within
-/// the kernel.
+/// Handle a syscall. This function is called from the syscall interrupt
+/// handler, written in assembly and is responsible for dispatching the
+/// syscall to the appropriate handler within the kernel.
 #[syscall_handler]
 #[allow(unused_variables)]
 #[allow(clippy::cast_possible_wrap)]
-fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize {
+fn syscall(
+    id: usize,
+    a: usize,
+    b: usize,
+    c: usize,
+    d: usize,
+    e: usize,
+) -> isize {
     let result: Result<usize, isize> = match Syscall::from(id) {
         Some(Syscall::TaskExit) => task::exit(a),
         Some(Syscall::TaskId) => task::id(),
@@ -97,7 +105,9 @@ fn syscall(id: usize, a: usize, b: usize, c: usize, d: usize, e: usize) -> isize
         Some(Syscall::MmuMap) => mmu::map(a, b, c, d).map_err(Into::into),
         Some(Syscall::MmuUnmap) => mmu::unmap(a, b).map_err(Into::into),
         Some(Syscall::ClockGetTime) => clock::get_time(a).map_err(Into::into),
-        Some(Syscall::VideoFramebufferInfo) => video::framebuffer_info(a).map_err(Into::into),
+        Some(Syscall::VideoFramebufferInfo) => {
+            video::framebuffer_info(a).map_err(Into::into)
+        }
         Some(Syscall::VfsOpen) => vfs::open(a, b, c).map_err(Into::into),
         Some(Syscall::VfsClose) => vfs::close(a).map_err(Into::into),
         Some(Syscall::VfsRead) => vfs::read(a, b, c).map_err(Into::into),

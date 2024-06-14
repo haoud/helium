@@ -1,13 +1,14 @@
 use crate::x86_64;
 use addr::user::UserVirtual;
 
-/// The default user buffer type that should be used in most cases unless you had a
-/// specific reason to use a different buffer size.
+/// The default user buffer type that should be used in most cases unless you
+/// had a specific reason to use a different buffer size.
 pub type UserStandardBuffer = UserBuffer<{ crate::config::BUFFERED_LEN }>;
 
-/// A user buffer of bytes. This buffer is used to read or write data from the user address
-/// space. This buffer is backed by an internal buffer of size `N` bytes, used to read chunks
-/// of data from the user address space without too much overhead in both CPU time and memory.
+/// A user buffer of bytes. This buffer is used to read or write data from the
+/// user address space. This buffer is backed by an internal buffer of size `N`
+/// bytes, used to read chunks of data from the user address space without too
+/// much overhead in both CPU time and memory.
 pub struct UserBuffer<const N: usize> {
     /// The start address of the buffer in the user address space.
     start: UserVirtual,
@@ -18,9 +19,9 @@ pub struct UserBuffer<const N: usize> {
     /// The length of the buffer.
     len: usize,
 
-    /// An temporary buffer used to copy data from the user address space to the kernel
-    /// space without allocating a buffer as big as the user buffer to avoid memory
-    /// exhaustion.
+    /// An temporary buffer used to copy data from the user address space to
+    /// the kernel space without allocating a buffer as big as the user buffer
+    /// to avoid memory exhaustion.
     buffer: [u8; N],
 }
 
@@ -28,7 +29,8 @@ impl<const N: usize> UserBuffer<N> {
     /// Try to create a new user buffer from a start address and a length.
     ///
     /// # Errors
-    /// Return an error if a part of the buffer is not in the user address space.
+    /// Return an error if a part of the buffer is not in the user address
+    /// space.
     pub fn new(start: usize, len: usize) -> Result<Self, BufferError> {
         if UserVirtual::is_user(start + len) {
             Ok(Self {
@@ -48,7 +50,8 @@ impl<const N: usize> UserBuffer<N> {
         N
     }
 
-    /// Get the remaning bytes to read or the remaning space to write in the user buffer.
+    /// Get the remaning bytes to read or the remaning space to write in the
+    /// user buffer.
     #[must_use]
     pub fn remaning(&self) -> usize {
         self.len - self.offset
@@ -67,9 +70,10 @@ impl<const N: usize> UserBuffer<N> {
         self.len
     }
 
-    /// Read one byte from the user buffer using an internal buffer and increment the offset
-    /// inside the user buffer. This is very inefficient, so you should use [`read_buffered`]
-    /// instead to read multiple bytes at once.
+    /// Read one byte from the user buffer using an internal buffer and
+    /// increment the offset inside the user buffer. This is very inefficient,
+    /// so you should use [`read_buffered`] instead to read multiple bytes at
+    /// once.
     ///
     /// # Returns
     /// - `Some(byte)` the byte readed from the user buffer.
@@ -79,9 +83,9 @@ impl<const N: usize> UserBuffer<N> {
         self.read_buffered().map(|buf| buf[0])
     }
 
-    /// Write one byte to the user buffer and increment the offset inside the user buffer.
-    /// This is very inefficient, so you should use [`write_buffered`] instead to write
-    /// multiple bytes at once.
+    /// Write one byte to the user buffer and increment the offset inside the
+    /// user buffer. This is very inefficient, so you should use
+    /// [`write_buffered`] instead to write multiple bytes at once.
     ///
     /// # Returns
     /// - `Some(())` if the byte was written to the user buffer.
@@ -91,10 +95,11 @@ impl<const N: usize> UserBuffer<N> {
         self.write_buffered(&[byte])
     }
 
-    /// Read a slice of bytes from the user buffer using an internal buffer and increment the
-    /// offset inside the user buffer. If the remaning bytes to read is greater than the
-    /// internal buffer size, then it will perform a partial read, and multiple calls to this
-    /// function will be required to read the whole buffer.
+    /// Read a slice of bytes from the user buffer using an internal buffer
+    /// and increment the offset inside the user buffer. If the remaning bytes
+    /// to read is greater than the internal buffer size, then it will perform
+    /// a partial read, and multiple calls to this function will be required to
+    /// read the whole buffer.
     ///
     /// # Returns
     /// - `Some(slice)` a slice of bytes readed from the user buffer.
@@ -105,9 +110,9 @@ impl<const N: usize> UserBuffer<N> {
             return None;
         }
 
-        // SAFETY: This is safe because we checked that the buffer is fully in the
-        // user space. Since the buffer is in the user space, data races are allowed
-        // and are the responsibility of the user to prevent them.
+        // SAFETY: This is safe because we checked that the buffer is fully in
+        // the user space. Since the buffer is in the user space, data races
+        // are allowed and are the responsibility of the user to prevent them.
         unsafe {
             let src = self.start.as_ptr::<u8>().add(self.offset);
             let len = core::cmp::min(self.len - self.offset, N);
@@ -120,8 +125,9 @@ impl<const N: usize> UserBuffer<N> {
         }
     }
 
-    /// Write a slice of bytes to the user buffer and increment the offset inside the user buffer.
-    /// If the slice is greater than the remaning space in the user buffer, then it returns `None`.
+    /// Write a slice of bytes to the user buffer and increment the offset
+    /// inside the user buffer. If the slice is greater than the remaning space
+    /// in the user buffer, then it returns `None`.
     ///
     /// # Returns
     ///  - `Some(())` if the slice was entirely written to the user buffer.
@@ -132,9 +138,9 @@ impl<const N: usize> UserBuffer<N> {
             return None;
         }
 
-        // SAFETY: This is safe because we checked that the buffer is fully in the
-        // user space. Since the buffer is in the user space, data races are allowed
-        // and are the responsibility of the user to prevent them.
+        // SAFETY: This is safe because we checked that the buffer is fully in
+        // the user space. Since the buffer is in the user space, data races
+        // are allowed and are the responsibility of the user to prevent them.
         unsafe {
             let dst = self.start.as_mut_ptr::<u8>().add(self.offset);
             let src = buf.as_ptr();

@@ -11,8 +11,8 @@ use typed_builder::TypedBuilder;
 /// virtual memory range that is mapped in a task address space.
 #[derive(TypedBuilder, Debug, Clone)]
 pub struct Area {
-    /// The range of virtual addresses that are mapped by this area. The start address
-    /// of the range must be page-aligned.
+    /// The range of virtual addresses that are mapped by this area. The start
+    /// address of the range must be page-aligned.
     range: Range<UserVirtual>,
 
     /// The access rights of this area.

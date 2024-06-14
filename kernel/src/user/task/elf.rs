@@ -17,12 +17,13 @@ use elf::{endian::NativeEndian, segment::ProgramHeader, ElfBytes};
 /// Create a empty user address space and load the ELF file into it.
 ///
 /// # Errors
-/// Returns an `LoadError` if the the ELF file could not be loaded. On success, returns a new task
-/// with the entry point of the ELF file as the entry point of the task.
+/// Returns an `LoadError` if the the ELF file could not be loaded. On success,
+/// returns a new task with the entry point of the ELF file as the entry point
+/// of the task.
 ///
 /// # Panics
-/// Panics if the kernel ran out of memory when loading the ELF file or if the ELF file contains
-/// overlapping segments
+/// Panics if the kernel ran out of memory when loading the ELF file or if the
+/// ELF file contains overlapping segments
 #[allow(clippy::cast_possible_truncation)]
 pub fn load(file: &[u8]) -> Result<Arc<Task>, LoadError> {
     let elf = check_elf(ElfBytes::<NativeEndian>::minimal_parse(file)?)?;
@@ -70,7 +71,9 @@ pub fn load(file: &[u8]) -> Result<Arc<Task>, LoadError> {
                 let mapped_frame = FRAME_ALLOCATOR
                     .lock()
                     .allocate_frame(AllocationFlags::ZEROED)
-                    .expect("failed to allocate frame for mapping an ELF segment")
+                    .expect(
+                        "failed to allocate frame for mapping an ELF segment",
+                    )
                     .into_inner();
 
                 paging::map(
@@ -81,9 +84,9 @@ pub fn load(file: &[u8]) -> Result<Arc<Task>, LoadError> {
                 )
                 .expect("Failed to map a segment of the ELF file");
 
-                // The start offset of the writing in the page: it is needed to handle the case
-                // where the segment is not page aligned, and therefore the first page of the
-                // segment is not fully filled.
+                // The start offset of the writing in the page: it is needed to
+                // handle the case where the segment is not page aligned, and
+                // therefore the first page of the segment is not fully filled.
                 let start_offset = page.page_offset();
 
                 // The source address in the ELF file
@@ -92,8 +95,8 @@ pub fn load(file: &[u8]) -> Result<Arc<Task>, LoadError> {
                     .offset(isize::try_from(phdr.p_offset)?)
                     .offset(isize::try_from(segment_offset)?);
 
-                // The destination address in the virtual address space (use the HHDM to directly
-                // write to the physical frame)
+                // The destination address in the virtual address space (use
+                // the HHDM to directly write to the physical frame)
                 let dst = Virtual::from(mapped_frame.addr())
                     .as_mut_ptr::<u8>()
                     .offset(isize::try_from(start_offset)?);
@@ -104,9 +107,9 @@ pub fn load(file: &[u8]) -> Result<Arc<Task>, LoadError> {
                     .checked_sub(segment_offset as u64)
                     .map_or(0, |v| v as usize);
 
-                // The number of bytes to copy in this iteration: the minimum between the
-                // remaining bytes to copy and the remaining bytes in the page from the current
-                // start offset
+                // The number of bytes to copy in this iteration: the minimum
+                // between the remaining bytes to copy and the remaining bytes
+                // in the page from the current start offset
                 let size = min(remaning, PAGE_SIZE - start_offset);
                 core::ptr::copy_nonoverlapping(src, dst, size);
 
@@ -120,8 +123,8 @@ pub fn load(file: &[u8]) -> Result<Arc<Task>, LoadError> {
     Ok(Task::user(vmm, elf.ehdr.e_entry as usize))
 }
 
-/// Convert the ELF flags of a section into the paging flags, used to map the section with
-/// the correct permissions.
+/// Convert the ELF flags of a section into the paging flags, used to map the
+/// section with the correct permissions.
 fn section_paging_flags(phdr: &ProgramHeader) -> PageEntryFlags {
     let mut flags = PageEntryFlags::PRESENT | PageEntryFlags::USER;
 
@@ -135,7 +138,9 @@ fn section_paging_flags(phdr: &ProgramHeader) -> PageEntryFlags {
 }
 
 /// Verify that the ELF file is valid and can be run on the system.
-fn check_elf(elf: ElfBytes<NativeEndian>) -> Result<ElfBytes<NativeEndian>, LoadError> {
+fn check_elf(
+    elf: ElfBytes<NativeEndian>,
+) -> Result<ElfBytes<NativeEndian>, LoadError> {
     // Check that the ELF file is for the x86_64 architecture
     if elf.ehdr.e_machine != elf::abi::EM_X86_64 {
         return Err(LoadError::UnsupportedArchitecture);

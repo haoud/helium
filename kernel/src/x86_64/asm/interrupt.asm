@@ -1,9 +1,9 @@
 # Called by the interrupt stubs before calling the interrupt handler. 
 # This function saves the registers and aligns the stack to 16 bytes before
 # returning to the caller
-# It is important to note that this function will alter the stack when returning
-# to the caller: the stack will be aligned to 16 bytes and the registers will be
-# saved on the stack: RSP will point to the saved registers
+# It is important to note that this function will alter the stack when 
+# returning to the caller: the stack will be aligned to 16 bytes and the
+# registers will be saved on the stack: RSP will point to the saved registers
 .globl interrupt_enter
 interrupt_enter:
     # Swap the kernel and user GS if we was in user mode
@@ -44,8 +44,8 @@ interrupt_enter:
 
 
 # Called by the interrupt stubs after the interrupt handler returns. 
-# This function restores the registers and aligns the stack to 16 bytes, swaps kernel and 
-# user GS if we was in user mode and returns to the interrupted code
+# This function restores the registers and aligns the stack to 16 bytes, swaps
+# kernel and user GS if we was in user mode and returns to the interrupted code
 .globl interrupt_exit
 interrupt_exit:
     # Dealign the stack
