@@ -1,14 +1,33 @@
 //! TODO:
 //!  - Modify the indentation of all files
+//!  - Remove some useless abstractions
 //!  - Remove all the VFS code
-//!  - Async support in the kernel
+//!  - Add Seqlock to the kernel
+//!  - Create a syscall crate to avoid code duplication
+//!  - Better timer system
+//!     + Maybe use async tasks ? Could be really nice
 //!  - Better syscall return code
-//!     - Maybe two registers for returning code ? Or maybe a struct ?
-//!     - Unified return code for all syscalls to simplify the code
+//!     * Maybe two registers for returning code ? Or maybe a struct ?
+//!     * Unified return code for all syscalls to simplify the code
 //! - Use `core::Duration` instead of our messy time units
-//! - Remove Range crate
-//! - Use the zerocopy/bytemuck crate for the conversion between userland and
-//!     kernel
+//! - Use the zerocopy/bytemuck crate for the conversion between userland
+//!   and kernel
+//! - helium-addr:
+//!     * Remove the `UserVirtual` and remplace it by `Virtual<User>` and
+//!       `Virtual<Kernel>`, this will allow to have a better separation
+//!       between the userland and the kernel and remove all range of
+//!       problems with the canonical hole.
+//!     * Implement differents frames sizes (4K, 2M, 1G)
+//!  - Async support in the kernel
+//!     * Simple executor with priority queues
+//!     * Some futures utilities (yield, sleep, mutex...)
+//!     * Use an event loop to handle user programs:
+//!         + How to handle interrupts inside the kernel ?
+//!         + How to reduce the stack consumption ?
+//!     * Use the executor to remove the ugly and unsafe scheduler
+//!
+//! Unsure:
+//! - Remove the prelude unstable feature ?
 #![no_std]
 #![no_main]
 #![warn(clippy::all)]
@@ -36,7 +55,6 @@ compile_error!("Helium only supports x86_64 computers");
 
 pub mod config;
 pub mod device;
-pub mod fs;
 pub mod limine;
 pub mod logger;
 pub mod mm;
@@ -46,7 +64,6 @@ pub mod qemu;
 pub mod syscall;
 pub mod time;
 pub mod user;
-pub mod vfs;
 pub mod x86_64;
 
 /// The prelude of the kernel. It re-exports the prelude of the core standard
@@ -101,12 +118,6 @@ pub unsafe extern "C" fn _start() -> ! {
 
     // Initialize the module system
     module::setup();
-
-    // Register all the filesystems drivers
-    fs::register_all();
-
-    // Initialize the virtual file system
-    vfs::setup();
 
     // Setup the userland environment
     user::setup();

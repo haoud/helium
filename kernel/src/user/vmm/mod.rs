@@ -287,14 +287,6 @@ impl Manager {
 
                 paging::map(&self.table, virt, frame, flags)?;
             },
-            Type::File(_file) => {
-                // Allocate a frame
-                // Compute the offset of the page in the file
-                // Read the page from the file. If the page is not fully filled
-                // because the file is not large enough, then zero the
-                // remaining bytes.
-                unimplemented!("File mapping not implemented yet");
-            }
         }
 
         Ok(())

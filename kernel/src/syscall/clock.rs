@@ -6,7 +6,6 @@ use crate::{
     user,
 };
 
-///
 #[repr(C)]
 pub struct Timespec {
     pub seconds: u64,

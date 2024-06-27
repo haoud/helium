@@ -1,7 +1,4 @@
-use crate::{
-    vfs::file::File,
-    x86_64::paging::table::{PageEntryFlags, PageFaultErrorCode},
-};
+use crate::x86_64::paging::table::{PageEntryFlags, PageFaultErrorCode};
 use addr::user::UserVirtual;
 use bitflags::bitflags;
 use core::ops::Range;
@@ -90,12 +87,6 @@ pub enum Type {
     /// An anonymous area is an area that is not backed by any file and is
     /// initialized with zeros when it is mapped.
     Anonymous,
-
-    /// A file area is an area that is backed by a file. When it is mapped,
-    /// the content of the file is copied into the area and can be copied
-    /// back to the file when the area is unmapped if some flags are set
-    /// during the mapping.
-    File(Arc<File>),
 }
 
 bitflags! {

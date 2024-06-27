@@ -2,14 +2,8 @@ use super::{
     idle,
     scheduler::{Scheduler, SCHEDULER},
 };
-use crate::{
-    user::vmm,
-    vfs::{self, fd::OpenedFiles},
-};
-use crate::{
-    vfs::dentry::Dentry,
-    x86_64::thread::{KernelThreadFn, Thread},
-};
+use crate::user::vmm;
+use crate::x86_64::thread::{KernelThreadFn, Thread};
 use core::sync::atomic::{AtomicU64, Ordering};
 
 pub mod elf;
@@ -155,18 +149,6 @@ pub struct Task {
     /// higher priority, it will be picked before a task with a lower priority.
     /// Tasks with the same priority are picked in a round-robin fashion.
     priority: Spinlock<Priority>,
-
-    /// The list of opened files of the task. This is used by the VFS subsystem
-    /// to know which files are opened by the task.
-    files: Spinlock<OpenedFiles>,
-
-    /// The root directory of the task. This is used by the VFS subsystem to
-    /// know the root directory used by the task.
-    root: Spinlock<Arc<Dentry>>,
-
-    /// The current working directory of the task. This is used by the VFS
-    /// subsystem to know the current working directory of the task.
-    cwd: Spinlock<Arc<Dentry>>,
 }
 
 impl Task {
@@ -183,9 +165,6 @@ impl Task {
             state: Spinlock::new(State::Created),
             thread: Spinlock::new(thread),
             priority: Spinlock::new(priority),
-            files: Spinlock::new(OpenedFiles::empty()),
-            root: Spinlock::new(vfs::dentry::ROOT.get().unwrap().clone()),
-            cwd: Spinlock::new(vfs::dentry::ROOT.get().unwrap().clone()),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
@@ -206,9 +185,6 @@ impl Task {
             state: Spinlock::new(State::Created),
             thread: Spinlock::new(thread),
             priority: Spinlock::new(Priority::Normal),
-            files: Spinlock::new(OpenedFiles::empty()),
-            root: Spinlock::new(vfs::dentry::ROOT.get().unwrap().clone()),
-            cwd: Spinlock::new(vfs::dentry::ROOT.get().unwrap().clone()),
         });
         TASK_LIST.lock().push(Arc::clone(&task));
         task
@@ -238,11 +214,6 @@ impl Task {
         *self.state.lock() = state;
     }
 
-    /// Set the current working directory of the task.
-    pub fn set_cwd(&self, cwd: Arc<Dentry>) {
-        *self.cwd.lock() = cwd;
-    }
-
     /// Return a reference to the thread of the task. The thread is wrapped in
     /// a spinlock and must be locked before use.
     #[must_use]
@@ -260,24 +231,6 @@ impl Task {
     #[must_use]
     pub fn state(&self) -> State {
         *self.state.lock()
-    }
-
-    /// Return the list of opened files of the task.
-    #[must_use]
-    pub fn files(&self) -> &Spinlock<OpenedFiles> {
-        &self.files
-    }
-
-    /// Get the root directory of the task.
-    #[must_use]
-    pub fn root(&self) -> Arc<Dentry> {
-        self.root.lock().clone()
-    }
-
-    /// Get the current working directory of the task.
-    #[must_use]
-    pub fn cwd(&self) -> Arc<Dentry> {
-        self.cwd.lock().clone()
     }
 
     /// Return the identifier of the task. The identifier of an task is unique
