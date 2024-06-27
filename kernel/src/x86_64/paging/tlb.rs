@@ -19,26 +19,32 @@ pub fn invalidate(addr: Virtual) {
     instruction::invlpg(addr.into());
 }
 
-/// Flush all the TLB entries on the current CPU core. This is done by reloading the
-/// CR3 register. This is a very expensive operation, as it flushes the entire TLB
-/// (except for the global pages) and lead to cache misses on the next memory accesses.
+/// Flush all the TLB entries on the current CPU core. This is done by
+/// reloading the CR3 register. This is a very expensive operation, as it
+/// flushes the entire TLB (except for the global pages) and lead to cache
+/// misses on the next memory accesses.
 pub fn flush() {
     unsafe {
         cpu::write_cr3(cpu::read_cr3());
     }
 }
 
-/// Flush the TLB entries on all CPU cores for the given virtual address. This is done
-/// by sending an IPI to all other cores, which will then flush their TLB.
+/// Flush the TLB entries on all CPU cores for the given virtual address. This
+/// is done by sending an IPI to all other cores, which will then flush their
+/// TLB.
 pub fn shootdown(address: Virtual) {
     unsafe {
-        lapic::send_ipi(IpiDestination::Other, IpiPriority::Normal, SHOOTDOWN_VECTOR);
+        lapic::send_ipi(
+            IpiDestination::Other,
+            IpiPriority::Normal,
+            SHOOTDOWN_VECTOR,
+        );
     }
     instruction::invlpg(address.into());
 }
 
-/// Called when a TLB shootdown interrupt is received. This simply reloads the CR3
-/// register, which flushes the entire TLB (except for the global pages).
+/// Called when a TLB shootdown interrupt is received. This simply reloads the
+/// CR3 register, which flushes the entire TLB (except for the global pages).
 /// In the future, this function wshould only invalidate the TLB entry for the
 /// given virtual address.
 #[interrupt]

@@ -8,13 +8,14 @@ extern "C" {
     static __percpu_end: [u64; 0];
 }
 
-/// A guard for a per-cpu variable. This wrapper disables preemption when it is created and
-/// enables it when it is dropped. This is absolutely necessary, because otherwise, the CPU
-/// could be using the per-cpu variable of another CPU if a context switch happens when the
-/// variable is being accessed, which would be a disaster and very hard to debug.
+/// A guard for a per-cpu variable. This wrapper disables preemption when it is
+/// created and enables it when it is dropped. This is absolutely necessary, be
+/// cause otherwise, the CPU could be using the per-cpu variable of another CPU
+/// if a context switch happens when the variable is being accessed, which
+/// would be a disaster and very hard to debug.
 ///
-/// However, there is no need to disable interruptions: this is the caller responsibility to
-/// take care of that if necessary.
+/// However, there is no need to disable interruptions: this is the caller
+/// responsibility to take care of that if necessary.
 pub struct PerCpuGuard<'a, T> {
     inner: &'a T,
 }
@@ -39,8 +40,8 @@ impl<'a, T> Drop for PerCpuGuard<'a, T> {
     }
 }
 
-/// A mutable guard for a per-cpu variable. This structure is similar to `PerCpuGuard`, but it
-/// allows to modify the inner value.
+/// A mutable guard for a per-cpu variable. This structure is similar to
+/// `PerCpuGuard`, but it allows to modify the inner value.
 pub struct PerCpuGuardMut<'a, T> {
     inner: &'a mut T,
 }
@@ -71,29 +72,32 @@ impl<'a, T> Drop for PerCpuGuardMut<'a, T> {
     }
 }
 
-/// A per-cpu variable. This is a simple wrapper around a value, but it makes sure that every CPU
-/// will have its own copy of the variable. As a consequence, this structure is Sync, because it
-/// will never be shared between CPUs. However, in order to respect the Rust memory model, it is
-/// not possible to modify a per-cpu variable without wrapping it inside a object that allows
-/// interior mutability, such as `RefCell` or `Spinlock`.
+/// A per-cpu variable. This is a simple wrapper around a value, but it makes
+/// sure that every CPU will have its own copy of the variable. As a
+/// consequence, this structure is Sync, because it will never be shared
+/// between CPUs. However, in order to respect the Rust memory model, it is
+/// not possible to modify a per-cpu variable without wrapping it inside a
+/// object that allows interior mutability, such as `RefCell` or `Spinlock`.
 ///
 /// # Warning
-/// This structure is not intended to be used directly. Instead, it should be used with the
-/// `#[per_cpu]` attribute on a static variable, that will wrap the variable inside a `PerCpu`
-/// structure and put the variable inside the per-cpu section.
+/// This structure is not intended to be used directly. Instead, it should be
+/// used with the `#[per_cpu]` attribute on a static variable, that will wrap
+/// the variable inside a `PerCpu` structure and put the variable inside the
+/// per-cpu section.
 pub struct PerCpu<T> {
     inner: T,
 }
 
 impl<T> PerCpu<T> {
-    /// Create a new per-cpu variable. This function does not do anything special
+    /// Create a new per-cpu variable. This function does not do anything
+    /// special
     pub const fn new(inner: T) -> Self {
         Self { inner }
     }
 
-    /// Return a guard for the per-cpu variable on the current CPU. This guard will disable
-    /// preemption while it is alive, so that the thread will not be switched to another CPU
-    /// while it is using a per-cpu variable.
+    /// Return a guard for the per-cpu variable on the current CPU. This guard
+    /// will disable preemption while it is alive, so that the thread will not
+    /// be switched to another CPU while it is using a per-cpu variable.
     pub fn local(&self) -> PerCpuGuard<T> {
         unsafe {
             user::task::preempt::disable();
@@ -101,9 +105,10 @@ impl<T> PerCpu<T> {
         }
     }
 
-    /// Return a mutable guard for the per-cpu variable on the current CPU. This guard will disable
-    /// preemption while it is alive, so that the thread will not be switched to another CPU
-    /// while it is using a per-cpu variable.
+    /// Return a mutable guard for the per-cpu variable on the current CPU.
+    /// This guard will disable preemption while it is alive, so that the
+    /// thread will not be switched to another CPU while it is using a per-cpu
+    /// variable.
     pub fn local_mut(&mut self) -> PerCpuGuardMut<T> {
         unsafe {
             user::task::preempt::disable();
@@ -119,10 +124,10 @@ impl<T> PerCpu<T> {
     /// Return a reference to the per-cpu variable for the current CPU.
     ///
     /// # Safety
-    /// This function is return a reference to the per-cpu variable without any wrapper. This is
-    /// unsafe because he caller must ensure that the thread will not be switched to another CPU
-    /// while it is using the per-cpu variable. For a safe version of this function, see the
-    /// `local` method.
+    /// This function is return a reference to the per-cpu variable without any
+    /// wrapper. This is unsafe because he caller must ensure that the thread
+    /// will not be switched to another CPU while it is using the per-cpu
+    /// variable. For a safe version of this function, see the `local` method.
     pub unsafe fn local_unchecked(&self) -> &T {
         let addr = core::ptr::addr_of!(self.inner);
         &*fetch_per_cpu(addr)
@@ -131,26 +136,29 @@ impl<T> PerCpu<T> {
     /// Return a mutable reference to the per-cpu variable for the current CPU.
     ///
     /// # Safety
-    /// This function is return a reference to the per-cpu variable without any wrapper. This is
-    /// unsafe because he caller must ensure that the thread will not be switched to another CPU
-    /// while it is using the per-cpu variable. For a safe version of this function, see the
-    /// `local_mut` method.
+    /// This function is return a reference to the per-cpu variable without any
+    /// wrapper. This is unsafe because he caller must ensure that the thread
+    /// will not be switched to another CPU while it is using the per-cpu
+    /// variable. For a safe version of this function, see the `local_mut`
+    /// method.
     pub unsafe fn local_mut_unchecked(&mut self) -> &mut T {
         let addr = core::ptr::addr_of!(self.inner);
         &mut *fetch_per_cpu(addr)
     }
 }
 
-// SAFETY: This is safe because a per-cpu variable will never be shared between CPUs.
+// SAFETY: This is safe because a per-cpu variable will never be shared
+// between CPUs.
 unsafe impl<T> Sync for PerCpu<T> {}
 
-/// Return the per-cpu variable for the current CPU. This function is not intended to be used
-/// directly (even if it is public, because it is used by the `#[per_cpu]` attribute). Instead,
-/// you should use the `#[per_cpu]` attribute on a static variable.
+/// Return the per-cpu variable for the current CPU. This function is not
+/// intended to be used directly (even if it is public, because it is used
+/// by the `#[per_cpu]` attribute). Instead, you should use the `#[per_cpu]`
+/// attribute on a static variable.
 ///
 /// # Safety
-/// This function is unsafe because it deals with pointer, offsets and MSRs to access the per-cpu
-/// variables.
+/// This function is unsafe because it deals with pointer, offsets and MSRs to
+/// access the per-cpu variables.
 pub unsafe fn fetch_per_cpu<T>(ptr: *const T) -> *mut T {
     debug_assert!(ptr >= core::ptr::addr_of!(__percpu_start).cast::<T>());
     debug_assert!(ptr < core::ptr::addr_of!(__percpu_end).cast::<T>());
@@ -162,13 +170,14 @@ pub unsafe fn fetch_per_cpu<T>(ptr: *const T) -> *mut T {
     (percpu + offset) as *mut T
 }
 
-/// Set the kernel stack for the current CPU. This will be the stack used when the CPU will enter
-/// in the syscall handler.
+/// Set the kernel stack for the current CPU. This will be the stack used when
+/// the CPU will enter in the syscall handler.
 ///
 /// # Safety
-/// This function is unsafe because the caller must ensure that the stack is valid until another
-/// call to this function is made with another stack. The caller must also ensure that the stack
-/// is correctly aligned, and big enough to handle the syscall handler.
+/// This function is unsafe because the caller must ensure that the stack is
+/// valid until another call to this function is made with another stack. The
+/// caller must also ensure that the stack is correctly aligned, and big
+/// enough to handle the syscall handler.
 pub unsafe fn set_kernel_stack(base: Virtual) {
     debug_assert!(base.is_aligned(16usize));
     debug_assert!(base.is_kernel());

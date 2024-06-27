@@ -1,7 +1,5 @@
 //! TODO:
-//!  - Modify the indentation of all files
 //!  - Remove some useless abstractions
-//!  - Remove all the VFS code
 //!  - Add Seqlock to the kernel
 //!  - Create a syscall crate to avoid code duplication
 //!  - Better timer system

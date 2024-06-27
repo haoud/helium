@@ -157,8 +157,7 @@ pub enum LoadError {
     /// The ELF file contains an invalid address (e.g. in the kernel space)
     InvalidAddress,
 
-    /// The ELF file contains an invalid offset (e.g. an overflow when computing
-    /// the end address or overlapping with kernel space)
+    /// The ELF file contains an invalid offset
     InvalidOffset,
 
     /// The ELF file contains overlapping segments

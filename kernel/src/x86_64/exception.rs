@@ -7,8 +7,8 @@ use super::{
 /// Setup the exception handlers.
 ///
 /// # Safety
-/// This function is unsafe because it can cause undefined behavior if the GDT / IDT is
-/// not properly initialized.
+/// This function is unsafe because it can cause undefined behavior if
+/// the GDT / IDT is not properly initialized.
 #[init]
 pub unsafe fn install() {
     register_exception_handler(0, divide_by_zero);
@@ -72,12 +72,13 @@ fn debug(_state: &InterruptFrame) {
     panic!("Debug exception");
 }
 
-/// A non-maskable interrupt (NMI) is a hardware interrupt that standard interrupt-masking
-/// techniques in the system cannot ignore. It typically occurs to signal attention for
-/// non-recoverable hardware errors.
-/// Since it cannot be ignored, the NMI is often used to handle important tasks such as
-/// the correction of memory errors and other hardware errors but in our case, we just
-/// halt the CPU forever. This is also used when the kernel panics to stop all the CPUs.
+/// A non-maskable interrupt (NMI) is a hardware interrupt that standard
+/// interrupt-masking techniques in the system cannot ignore. It typically
+/// occurs to signal attention for non-recoverable hardware errors.
+/// Since it cannot be ignored, the NMI is often used to handle important
+/// tasks such as the correction of memory errors and other hardware errors
+/// but in our case, we just halt the CPU forever. This is also used when the
+/// kernel panics to stop all the CPUs.
 #[exception]
 fn non_maskable_interrupt(_state: &InterruptFrame) {
     cpu::freeze();

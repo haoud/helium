@@ -21,9 +21,9 @@ const KEYBOARD_IRQ: u8 = 1;
 /// Install the IRQ handlers.
 ///
 /// # Safety
-/// This function is unsafe because it can cause undefined behavior if the GDT / IDT is not properly
-/// initialized, or if an IRQ handler is not properly installed or not adapted to be called from
-/// an interrupt.
+/// This function is unsafe because it can cause undefined behavior if the
+/// GDT / IDT is not properly initialized, or if an IRQ handler is not properly
+/// installed or not adapted to be called from an interrupt.
 #[init]
 pub unsafe fn install() {
     idt::register_interruption(IRQ_BASE, irq_0);
@@ -48,8 +48,9 @@ pub unsafe fn install() {
 /// Disables interrupts on the current core.
 ///
 /// # Safety
-/// This function is unsafe because disabling interrupts can have unexpected side effects if
-/// a portion of code is designed to be executed with interrupts enabled.
+/// This function is unsafe because disabling interrupts can have unexpected
+/// side effects if a portion of code is designed to be executed with
+/// interrupts enabled.
 #[inline]
 pub unsafe fn disable() {
     instruction::cli();
@@ -58,11 +59,12 @@ pub unsafe fn disable() {
 /// Enables interrupts on the current core.
 ///
 /// # Safety
-/// This function is unsafe because enabling interrupts can cause undefined behavior if the
-/// GDT or the IDT is not properly initialized. It can also have unexpected side effects, and can
-/// create race conditions in some cases. For example, if an interrupt is triggered when a lock
-/// is held and the interrupt handler tries to acquire the same lock, it will deadlock and freeze
-/// the kernel.
+/// This function is unsafe because enabling interrupts can cause undefined
+/// behavior if the GDT or the IDT is not properly initialized. It can also
+/// have unexpected side effects, and can create race conditions in some cases.
+/// For example, if an interrupt is triggered when a lock is held and the
+/// interrupt handler tries to acquire the same lock, it will deadlock and
+/// freeze the kernel.
 #[inline]
 pub unsafe fn enable() {
     instruction::sti();
@@ -71,9 +73,9 @@ pub unsafe fn enable() {
 /// Waits for the next interrupt to happen.
 ///
 /// # Safety
-/// This function is unsafe because it can cause unexpected side effects if used incorrectly.
-/// For example, if interrupts are disabled, this function will likely wait forever and freeze
-/// the kernel.
+/// This function is unsafe because it can cause unexpected side effects if
+/// used incorrectly. For example, if interrupts are disabled, this function
+/// will likely wait forever and freeze the kernel.
 #[inline]
 pub unsafe fn wait() {
     instruction::hlt();
@@ -97,8 +99,9 @@ pub fn enabled() -> bool {
 /// Restores a previous interrupt state.
 ///
 /// # Safety
-/// This function is unsafe because it can cause undefined behavior when enabling or disabling
-/// interrupts. See the documentation of the `enable` and `disable` functions for more details.
+/// This function is unsafe because it can cause undefined behavior when
+/// enabling or disabling interrupts. See the documentation of the `enable`
+/// and `disable` functions for more details.
 #[inline]
 pub unsafe fn restore(state: bool) {
     match state {
@@ -107,14 +110,16 @@ pub unsafe fn restore(state: bool) {
     }
 }
 
-/// Executes the given function with interrupts disabled. The previous interrupt state is restored
-/// after the function returns, so interrupts will not be re-enabled if they were disabled before
-/// calling this function. However, this function will not prevent exceptions from happening !
+/// Executes the given function with interrupts disabled. The previous
+/// interrupt state is restored after the function returns, so interrupts
+/// will not be re-enabled if they were disabled before calling this function.
+/// However, this function will not prevent exceptions from happening !
 ///
 /// # Safety
-/// This function is safe to use, because it will not enable interrupts if they were disabled before
-/// calling it. We consider that if the interrupts were enabled before calling this function, then
-/// this is safe to re-enable them after the function returns.
+/// This function is safe to use, because it will not enable interrupts if
+/// they were disabled before calling it. We consider that if the interrupts
+/// were enabled before calling this function, then this is safe to re-enable
+/// them after the function returns.
 pub fn without<F, R>(f: F) -> R
 where
     F: FnOnce() -> R,
@@ -132,9 +137,10 @@ where
     }
 }
 
-/// The IRQ manager. This function is called by the IRQ handlers after they have saved the CPU
-/// state, and passed the state to this function. The IRQ triggered is passed as an argument in
-/// the `code` field of the `state` argument.
+/// The IRQ manager. This function is called by the IRQ handlers after they
+/// have saved the CPU state, and passed the state to this function. The IRQ
+/// triggered is passed as an argument in the `code` field of the `state`
+/// argument.
 #[irq_handler]
 unsafe fn irq_handler(state: &mut InterruptFrame) {
     let irq = (state.code & 0xFF) as u8;
@@ -157,8 +163,9 @@ unsafe fn irq_handler(state: &mut InterruptFrame) {
     }
 }
 
-/// The clock handler. This function is for each CPU by the PIT interrupt handler, and is
-/// primarily used to ru the scheduler and switch between threads.
+/// The clock handler. This function is for each CPU by the PIT interrupt
+/// handler, and is primarily used to ru the scheduler and switch between
+/// threads.
 #[interrupt]
 pub fn clock_handler(_: &mut InterruptFrame) {
     lapic::send_eoi();

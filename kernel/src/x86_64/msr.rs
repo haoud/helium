@@ -17,9 +17,9 @@ impl Register {
 /// Write the given value to the given MSR.
 ///
 /// # Safety
-/// This function is unsafe because writing to an MSR can cause unexpected side effects and
-/// potentially violate memory safety. It can also cause undefined behavior if the MSR is not
-/// supported by the CPU.
+/// This function is unsafe because writing to an MSR can cause unexpected side
+/// effects and potentially violate memory safety. It can also cause undefined
+/// behavior if the MSR is not supported by the CPU.
 #[allow(clippy::cast_possible_truncation)]
 pub unsafe fn write(msr: Register, value: u64) {
     core::arch::asm!(
@@ -33,9 +33,9 @@ pub unsafe fn write(msr: Register, value: u64) {
 /// Read the current value of the given MSR.
 ///
 /// # Safety
-/// This function is unsafe because reading from an MSR can cause unexpected side effects and
-/// potentially violate memory safety. It can also cause undefined behavior if the MSR is not
-/// supported by the
+/// This function is unsafe because reading from an MSR can cause unexpected
+/// side effects and potentially violate memory safety. It can also cause
+/// undefined behavior if the MSR is not supported by the
 #[must_use]
 pub unsafe fn read(msr: Register) -> u64 {
     let low: u32;

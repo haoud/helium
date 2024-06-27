@@ -35,15 +35,16 @@ impl State {
     }
 }
 
-/// Setup the FPU by enabling the necessary flags in the CR4 and XCR0 registers to support
-/// SSE and AVX instructions. For now, this code makes a lot of assumptions about the CPU
-/// and the FPU, but it will be improved in the future by detecting the CPU features and
-/// enabling the necessary flags or not.
+/// Setup the FPU by enabling the necessary flags in the CR4 and XCR0 registers
+/// to support SSE and AVX instructions. For now, this code makes a lot of
+/// assumptions about the CPU and the FPU, but it will be improved in the
+/// future by detecting the CPU features and enabling the necessary flags or
+/// not.
 ///
 /// # Safety
-/// This function is unsafe because it directly touches to the control registers of
-/// the CPU, which can lead to undefined behavior if not used properly or if an
-/// flags or an instruction is not supported by the CPU.
+/// This function is unsafe because it directly touches to the control
+/// registers of the CPU, which can lead to undefined behavior if not used
+/// properly or if an flags or an instruction is not supported by the CPU.
 ///
 /// # Panics
 /// Panics if the CPU does not support SSE or XSAVE instructions.
@@ -68,12 +69,13 @@ pub unsafe fn setup() {
     XCr0::enable(XCr0::X87 | XCr0::SSE);
 }
 
-/// Save the current FPU state into the given state buffer. Previous state stored
-/// in the buffer will be overwritten.
+/// Save the current FPU state into the given state buffer. Previous state
+/// stored in the buffer will be overwritten.
 ///
 /// # Safety
-/// This function is unsafe because it assume that the buffer is large enough to
-/// store the FPU state. If it is not the case, it will lead to undefined behavior
+/// This function is unsafe because it assume that the buffer is large enough
+/// to store the FPU state. If it is not the case, it will lead to undefined
+/// behavior.
 pub unsafe fn save(state: &mut State) {
     core::arch::x86_64::_xsave64(state.as_mut_ptr(), u64::MAX);
 }
@@ -81,9 +83,9 @@ pub unsafe fn save(state: &mut State) {
 /// Restore the given FPU state from the given state buffer.
 ///
 /// # Safety
-/// This function is unsafe because it directly touches to the state of the FPU. It
-/// assumes that the given state is valid. If it is not the case, then it may lead
-/// to undefined behavior (likely an exception or a crash)
+/// This function is unsafe because it directly touches to the state of the
+/// FPU. It assumes that the given state is valid. If it is not the case, then
+/// it may lead to undefined behavior (likely an exception or a crash)
 pub unsafe fn restore(state: &State) {
     core::arch::x86_64::_xrstor64(state.as_ptr(), u64::MAX);
 }

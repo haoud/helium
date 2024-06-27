@@ -1,9 +1,10 @@
 use super::io;
 
-/// Represents a serial port. Currently, only COM1-4 are supported, and are statically mapped to
-/// their respective addresses. This should be a safe assumption, as most x86-64 systems try to
-/// keep compatibility with the original IBM PC. Furthermore, the serial ports are only used for
-/// debugging purposes, and are not required for the kernel to function properly.
+/// Represents a serial port. Currently, only COM1-4 are supported, and are
+/// statically mapped to their respective addresses. This should be a safe
+/// assumption, as most x86-64 systems try to keep compatibility with the
+/// original IBM PC. Furthermore, the serial ports are only used for debugging
+/// purposes, and are not required for the kernel to function properly.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Port {
     COM1 = 0x3F8,
@@ -12,7 +13,8 @@ pub enum Port {
     COM4 = 0x2E8,
 }
 
-/// Represents a serial channel. This is used to interact with a serial port safely.
+/// Represents a serial channel. This is used to interact with a serial port
+/// safely.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Serial {
     data: io::Port<u8>,
@@ -26,15 +28,16 @@ pub struct Serial {
 }
 
 impl Serial {
-    /// Create a new serial channel and initialize the serial port. Currently, serial port are only
-    /// used for debugging using QEMU's serial port, and this function even required to print
-    /// anything to the QEMU console, so this function probably doesn't work on real hardware.
+    /// Create a new serial channel and initialize the serial port. Currently,
+    /// serial port are only used for debugging using QEMU's serial port, and
+    /// this function even required to print anything to the QEMU console, so
+    /// this function probably doesn't work on real hardware.
     ///
     /// # Safety
-    /// This function is unsafe because it writes to the serial port, which could cause a undefined
-    /// behavior if the serial port doesn't exist or is used by another device. This is the caller
-    /// responsability to ensure that a serial port exists and is not used by another kernel
-    /// component.
+    /// This function is unsafe because it writes to the serial port, which
+    /// could cause a undefined behavior if the serial port doesn't exist or
+    /// is used by another device. This is the caller responsability to ensure
+    /// that a serial port exists and is not used by another kernel component.
     #[must_use]
     pub unsafe fn new(com: Port) -> Serial {
         let serial = Serial {
@@ -62,21 +65,21 @@ impl Serial {
     /// Check if the serial port is ready to be written to.
     #[must_use]
     pub fn is_transmit_empty(&self) -> bool {
-        // SAFETY: This is safe because reading from the serial port line status
-        // should not cause any side effects nor undefined behavior.
+        // SAFETY: This is safe because reading from the serial port line
+        // status should not cause any side effects nor undefined behavior.
         unsafe { self.line_status.read() & 0x20 != 0 }
     }
 
     /// Check if the serial port has data to be read.
     #[must_use]
     pub fn data_pending(&self) -> bool {
-        // SAFETY: This is safe because reading from the serial port line status
-        // should not cause any side effects nor undefined behavior.
+        // SAFETY: This is safe because reading from the serial port line
+        // status should not cause any side effects nor undefined behavior.
         unsafe { self.line_status.read() & 0x01 != 0 }
     }
 
-    /// Write a byte to the serial port. If the serial port is not ready to be written to, this
-    /// function will block until it is.
+    /// Write a byte to the serial port. If the serial port is not ready to
+    /// be written to, this function will block until it is.
     pub fn write(&self, byte: u8) {
         while !self.is_transmit_empty() {
             core::hint::spin_loop();
@@ -89,8 +92,8 @@ impl Serial {
         }
     }
 
-    /// Read a byte from the serial port. If there is no data to be read, this function will
-    /// block until there is.
+    /// Read a byte from the serial port. If there is no data to be read,
+    /// this function will block until there is.
     #[must_use]
     pub fn read(&self) -> u8 {
         while !self.data_pending() {

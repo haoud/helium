@@ -3,8 +3,8 @@ use super::{io::Port, irq};
 static IO_ADDRESS: Port<u8> = Port::new(0x70);
 static IO_DATA: Port<u8> = Port::new(0x71);
 
-/// Represents a CMOS register. Each register is 1 byte wide and contains a binary-coded
-/// decimal (BCD) value.
+/// Represents a CMOS register. Each register is 1 byte wide and contains a
+/// binary-coded decimal (BCD) value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Register {

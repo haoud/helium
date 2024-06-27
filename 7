@@ -29,24 +29,21 @@ static GO: AtomicBool = AtomicBool::new(false);
 #[per_cpu]
 static CPU_ID: OnceCell<u32> = OnceCell::new();
 
-// Symbols defined in the linker script that represent the start and the end
-// of the per CPU section. This section contains the initial per CPU data
-// that is copied for each CPU.
-// TODO: Free this memory after the initialization of the kernel because it
-// is not needed since each CPU has its own copy of the per CPU data.
+// Symbols defined in the linker script that represent the start and the end of the per
+// CPU section. This section contains the initial per CPU data that is copied for each CPU.
+// TODO: Free this memory after the initialization of the kernel because it is not needed
+// since each CPU has its own copy of the per CPU data.
 extern "C" {
     static __percpu_start: u64;
     static __percpu_end: u64;
 }
 
-/// This function is called by the BSP to start the APs. It tells Limine to
-/// start the APs and then wait for them to start. Most of the work was done
-/// by Limine, so we don't have much to do here.
+/// This function is called by the BSP to start the APs. It tells Limine to start the APs and then
+/// wait for them to start. Most of the work was done by Limine, so we don't have much to do here.
 ///
 /// # Panics
-/// This function panics if there is no SMP response from Limine, if there is
-/// too many cores (more than `MAX_CPUS`) or if there is no core in the list
-/// returned by Limine.
+/// This function panics if there is no SMP response from Limine, if there is too many cores (more
+/// than `MAX_CPUS`) or if there is no core in the list returned by Limine.
 #[init]
 pub unsafe fn start_cpus() {
     let reponse = LIMINE_SMP
@@ -75,12 +72,11 @@ pub unsafe fn start_cpus() {
     AP_BOOTED.store(true, Ordering::Relaxed);
 }
 
-/// Setup the per CPU structure for the current CPU. This function is called
-/// by the BSP and the APs.
+/// Setup the per CPU structure for the current CPU. This function is called by the BSP and the APs.
 ///
 /// # Safety
-/// This function is unsafe because it deals with very low level stuff that
-/// needs the use of unsafe code to work properly (pointers and MSRs)
+/// This function is unsafe because it deals with very low level stuff that needs the use of unsafe
+/// code to work properly (pointers and MSRs)
 #[init]
 #[inline(never)]
 pub unsafe fn per_cpu_setup(lapic_id: u32) {
@@ -128,8 +124,8 @@ pub fn go() {
     GO.store(true, Ordering::Relaxed);
 }
 
-/// Tell the kernel that this AP has finished its initialization and wait
-/// for the BSP to finish its before returning.
+/// Tell the kernel that this AP has finished its initialization and wait for the BSP to finish
+/// its before returning.
 fn ap_wait() {
     CPU_COUNT.fetch_add(1, Ordering::Relaxed);
     while !GO.load(Ordering::Relaxed) {
@@ -137,8 +133,8 @@ fn ap_wait() {
     }
 }
 
-/// This function is called when an AP is started. This initialize the AP,
-/// increment the CPU count and wait for the BSP to finish its initialization.
+/// This function is called when an AP is started. This initialize the AP, increment the CPU count
+/// and wait for the BSP to finish its initialization.
 #[no_mangle]
 unsafe extern "C" fn ap_start(info: &limine::smp::Cpu) -> ! {
     ap_setup(info);

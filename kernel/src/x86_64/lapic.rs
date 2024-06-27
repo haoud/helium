@@ -1,8 +1,8 @@
 /// The virtual address of the local APIC base address.
 pub const LAPIC_BASE: u64 = 0xFFFF_8000_FEE0_0000;
 
-/// Represents the local APIC registers. The values are the offsets from the base address of the
-/// local APIC base address.
+/// Represents the local APIC registers. The values are the offsets from the
+/// base address of the local APIC base address.
 #[repr(u64)]
 pub enum Register {
     Id = 0x0020,
@@ -87,9 +87,10 @@ pub enum IpiPriority {
 /// Initialize the local APIC on the current core.
 ///
 /// # Safety
-/// This function is unsafe for various reasons, but the main one is that is must be called only
-/// once per core, and make some assumptions about the state of the system, like the fact that the
-/// LAPIC is mapped at the `LAPIC_BASE` address.
+/// This function is unsafe for various reasons, but the main one is that is
+/// must be called only once per core, and make some assumptions about the
+/// state of the system, like the fact that the LAPIC is mapped at the
+/// `LAPIC_BASE` address.
 #[init]
 pub unsafe fn enable() {
     let spurious = read(Register::SpuriousInterruptVector);
@@ -97,22 +98,33 @@ pub unsafe fn enable() {
     send_eoi();
 }
 
-/// Send an IPI to the given destination with the given priority to trigger the
-/// given interrupt vector.
+/// Send an IPI to the given destination with the given priority to trigger
+/// the given interrupt vector.
 ///
 /// # Safety
-/// This function is unsafe because the caller must ensure that the given interrupt vector is
-/// valid and can be triggered by an IPI. The caller must also ensure that the LAPIC is mapped
-/// at the `LAPIC_BASE` address and ready to be used. Otherwise, the kernel may panic or crash.
-pub unsafe fn send_ipi(destination: IpiDestination, priority: IpiPriority, vector: u8) {
+/// This function is unsafe because the caller must ensure that the given
+/// interrupt vector is valid and can be triggered by an IPI. The caller
+/// must also ensure that the LAPIC is mapped at the `LAPIC_BASE` address
+/// and ready to be used. Otherwise, the kernel may panic or crash.
+pub unsafe fn send_ipi(
+    destination: IpiDestination,
+    priority: IpiPriority,
+    vector: u8,
+) {
     let cmd = match destination {
         IpiDestination::Core(core) => (
             u32::from(core) << 24,
             u32::from(vector) | (priority as u32) << 8,
         ),
-        IpiDestination::All => (0, u32::from(vector) | ((priority as u32) << 8) | 2 << 18),
-        IpiDestination::Other => (0, u32::from(vector) | ((priority as u32) << 8) | 3 << 18),
-        IpiDestination::Current => (0, u32::from(vector) | ((priority as u32) << 8) | 1 << 18),
+        IpiDestination::All => {
+            (0, u32::from(vector) | ((priority as u32) << 8) | 2 << 18)
+        }
+        IpiDestination::Other => {
+            (0, u32::from(vector) | ((priority as u32) << 8) | 3 << 18)
+        }
+        IpiDestination::Current => {
+            (0, u32::from(vector) | ((priority as u32) << 8) | 1 << 18)
+        }
     };
 
     write(Register::InterruptCommand1, cmd.0);
@@ -124,9 +136,9 @@ pub unsafe fn send_ipi(destination: IpiDestination, priority: IpiPriority, vecto
     }
 }
 
-/// Send an end-of-interrupt signal to the local APIC. This function must be called after an
-/// local APIC interrupt has been handled. Otherwise, no local APIC interrupts will be triggered
-/// until this function is called.
+/// Send an end-of-interrupt signal to the local APIC. This function must be
+/// called after an local APIC interrupt has been handled. Otherwise, no
+/// local APIC interrupts will be triggered until this function is called.
 pub fn send_eoi() {
     unsafe {
         write(Register::EndOfInterrupt, 0);
@@ -136,9 +148,10 @@ pub fn send_eoi() {
 /// Write the given value to the given register.
 ///
 /// # Safety
-/// This function is unsafe because writing to a register can have side effects and may break the
-/// memory safety of the program, or may crash the kernel if used improperly. The caller must also
-/// ensure that the LAPIC is mapped at the `LAPIC_BASE` address and ready to be used.
+/// This function is unsafe because writing to a register can have side
+/// effects and may break the memory safety of the program, or may crash
+/// the kernel if used improperly. The caller must also ensure that the
+/// LAPIC is mapped at the `LAPIC_BASE` address and ready to be used.
 pub unsafe fn write(register: Register, value: u32) {
     let addr = LAPIC_BASE + register as u64;
     let ptr = addr as *mut u32;
@@ -148,9 +161,10 @@ pub unsafe fn write(register: Register, value: u32) {
 /// Read the value of the given register.
 ///
 /// # Safety
-/// This function is unsafe because reading to a register can have side effects and may break the
-/// memory safety of the program, or may crash the kernel if used improperly. The caller must also
-/// ensure that the LAPIC is mapped at the `LAPIC_BASE` address and ready to be used.
+/// This function is unsafe because reading to a register can have side effects
+/// and may break the memory safety of the program, or may crash the kernel if
+/// used improperly. The caller must also ensure that the LAPIC is mapped at
+/// the `LAPIC_BASE` address and ready to be used.
 #[must_use]
 pub unsafe fn read(register: Register) -> u32 {
     let addr = LAPIC_BASE + register as u64;
